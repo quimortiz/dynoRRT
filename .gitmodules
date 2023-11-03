@@ -1,3 +1,3 @@
 [submodule "dynotree"]
 	path = dynotree
-	url = https://github.com/quimortiz/dynotree
+  url = git@github.com:quimortiz/dynotree
