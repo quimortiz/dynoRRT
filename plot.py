@@ -98,6 +98,7 @@ def is_collision(x: np.ndarray) -> bool:
             return True
     return False
 
+
 fig, ax = plt.subplots()
 start = np.array([0.1, 0.1, np.pi / 2])
 goal = np.array([2.0, 0.2, 0])
@@ -116,7 +117,6 @@ ax.set_aspect("equal")
 ax.set_title("env, start and goal configurations")
 
 
-
 for i in range(len(sample_configs)):
     plot_robot(ax, sample_configs[i], color="blue")
 
@@ -124,9 +124,6 @@ for i in range(len(sample_configs)):
 for i in range(len(valid_configs)):
     print(valid_configs[i])
     plot_robot(ax, valid_configs[i], color="gray")
-
-
-
 
 
 plot_robot(ax, start, "green")

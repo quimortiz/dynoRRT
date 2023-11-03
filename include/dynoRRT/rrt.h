@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <nlohmann/json.hpp>
 
-
 template <typename T, typename StateSpace>
 bool is_edge_collision_free(T x_start, T x_end,
                             std::function<bool(T)> is_collision_free_fun,
@@ -26,8 +25,6 @@ bool is_edge_collision_free(T x_start, T x_end,
   }
   return true;
 }
-
-
 
 struct RRT_options {
   int max_it = 10000;

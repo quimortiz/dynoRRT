@@ -199,8 +199,7 @@ void to_json(json &j, const Eigen::QuaternionBase<Derived> &quat) {
 }
 
 template <typename Derived>
-void from_json(json &j,
-               Eigen::QuaternionBase<Derived> &quat) {
+void from_json(json &j, Eigen::QuaternionBase<Derived> &quat) {
   using Scalar = typename Eigen::QuaternionBase<Derived>::Scalar;
   quat.w() = j.at("qw").get<Scalar>();
   quat.x() = j.at("qx").get<Scalar>();

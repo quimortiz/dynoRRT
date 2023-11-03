@@ -10,10 +10,8 @@
 #include <iomanip>
 #include <nlohmann/json.hpp>
 
-#include <boost/test/unit_test.hpp>
 #include "dynoRRT/rrt.h"
-
-
+#include <boost/test/unit_test.hpp>
 
 using json = nlohmann::json;
 
@@ -80,7 +78,6 @@ bool is_collision(const Eigen::Vector3d &x,
   }
   return false;
 }
-
 
 BOOST_AUTO_TEST_CASE(test_1) {
 
