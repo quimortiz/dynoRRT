@@ -120,8 +120,8 @@ BOOST_AUTO_TEST_CASE(test_1) {
 
   std::vector<Eigen::Vector3d> path, fine_path;
   if (termination_condition == TerminationCondition::GOAL_REACHED) {
-    rrt.get_path(path);
-    rrt.get_fine_path(0.01, fine_path);
+    path = rrt.get_path();
+    fine_path = rrt.get_fine_path(0.01);
   }
 
   // export to json
@@ -131,8 +131,8 @@ BOOST_AUTO_TEST_CASE(test_1) {
   std::vector<Eigen::Vector3d> valid_configs, sample_configs;
   std::vector<int> parents;
 
-  rrt.get_valid_configs(valid_configs);
-  rrt.get_sample_configs(sample_configs);
+  valid_configs = rrt.get_valid_configs();
+  sample_configs = rrt.get_sample_configs();
   rrt.get_parents(parents);
 
   j["valid_configs"] = valid_configs;

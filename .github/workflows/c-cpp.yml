@@ -32,4 +32,19 @@ jobs:
            make
     - name: Check C++
       run: |
+           cd build
            ./main
+    - name: Check 1 Python Bindings
+      run: |
+           cd build/bindings/python
+           python3 -c 'import pykdtree'
+    - name: Python Install Dependencies
+      run: |
+           pip3 install numpy
+           pip3 install matplotlib
+    - name: Examples Python
+      run: |
+           cd build
+           python3 ../test_rrt.py
+    - name: C++ with Python visualization
+      run: python3 plot.py

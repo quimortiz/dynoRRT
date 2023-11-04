@@ -7,8 +7,6 @@ from typing import Tuple, List
 import matplotlib.pyplot as plt
 
 import subprocess
-
-
 import json
 
 

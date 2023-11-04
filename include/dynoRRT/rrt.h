@@ -1,6 +1,9 @@
 #include "dynotree/KDTree.h"
 #include "magic_enum.hpp"
+
+#include <Eigen/Core>
 #include <Eigen/Dense>
+
 #include <chrono>
 #include <fstream>
 #include <iomanip>
@@ -51,10 +54,21 @@ public:
   using tree_t = dynotree::KDTree<int, DIM, 32, double, StateSpace>;
   using is_collision_free_fun_t = std::function<bool(state_t)>;
 
+  RRT() = default;
+  // RRT(int runtime_dim) {
+  //   state_space = t_state_space;
+  //   // init_tree(runtime_dim);
+  // }
+
   void set_options(RRT_options t_options) { options = t_options; }
 
   void set_state_space(StateSpace t_state_space) {
     state_space = t_state_space;
+  }
+
+  void set_bounds_to_state(Eigen::VectorXd min, Eigen::VectorXd max) {
+    // TODO: remove from here?
+    state_space.set_bounds(min, max);
   }
 
   void
@@ -64,23 +78,38 @@ public:
 
   void set_start(state_t t_start) { start = t_start; }
   void set_goal(state_t t_goal) { goal = t_goal; }
-  void get_path(std::vector<state_t> &t_path) { t_path = path; }
 
-  void init_tree(int runtime_dim = -1) {
-    tree = tree_t(runtime_dim, state_space);
+  std::vector<state_t> get_path() {
+
+    if (path.size() == 0) {
+      std::cout << "Warning: path.size() == 0" << std::endl;
+      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
+      return {};
+    }
+    return path;
   }
 
-  void get_valid_configs(std::vector<state_t> &t_valid_configs) {
-    t_valid_configs = valid_configs;
-  }
+  void init_tree(int t_runtime_dim = -1) {
+    runtime_dim = t_runtime_dim;
+    std::cout << "init tree" << std::endl;
+    std::cout << "DIM: " << DIM << std::endl;
+    std::cout << "runtime_dim: " << runtime_dim << std::endl;
 
-  void get_sample_configs(std::vector<state_t> &t_sample_configs) {
-    t_sample_configs = sample_configs;
+    if constexpr (DIM == -1) {
+      if (runtime_dim == -1) {
+        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
+      }
+    }
+    tree = tree_t();
+    tree.init_tree(runtime_dim, state_space);
   }
+  std::vector<state_t> get_valid_configs() { return valid_configs; }
+
+  std::vector<state_t> get_sample_configs() { return sample_configs; }
 
   void get_parents(std::vector<int> &t_parents) { t_parents = parents; }
 
-  void get_fine_path(double resolution, std::vector<state_t> &fine_path) {
+  std::vector<state_t> get_fine_path(double resolution) {
 
     // in Python
     // for i in range(len(path) - 1):
@@ -92,24 +121,54 @@ public:
     //         plot_robot(ax, out, color="gray", alpha=0.5)
     // in c++
 
+    state_t tmp;
+
+    if constexpr (DIM == -1) {
+      if (runtime_dim == -1) {
+        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
+      }
+      tmp.resize(runtime_dim);
+    }
+
+    std::vector<state_t> fine_path;
+    if (path.size() == 0) {
+      std::cout << "Warning: path.size() == 0" << std::endl;
+      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
+      return {};
+    }
+
     for (int i = 0; i < path.size() - 1; i++) {
       state_t _start = path[i];
       state_t _goal = path[i + 1];
       int N = int(state_space.distance(_start, _goal) / resolution) + 1;
       for (int j = 0; j < N; j++) {
-        state_t out;
-        state_space.interpolate(_start, _goal, double(j) / N, out);
-        fine_path.push_back(out);
+        state_space.interpolate(_start, _goal, double(j) / N, tmp);
+        fine_path.push_back(tmp);
       }
     }
     // add last
     fine_path.push_back(path[path.size() - 1]);
+    return fine_path;
   }
 
   TerminationCondition plan() {
 
+    if (path.size() != 0) {
+      std::cout << "Warning: path.size() != 0" << std::endl;
+      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
+      return TerminationCondition::UNKNOWN;
+    }
+
     bool finished = false;
     state_t x_rand, x_new, x_near;
+    if constexpr (DIM == -1) {
+      if (runtime_dim == -1) {
+        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
+      }
+      x_rand.resize(runtime_dim);
+      x_new.resize(runtime_dim);
+      x_near.resize(runtime_dim);
+    }
 
     parents.push_back(-1);
     valid_configs.push_back(start);
@@ -180,9 +239,27 @@ public:
         path.push_back(valid_configs[i]);
         i = parents[i];
       }
+
+      total_distance = 0;
+      for (size_t i = 0; i < path.size() - 1; i++) {
+        total_distance += state_space.distance(path[i], path[i + 1]);
+      }
     }
 
-    std::cout << valid_configs.size() << std::endl;
+    // std::cout << valid_configs.size() << std::endl;
+
+    std::cout << "RRT PLAN" << std::endl;
+    std::cout << "Terminate status: "
+              << magic_enum::enum_name(termination_condition) << std::endl;
+    std::cout << "num_it: " << num_it << std::endl;
+    std::cout << "valid_configs.size(): " << valid_configs.size() << std::endl;
+    std::cout << "compute time (ms): "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::steady_clock::now() - tic)
+                     .count()
+              << std::endl;
+    std::cout << "path.size(): " << path.size() << std::endl;
+    std::cout << "total_distance: " << total_distance << std::endl;
 
     return termination_condition;
   };
@@ -197,4 +274,6 @@ private:
   std::vector<state_t> path;
   std::vector<state_t> valid_configs, sample_configs;
   std::vector<int> parents;
+  int runtime_dim = DIM;
+  double total_distance = -1;
 };

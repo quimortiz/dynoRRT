@@ -19,31 +19,49 @@ FetchContent_Declare(
   URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
-find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
-                                       serialization)
+find_package(
+  Boost REQUIRED COMPONENTS unit_test_framework system filesystem serialization
+                            PATHS /usr/lib/x86_64-linux-gnu/)
 
-# # find_package(pinocchio REQUIRED) find_package(Boost REQUIRED COMPONENTS
-# program_options serialization stacktrace_basic) find_package(fcl REQUIRED)
-# find_package(yaml-cpp REQUIRED)
-find_package(Eigen3 REQUIRED)
-# find_package(pybind11 REQUIRED)
+find_package(Eigen3 3.3 REQUIRED)
 
-# add_subdirectory(deps/pybind11) add_subdirectory(deps/json)
+include(GNUInstallDirs)
+add_library(dynorrt INTERFACE)
+add_library(dynorrt::dynorrt ALIAS dynorrt)
 
+target_include_directories(
+  dynorrt INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+target_link_libraries(dynorrt INTERFACE Eigen3::Eigen magic_enum::magic_enum
+                                        nlohmann_json::nlohmann_json)
+
+target_compile_features(dynorrt INTERFACE cxx_std_17)
+
+# option(BUILD_PYTHON_BINDINGS OFF)
 add_subdirectory(dynotree)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED On)
+# set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
 add_executable(main ./src/main.cpp)
 
-target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_test(NAME test COMMAND main)
 
 target_link_libraries(
-  main PRIVATE dynotree::dynotree Eigen3::Eigen magic_enum::magic_enum
-               nlohmann_json::nlohmann_json Boost::unit_test_framework)
+  main
+  PRIVATE dynorrt::dynorrt dynotree::dynotree Eigen3::Eigen
+          magic_enum::magic_enum nlohmann_json::nlohmann_json
+          Boost::unit_test_framework)
+
+option(BUILD_PYTHON_BINDINGS_RRT OFF)
+message(STATUS "BUILD_PYTHON_BINDINGS_RRT ${BUILD_PYTHON_BINDINGS_RRT}")
+
+if(BUILD_PYTHON_BINDINGS_RRT)
+  add_subdirectory(bindings/python)
+endif()
+
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization
 # Boost::stacktrace_basic ${CMAKE_DL_LIBS} PUBLIC nlohmann_json::nlohmann_json)
 #
