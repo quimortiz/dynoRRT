@@ -10,8 +10,8 @@ jobs:
   build:
 
     runs-on: ubuntu-22.04
-    
- 
+
+
 
     steps:
 
@@ -55,4 +55,4 @@ jobs:
       run:  |
           pip3 install pin
           cd build/bindings/python
-          python3 my_rrt.py
+          python3 ../../../examplesPIN/my_rrt.py
