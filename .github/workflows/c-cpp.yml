@@ -48,3 +48,9 @@ jobs:
            python3 ../test_rrt.py
     - name: C++ with Python visualization
       run: python3 plot.py
+
+    - name: Python with Pinocchio
+      run:  |
+          pip3 install pin
+          cd build/bindings/python
+          python3 my_rrt.py
