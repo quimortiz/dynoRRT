@@ -107,7 +107,7 @@ public:
 
   std::vector<state_t> get_sample_configs() { return sample_configs; }
 
-  void get_parents(std::vector<int> &t_parents) { t_parents = parents; }
+  std::vector<int> get_parents() { return parents; }
 
   std::vector<state_t> get_fine_path(double resolution) {
 
@@ -235,6 +235,7 @@ public:
 
       int i = valid_configs.size() - 1;
       path.push_back(valid_configs[i]);
+      i = parents[i];
       while (i != -1) {
         path.push_back(valid_configs[i]);
         i = parents[i];

@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE(test_1) {
 
   valid_configs = rrt.get_valid_configs();
   sample_configs = rrt.get_sample_configs();
-  rrt.get_parents(parents);
+  parents = rrt.get_parents();
 
   j["valid_configs"] = valid_configs;
   j["sample_configs"] = sample_configs;

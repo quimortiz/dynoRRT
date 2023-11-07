@@ -57,10 +57,6 @@ goal = np.array([2.0, 0.2])
 plot_env(ax, obstacles)
 
 
-plot_robot(ax, start, "green")
-plot_robot(ax, goal, "red")
-
-
 ax.set_xlim(xlim)
 ax.set_ylim(ylim)
 ax.set_aspect("equal")
@@ -101,9 +97,23 @@ for i in range(len(fine_path)):
     plot_robot(ax, fine_path[i], color="yellow")
 
 
+parents = rrt.get_parents()
+
+
+for i, p in enumerate(parents):
+    if p != -1:
+        print(f"{i} -> {p}")
+        ax.plot(
+            [valid[i][0], valid[p][0]],
+            [valid[i][1], valid[p][1]],
+            color="black",
+            alpha=0.5,
+        )
+
+plot_robot(ax, start, "green")
+plot_robot(ax, goal, "red")
+
 plt.show()
 
-#
-#
 
-# todo: continue here!!
+# TODO: print the tree using the parent pointers!

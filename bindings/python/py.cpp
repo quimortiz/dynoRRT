@@ -134,7 +134,8 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds_to_state", &RRT_X::set_bounds_to_state)
       .def("set_options", &RRT_X::set_options)
       .def("get_sample_configs", &RRT_X::get_sample_configs)
-      .def("get_valid_configs", &RRT_X::get_valid_configs);
+      .def("get_valid_configs", &RRT_X::get_valid_configs)
+      .def("get_parents", &RRT_X::get_parents);
 
   // rrt.init_tree();
   //
