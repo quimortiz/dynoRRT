@@ -26,7 +26,7 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake  ..
+          cmake -DBUILD_PYTHON_BINDINGS_RRT=1    ..
 
     - name: Make
       run: |
