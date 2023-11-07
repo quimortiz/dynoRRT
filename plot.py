@@ -31,10 +31,8 @@ sys.path.append(".")
 import numpy as np
 from typing import Tuple, List
 import matplotlib.pyplot as plt
-import pydynotree as dynotree
 
 # np.random.seed(0)
-dynotree.srand(1)
 
 
 # ref: https://paulbourke.net/geometry/pointlineplane/
