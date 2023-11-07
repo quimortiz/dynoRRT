@@ -39,7 +39,7 @@ jobs:
     - name: Check 1 Python Bindings
       run: |
            cd build/bindings/python
-           python3 -c 'import pykdtree'
+           python3 -c 'import pydynorrt'
     - name: Python Install Dependencies
       run: |
            pip3 install numpy
