@@ -68,6 +68,23 @@ public:
 
   void set_bounds_to_state(Eigen::VectorXd min, Eigen::VectorXd max) {
     // TODO: remove from here?
+
+    if (min.size() != max.size()) {
+      throw std::runtime_error("min.size() != max.size()");
+    }
+    if constexpr (DIM == -1) {
+      if (runtime_dim == -1) {
+        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
+      }
+      if (min.size() != runtime_dim) {
+        throw std::runtime_error("min.size() != runtime_dim");
+      }
+    } else {
+      if (min.size() != DIM) {
+        throw std::runtime_error("min.size() != DIM");
+      }
+    }
+
     state_space.set_bounds(min, max);
   }
 

@@ -9,7 +9,7 @@
 # In[1]:
 
 
-# import magic_donotload
+import magic_donotload
 
 
 # ## Set up
@@ -19,7 +19,6 @@
 # In[2]:
 
 
-import time
 import pinocchio as pin
 from utils.meshcat_viewer_wrapper import MeshcatVisualizer
 import time
@@ -277,8 +276,6 @@ def plotConfigurationSpace(hcol, hfree, markerSize=20):
 hcol, hfree = sampleSpace(5000)
 plotConfigurationSpace(hcol, hfree)
 
-plt.show()
-
 
 # You can try to match your representation of the free space of the robot with this plot.
 # As an example, you can display on this plot a feasible trajectory discover by random walk from an init position.
@@ -425,21 +422,19 @@ while True:
 # In[28]:
 
 
-print("solution is ", q)
-
-while True:
-    time.sleep(0.001)
-
-# viz.display(np.array([1.78622297, -1.61293722]))
+viz.display(np.array([1.78622297, -1.61293722]))
 
 
 # In[29]:
 
 
-# hasattr(viz.viewer, 'jupyter_cell') and viz.viewer.jupyter_cell()
+hasattr(viz.viewer, "jupyter_cell") and viz.viewer.jupyter_cell()
 
 
 # In[52]:
+
+
+q
 
 
 # In[ ]:
