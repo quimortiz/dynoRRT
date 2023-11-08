@@ -252,11 +252,18 @@ public:
 
       int i = valid_configs.size() - 1;
       path.push_back(valid_configs[i]);
+      if (state_space.distance(valid_configs[i], goal) >
+          options.goal_tolerance) {
+        throw std::runtime_error("state_space.distance(valid_configs[i], goal) "
+                                 "< options.goal_tolerance");
+      }
       i = parents[i];
       while (i != -1) {
         path.push_back(valid_configs[i]);
         i = parents[i];
       }
+
+      std::reverse(path.begin(), path.end());
 
       total_distance = 0;
       for (size_t i = 0; i < path.size() - 1; i++) {
