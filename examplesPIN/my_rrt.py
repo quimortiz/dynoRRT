@@ -8,6 +8,10 @@ from scipy.optimize import fmin_bfgs, fmin_slsqp
 from utils.load_ur5_with_obstacles import load_ur5_with_obstacles, Target
 import matplotlib.pylab as plt
 
+import sys
+
+sys.path.append(".")
+
 robot = load_ur5_with_obstacles(reduced=True)
 
 
