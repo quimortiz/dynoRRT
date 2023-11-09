@@ -242,7 +242,7 @@ def coll(q):
         robot.model, robot.data, robot.collision_model, robot.collision_data, q
     )
     out = pin.computeCollisions(robot.collision_model, robot.collision_data, False)
-    print(f"evaluating collision, q ={q} out={out} ")
+    # print(f"evaluating collision, q ={q} out={out} ")
     return out
 
 

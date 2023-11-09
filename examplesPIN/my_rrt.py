@@ -144,3 +144,18 @@ if os.environ.get("INTERACTIVE") is not None:
         viz.display(q)
         time.sleep(0.01)
         index += 1
+        if index == len(path):
+            break
+
+    index = 0
+
+    while True:
+        if index == len(fine_path):
+            index = 0
+        if os.environ.get("INTERACTIVE") is not None:
+            input("press enter to continue")
+        q = fine_path[index]
+        print(f"i={index}/{len(fine_path)} q={q}")
+        viz.display(q)
+        time.sleep(0.01)
+        index += 1

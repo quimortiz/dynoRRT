@@ -15,6 +15,7 @@ import time
 sys.path.append("bindings/python")
 import pydynorrt
 
+pydynorrt.srand(2)
 
 xlim = [0, 3]
 ylim = [0, 3]
@@ -64,9 +65,10 @@ ax.set_title("env, start and goal configurations")
 
 
 rrt_options = pydynorrt.RRT_options()
-rrt_options.max_it = 20
+rrt_options.max_it = 80
 rrt_options.max_step = 1.0
 rrt_options.collision_resolution = 0.1
+rrt_options.goal_bias = 0.1
 
 rrt = pydynorrt.RRT_X()
 rrt.set_start(start)
@@ -84,10 +86,10 @@ valid = rrt.get_valid_configs()
 sample = rrt.get_sample_configs()
 
 for v in sample:
-    plot_robot(ax, v, color="blue")
+    plot_robot(ax, v, color="blue", alpha=0.5)
 
 for v in valid:
-    plot_robot(ax, v, color="gray")
+    plot_robot(ax, v, color="gray", alpha=0.5)
 
 
 for i in range(len(path)):
