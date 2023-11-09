@@ -5,6 +5,7 @@ import numpy as np
 import pinocchio as pin
 import time
 from tqdm import tqdm
+import os
 
 
 # In[ ]:
@@ -79,7 +80,8 @@ viz.addSphere(name, radius, [0.0, 1.0, 0.0, 0.5])
 viz.applyConfiguration(name, M)
 
 
-input("Press Enter to continue...")
+if os.environ.get("INTERACTIVE") is not None:
+    input("Press Enter to continue...")
 
 
 viz.display(q_g)
@@ -89,16 +91,6 @@ viz.addSphere(name, radius, [0.0, 0.0, 1.0, 0.5])
 viz.applyConfiguration(name, M)
 
 q = np.copy(q_g)
-
-# while True:
-#     data = input("input a change")
-#     print(data)
-#     out = data.split(":")
-#     index = int(out[0])
-#     value = float(out[1])
-#     q[index] = value
-#     viz.display(q)
-#     time.sleep(.1)
 
 
 print(robot.__dict__)
@@ -205,8 +197,8 @@ viz.addSphere(name, radius, [0.0, 0.0, 1.0, 0.5])
 viz.applyConfiguration(name, M)
 
 
-input("Press Enter to continue...")
-# continue her
+if os.environ.get("INTERACTIVE") is not None:
+    input("Press Enter to continue...")
 
 colwrap = CollisionWrapper(robot)  # For collision checking
 
@@ -271,7 +263,9 @@ valid = rrt.get_valid_configs()
 sample = rrt.get_sample_configs()
 parents = rrt.get_parents()
 print("Number of collision checks: ", counter_collision)
-input("Press Enter to continue...")
+
+if os.environ.get("INTERACTIVE") is not None:
+    input("Press Enter to continue...")
 
 
 display_count = 0
@@ -330,7 +324,9 @@ for i, p in enumerate(path):
     print(f"{i}: {p}")
 
 
-input("Press Enter to continue...")
+if os.environ.get("INTERACTIVE") is not None:
+    input("Press Enter to continue...")
+
 for i, p in enumerate(parents):
     assert p < i
     if p != -1:
@@ -346,8 +342,6 @@ for i in range(len(path) - 1):
     q2 = path[i + 1]
     print(f"q1={q1} q2={q2}")
     display_edge(q1, q2, radius=0.02, color=[1.0, 0.0, 0.0, 0.5])
-    # viz.display(q1)
-    # input("Press Enter to continue...")
 
 for i in range(len(fine_path) - 1):
     print(f"{i} -> {i+1}")
@@ -355,11 +349,6 @@ for i in range(len(fine_path) - 1):
     q2 = fine_path[i + 1]
     print(f"q1={q1} q2={q2}")
     display_edge(q1, q2, radius=0.01, color=[0.0, 1.0, 0.0, 1])
-    # viz.display(q1)
-    # input("Press Enter to continue...")
-
-
-# fo
 
 
 # for i in range(len(qs) - 1):

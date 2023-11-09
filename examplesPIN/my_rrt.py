@@ -7,6 +7,7 @@ from numpy.linalg import inv, norm, pinv, svd, eig
 from scipy.optimize import fmin_bfgs, fmin_slsqp
 from utils.load_ur5_with_obstacles import load_ur5_with_obstacles, Target
 import matplotlib.pylab as plt
+import os
 
 import sys
 
@@ -135,7 +136,8 @@ print(path)
 while True:
     if index == len(path):
         index = 0
-    input("press enter to continue")
+    if os.environ.get("INTERACTIVE") is not None:
+        input("press enter to continue")
     q = path[index]
     print(f"i={index}/{len(path)} q={q}")
     viz.display(q)
