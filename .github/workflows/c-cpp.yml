@@ -19,7 +19,7 @@ jobs:
     - name: Install Dependencies
       run: |
            sudo apt-get update
-           sudo apt update 
+           sudo apt update
            sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev
     - name: Checkout submodules
       run: git submodule update --init --recursive
