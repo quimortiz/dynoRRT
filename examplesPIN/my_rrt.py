@@ -133,18 +133,14 @@ plt.show()
 
 index = 0
 print(path)
-while True:
-    if index == len(path):
-        index = 0
-    if os.environ.get("INTERACTIVE") is not None:
-        input("press enter to continue")
-    q = path[index]
-    print(f"i={index}/{len(path)} q={q}")
-    viz.display(q)
-    time.sleep(0.01)
-    index += 1
-viz.display(robot.q0)
-
-
-while True:
-    time.sleep(0.001)
+if os.environ.get("INTERACTIVE") is not None:
+    while True:
+        if index == len(path):
+            index = 0
+        if os.environ.get("INTERACTIVE") is not None:
+            input("press enter to continue")
+        q = path[index]
+        print(f"i={index}/{len(path)} q={q}")
+        viz.display(q)
+        time.sleep(0.01)
+        index += 1
