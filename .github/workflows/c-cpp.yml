@@ -55,7 +55,7 @@ jobs:
 
     - name: Python with Pinocchio
       run:  |
-          pip3 install pin example-robot-data meshcat scipy
+          pip3 install pin example-robot-data meshcat scipy tqdm
           cd build/bindings/python
           python3 ../../../examplesPIN/my_rrt.py
           python3 ../../../examplesPIN/my_rrt2.py
