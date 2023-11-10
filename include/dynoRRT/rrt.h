@@ -10,9 +10,8 @@
 #include <nlohmann/json.hpp>
 
 class pretty_runtime_exception : public std::runtime_error {
-  // adapted from
+  // Adapted from:
   // https://stackoverflow.com/questions/348833/how-to-know-the-exact-line-of-code-where-an-exception-has-been-caused
-  std::string msg;
 
 public:
   pretty_runtime_exception(const std::string &arg, const char *file, int line,
@@ -25,6 +24,9 @@ public:
   }
   ~pretty_runtime_exception() throw() {}
   const char *what() const throw() { return msg.c_str(); }
+
+private:
+  std::string msg;
 };
 
 #define THROW_PRETTY_DYNORRT(arg)                                              \
@@ -251,8 +253,8 @@ public:
     TerminationCondition termination_condition = TerminationCondition::UNKNOWN;
     bool finished = false;
 
-    auto col = [&](const auto &x) {
-      return Base::is_collision_free_fun_timed(x);
+    auto col = [this](const auto &x) {
+      return this->Base::is_collision_free_fun_timed(x);
     };
 
     while (!finished) {

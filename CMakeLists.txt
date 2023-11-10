@@ -7,6 +7,9 @@ project(
   VERSION 0.0.1
   LANGUAGES CXX)
 
+# set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
+# set(CMAKE_CXX_EXTENSIONS Off)
+
 include(FetchContent)
 
 FetchContent_Declare(magic_enum
@@ -54,6 +57,12 @@ target_link_libraries(
   PRIVATE dynorrt::dynorrt dynotree::dynotree Eigen3::Eigen
           magic_enum::magic_enum nlohmann_json::nlohmann_json
           Boost::unit_test_framework)
+
+set_target_properties(
+  main
+  PROPERTIES CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED YES
+             CXX_EXTENSIONS NO)
 
 option(BUILD_PYTHON_BINDINGS_RRT OFF)
 message(STATUS "BUILD_PYTHON_BINDINGS_RRT ${BUILD_PYTHON_BINDINGS_RRT}")

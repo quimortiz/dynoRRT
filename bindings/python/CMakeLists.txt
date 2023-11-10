@@ -1,5 +1,3 @@
-# TODO
-
 find_package(Eigen3 3.3 REQUIRED)
 
 include(FetchContent)
@@ -14,4 +12,10 @@ FetchContent_MakeAvailable(pybind11)
 pybind11_add_module(pydynorrt py.cpp)
 target_link_libraries(pydynorrt PRIVATE dynorrt::dynorrt dynotree::dynotree
                                         Eigen3::Eigen)
-set_property(TARGET pydynorrt PROPERTY POSITION_INDEPENDENT_CODE ON)
+
+set_target_properties(
+  pydynorrt
+  PROPERTIES CXX_STANDARD 17
+             CXX_STANDARD_REQUIRED YES
+             CXX_EXTENSIONS NO
+             POSITION_INDEPENDENT_CODE ON)
