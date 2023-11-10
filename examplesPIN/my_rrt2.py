@@ -6,6 +6,10 @@ import pinocchio as pin
 import time
 from tqdm import tqdm
 import os
+import sys
+
+
+sys.path.append(".")
 
 
 # In[ ]:
