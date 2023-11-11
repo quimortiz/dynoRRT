@@ -173,10 +173,15 @@ public:
   using state_cref_t = const Eigen::Ref<const state_t> &;
   using tree_t = dynotree::KDTree<int, DIM, 32, double, StateSpace>;
   using is_collision_free_fun_t = std::function<bool(state_t)>;
+  using edge_t = std::pair<state_t, state_t>;
 
   void set_state_space(StateSpace t_state_space) {
     state_space = t_state_space;
   }
+
+  std::vector<edge_t> get_valid_edges() { return valid_edges; }
+
+  std::vector<edge_t> get_invalid_edges() { return invalid_edges; }
 
   void set_bounds_to_state(Eigen::VectorXd min, Eigen::VectorXd max) {
     // TODO: remove from here?
@@ -326,6 +331,8 @@ protected:
   double collisions_time_ms = 0.;
   int evaluated_edges = 0;
   int infeasible_edges = 0;
+  std::vector<std::pair<state_t, state_t>> valid_edges;
+  std::vector<std::pair<state_t, state_t>> invalid_edges;
 };
 
 struct BiRRT_options {
@@ -512,6 +519,13 @@ public:
       this->evaluated_edges += 1;
       bool is_collision_free = is_edge_collision_free(
           x_near, x_new, col, this->state_space, options.collision_resolution);
+
+      if (is_collision_free) {
+        this->valid_edges.push_back({x_near, x_new});
+      } else if (!is_collision_free) {
+        this->invalid_edges.push_back({x_near, x_new});
+      }
+
       this->infeasible_edges += !is_collision_free;
 
       if (is_collision_free) {
@@ -554,12 +568,14 @@ public:
       auto bwd_path = trace_back_solution(connect_id_backward, configs_backward,
                                           parents_backward);
 
-      print_path(fwd_path);
-      print_path(bwd_path);
-
       CHECK_PRETTY_DYNORRT__(
           this->state_space.distance(fwd_path.back(), bwd_path.back()) <
           options.goal_tolerance);
+
+      std::reverse(bwd_path.begin(), bwd_path.end());
+
+      print_path(fwd_path);
+      print_path(bwd_path);
 
       this->path.insert(this->path.end(), fwd_path.begin(), fwd_path.end());
       this->path.insert(this->path.end(), bwd_path.begin() + 1, bwd_path.end());
@@ -674,6 +690,12 @@ public:
       bool is_collision_free = is_edge_collision_free(
           x_near, x_new, col, Base::state_space, options.collision_resolution);
       Base::infeasible_edges += !is_collision_free;
+
+      if (is_collision_free) {
+        this->valid_edges.push_back({x_near, x_new});
+      } else if (!is_collision_free) {
+        this->invalid_edges.push_back({x_near, x_new});
+      }
 
       if (is_collision_free) {
         Base::tree.addPoint(x_new, Base::configs.size());

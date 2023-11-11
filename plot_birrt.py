@@ -79,7 +79,11 @@ def compute_two_points(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 xlim = [0, 3]
 ylim = [0, 3]
 
-obstacles = [(np.array([1, 0.4]), 0.5), (np.array([1, 2]), 0.5)]
+obstacles = [
+    (np.array([1, 0.4]), 0.5),
+    (np.array([1, 2]), 0.5),
+    (np.array([2.2, 0.9]), 0.5),
+]
 
 
 def plot_env(ax, env):
@@ -124,7 +128,7 @@ ax.set_title("env, start and goal configurations")
 
 
 for i in range(len(sample_configs)):
-    plot_robot(ax, sample_configs[i], color="blue", alpha=0.1)
+    # plot_robot(ax, sample_configs[i], color="blue", alpha=0.1)
     plt.plot(
         [sample_configs[i][0]],
         [sample_configs[i][1]],
@@ -172,7 +176,15 @@ for p, i in enumerate(parents_backward):
             alpha=0.2,
             # linestyle="dashed",
         )
+for i in range(0, len(path) - 1):
+    # plot_robot(ax, path[i], color="black", alpha=0.5)
+    ax.plot(
+        [path[i][0], path[i + 1][0]],
+        [path[i][1], path[i + 1][1]],
+        linestyle="dashed",
+        color="black",
+        alpha=0.5,
+    )
+    # path[i][0]], [path[i][1]], linestyle="dashed", color="black", alpha=0.5)
 
-
-for i in range(1, len(path) - 1):
-    plot_robot(ax, path[i], color="black", alpha=0.5)
+plt.show()

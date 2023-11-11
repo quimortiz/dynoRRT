@@ -97,6 +97,7 @@ BOOST_AUTO_TEST_CASE(test_1) {
 
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 0.4), 0.5});
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 2), 0.5});
+  // obstacles.push_back(CircleObstacle{Eigen::Vector2d(2.2, .9), 0.5});
 
   RRT_options options{.max_it = 1000,
                       .goal_bias = 0.05,
@@ -178,12 +179,13 @@ BOOST_AUTO_TEST_CASE(test_birrt) {
 
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 0.4), 0.5});
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 2), 0.5});
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(2.2, .9), 0.5});
 
   std::srand(time(NULL));
   BiRRT_options options{.max_it = 10000,
                         .goal_bias = .2,
                         .collision_resolution = 0.01,
-                        .backward_probability = 0.3,
+                        .backward_probability = 0.8,
                         .max_step = 1,
                         .max_compute_time_ms = 1e9,
                         .goal_tolerance = 0.001,
