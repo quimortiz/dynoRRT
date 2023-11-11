@@ -82,7 +82,7 @@ rrt.set_options(rrt_options)
 out = rrt.plan()
 path = rrt.get_path()
 fine_path = rrt.get_fine_path(0.1)
-valid = rrt.get_valid_configs()
+valid = rrt.get_configs()
 sample = rrt.get_sample_configs()
 
 for v in sample:

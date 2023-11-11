@@ -11,18 +11,26 @@ import json
 
 
 build_cmd = ["make"]
-run_cmd = ["./main"]
+run_cmd = ["./main", "--run_test=test_1"]
 
-subprocess.run(build_cmd, cwd="build")
-subprocess.run(run_cmd, cwd="build")
+out = subprocess.run(build_cmd, cwd="build")
+
+assert out.returncode == 0
+
+out = subprocess.run(run_cmd, cwd="build")
+assert out.returncode == 0
 
 
-with open("out.json", "r") as f:
+with open("/tmp/dynorrt/out.json", "r") as f:
     d = json.load(f)
 
 sample_configs = d["sample_configs"]
-valid_configs = d["valid_configs"]
+configs = d["configs"]
 parents = d["parents"]
+path = d["path"]
+fine_path = d["fine_path"]
+shortcut_path = d["shortcut_path"]
+
 
 import sys
 
@@ -117,34 +125,50 @@ for i in range(len(sample_configs)):
     plot_robot(ax, sample_configs[i], color="blue")
 
 
-for i in range(len(valid_configs)):
-    print(valid_configs[i])
-    plot_robot(ax, valid_configs[i], color="gray")
+for i in range(len(configs)):
+    print(configs[i])
+    plot_robot(ax, configs[i], color="gray")
 
 
 plot_robot(ax, start, "green")
 plot_robot(ax, goal, "red")
 
 
+print(len(parents))
+
 for p, i in enumerate(parents):
     if i != -1:
-        # plot_robot(ax, valid_configs[i], color="gray")
-        # plot_robot(ax, valid_configs[p], color="gray")
+        # plot_robot(ax, configs[i], color="gray")
+        # plot_robot(ax, configs[p], color="gray")
         ax.plot(
-            [valid_configs[i][0], valid_configs[p][0]],
-            [valid_configs[i][1], valid_configs[p][1]],
+            [configs[i][0], configs[p][0]],
+            [configs[i][1], configs[p][1]],
             color="yellow",
-            linestyle="dashed",
+            alpha=0.5,
+            # linestyle="dashed",
         )
+
+
+for i in range(1, len(path) - 1):
+    plot_robot(ax, path[i], color="black", alpha=0.5)
+
+
+for i in range(1, len(fine_path) - 1):
+    plot_robot(ax, fine_path[i], color="black", alpha=0.2)
+
+# for i in range(1,len(shortcut_path) - 1):
+for i in range(len(shortcut_path)):
+    plot_robot(ax, shortcut_path[i], color="orange", alpha=1)
+
 
 #
 # # trace back the solution
 #
-# i = len(valid_configs) - 1
+# i = len(configs) - 1
 # path = []
-# path.append(np.copy(valid_configs[i]))
+# path.append(np.copy(configs[i]))
 # while i != -1:
-#     path.append(np.copy(valid_configs[i]))
+#     path.append(np.copy(configs[i]))
 #     i = parents[i]
 #
 # # interpolate the path

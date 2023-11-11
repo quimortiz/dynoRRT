@@ -94,17 +94,6 @@ PYBIND11_MODULE(pydynorrt, m) {
   using RRT_X = RRT<RX, -1>;
   // using RRT_RX = dynotree::KDTree<int, -1, 32, double, RX>;
 
-  // Pycalss
-  // struct RRT_options {
-  //   int max_it = 10000;
-  //   double goal_bias = 0.05;
-  //   double collision_resolution = 0.01;
-  //   double max_step = 0.1;
-  //   double max_compute_time_ms = 1e9;
-  //   double goal_tolerance = 0.001;
-  //   int max_num_configs = 10000;
-  // };
-
   py::class_<RRT_options>(m, "RRT_options")
       .def(py::init<>())
       .def_readwrite("max_it", &RRT_options::max_it)
@@ -134,7 +123,7 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds_to_state", &RRT_X::set_bounds_to_state)
       .def("set_options", &RRT_X::set_options)
       .def("get_sample_configs", &RRT_X::get_sample_configs)
-      .def("get_valid_configs", &RRT_X::get_valid_configs)
+      .def("get_configs", &RRT_X::get_configs)
       .def("get_parents", &RRT_X::get_parents);
 
   // rrt.init_tree();
@@ -246,7 +235,7 @@ PYBIND11_MODULE(pydynorrt, m) {
   // declare_tree<TreeR3SO3>(m, "TreeR3SO3");
   // declare_treex<TreeX>(m, "TreeX");
 
-  m.def("srand", [](int seed) { srand(seed); });
-  m.def("rand", []() { return rand(); });
-  m.def("rand01", []() { return double(rand()) / RAND_MAX; });
+  m.def("srand", [](int seed) { std::srand(seed); });
+  m.def("rand", []() { return std::rand(); });
+  m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
 }

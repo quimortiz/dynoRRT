@@ -5,9 +5,15 @@
 #include <Eigen/Dense>
 
 #include <chrono>
+#include <exception>
 #include <fstream>
 #include <iomanip>
 #include <nlohmann/json.hpp>
+
+#include <climits>
+#include <cstdlib>
+#include <ctime>
+#include <iostream>
 
 class pretty_runtime_exception : public std::runtime_error {
   // Adapted from:
@@ -32,9 +38,37 @@ private:
 #define THROW_PRETTY_DYNORRT(arg)                                              \
   throw pretty_runtime_exception(arg, __FILE__, __LINE__, __FUNCTION__);
 
+#define CHECK_PRETTY_DYNORRT(condition, arg)                                   \
+  if (!(condition)) {                                                          \
+    throw pretty_runtime_exception(arg, __FILE__, __LINE__, __FUNCTION__);     \
+  }
+
+#define CHECK_PRETTY_DYNORRT__(condition)                                      \
+  if (!(condition)) {                                                          \
+    throw pretty_runtime_exception(#condition, __FILE__, __LINE__,             \
+                                   __FUNCTION__);                              \
+  }
+
+#define MESSAGE_PRETTY_DYNORRT(arg)                                            \
+  std::cout << "Message in " << __FUNCTION__ << " (" << __FILE__ << ":"        \
+            << __LINE__ << "): " << arg << std::endl;
+
+template <typename T> void print_path(const std::vector<T> &path) {
+
+  std::cout << "PATH" << std::endl;
+  std::cout << "path.size(): " << path.size() << std::endl;
+  for (size_t i = 0; i < path.size(); i++) {
+    std::cout << path[i].transpose() << std::endl;
+  }
+}
+
 template <typename T, typename StateSpace, typename Fun>
 bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
                             StateSpace state_space, double resolution) {
+
+  MESSAGE_PRETTY_DYNORRT("is_edge_collision_free");
+  std::cout << x_start.transpose() << std::endl;
+  std::cout << x_end.transpose() << std::endl;
 
   T tmp = x_start;
   if (is_collision_free_fun(x_end)) {
@@ -51,16 +85,76 @@ bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
   return true;
 }
 
+template <typename T, typename StateSpace, typename Fun>
+std::vector<T> path_shortcut_v1(const std::vector<T> path,
+                                Fun &is_collision_free_fun,
+                                StateSpace state_space, double resolution) {
+
+  CHECK_PRETTY_DYNORRT__(path.size() >= 2);
+
+  if (path.size() == 2) {
+    // [ start, goal ]
+    return path;
+  }
+
+  std::vector<T> path_out;
+  int start_index = 0;
+  path_out.push_back(path[start_index]);
+  while (true) {
+    int target_index = start_index + 2;
+    // We know that +1 is always feasible!
+    while (target_index < path.size() &&
+           is_edge_collision_free(path[start_index], path[target_index],
+                                  is_collision_free_fun, state_space,
+                                  resolution)) {
+      target_index++;
+    }
+    target_index--; // Reduce one, to get the last collision free edge.
+
+    CHECK_PRETTY_DYNORRT__(target_index >= start_index + 1);
+    CHECK_PRETTY_DYNORRT__(target_index < path.size());
+
+    path_out.push_back(path[target_index]);
+
+    if (target_index == path.size() - 1) {
+      break;
+    }
+
+    start_index = target_index;
+  }
+
+  CHECK_PRETTY_DYNORRT__(path_out.size() >= 2);
+  CHECK_PRETTY_DYNORRT__(path_out.size() <= path.size());
+
+  MESSAGE_PRETTY_DYNORRT("\nPath_shortcut_v1: From "
+                         << path.size() << " to " << path_out.size() << "\n");
+
+  return path_out;
+}
+
+template <typename T>
+auto trace_back_solution(int id, std::vector<T> configs,
+                         const std::vector<int> &parents) {
+  std::vector<T> path;
+  path.push_back(configs[id]);
+  while (parents[id] != -1) {
+    id = parents[id];
+    path.push_back(configs[id]);
+  }
+  std::reverse(path.begin(), path.end());
+  return path;
+};
+
 struct RRT_options {
   int max_it = 10000;
   double goal_bias = 0.05;
   double collision_resolution = 0.01;
-  double max_step = 0.1;
+  double max_step = 1.;
   double max_compute_time_ms = 1e9;
   double goal_tolerance = 0.001;
   int max_num_configs = 10000;
   bool xrand_collision_free = true;
-  int max_num_trias_xrand_col_free = 1000;
+  int max_num_trials_col_free = 1000;
 };
 
 enum class TerminationCondition {
@@ -68,6 +162,7 @@ enum class TerminationCondition {
   MAX_TIME,
   GOAL_REACHED,
   MAX_NUM_CONFIGS,
+  RUNNING,
   UNKNOWN
 };
 
@@ -120,6 +215,8 @@ public:
     return is_collision_free;
   }
 
+  StateSpace &get_state_space() { return state_space; }
+
   void set_start(state_cref_t t_start) { start = t_start; }
   void set_goal(state_cref_t t_goal) { goal = t_goal; }
 
@@ -147,7 +244,7 @@ public:
     tree = tree_t();
     tree.init_tree(runtime_dim, state_space);
   }
-  std::vector<state_t> get_valid_configs() { return valid_configs; }
+  std::vector<state_t> get_configs() { return configs; }
 
   std::vector<state_t> get_sample_configs() { return sample_configs; }
 
@@ -184,6 +281,33 @@ public:
     return fine_path;
   }
 
+  virtual void check_internal() const {
+
+    CHECK_PRETTY_DYNORRT__(tree.size() == 0);
+    CHECK_PRETTY_DYNORRT__(parents.size() == 0);
+    CHECK_PRETTY_DYNORRT__(configs.size() == 0);
+    CHECK_PRETTY_DYNORRT__(sample_configs.size() == 0);
+    CHECK_PRETTY_DYNORRT__(path.size() == 0);
+    CHECK_PRETTY_DYNORRT__(evaluated_edges == 0);
+    CHECK_PRETTY_DYNORRT__(infeasible_edges == 0);
+    CHECK_PRETTY_DYNORRT__(total_distance == -1);
+    CHECK_PRETTY_DYNORRT__(collisions_time_ms == 0);
+    CHECK_PRETTY_DYNORRT__(is_collision_free_fun(start));
+    CHECK_PRETTY_DYNORRT__(is_collision_free_fun(goal));
+  }
+
+  virtual void reset_internal() {
+    parents.clear();
+    configs.clear();
+    sample_configs.clear();
+    path.clear();
+    evaluated_edges = 0;
+    infeasible_edges = 0;
+    total_distance = -1;
+    collisions_time_ms = 0;
+    init_tree();
+  }
+
   virtual TerminationCondition plan() = 0;
 
 protected:
@@ -194,11 +318,260 @@ protected:
   is_collision_free_fun_t is_collision_free_fun;
   RRT_options options;
   std::vector<state_t> path;
-  std::vector<state_t> valid_configs, sample_configs;
+  std::vector<state_t> configs;
+  std::vector<state_t> sample_configs;
   std::vector<int> parents;
   int runtime_dim = DIM;
   double total_distance = -1;
   double collisions_time_ms = 0.;
+  int evaluated_edges = 0;
+  int infeasible_edges = 0;
+};
+
+struct BiRRT_options {
+  int max_it = 10000;
+  double goal_bias = 0.05;
+  double collision_resolution = 0.01;
+  double backward_probability = 0.5;
+  double max_step = 0.1;
+  double max_compute_time_ms = 1e9;
+  double goal_tolerance = 0.001;
+  int max_num_configs = 10000;
+  bool xrand_collision_free = true;
+  int max_num_trials_col_free = 1000;
+};
+
+template <typename StateSpace, int DIM>
+class BiRRT : public PlannerBase<StateSpace, DIM> {
+public:
+  using Base = PlannerBase<StateSpace, DIM>;
+  using tree_t = typename Base::tree_t;
+  using Configs = std::vector<typename Base::state_t>;
+
+  void set_options(BiRRT_options t_options) { options = t_options; }
+  BiRRT_options get_options() { return options; }
+
+  Configs &get_configs_backward() { return configs_backward; }
+  std::vector<int> &get_parents_backward() { return parents_backward; }
+
+  void init_backward_tree(int t_runtime_dim = -1) {
+    this->runtime_dim = t_runtime_dim;
+    std::cout << "init tree" << std::endl;
+    std::cout << "DIM: " << DIM << std::endl;
+    std::cout << "runtime_dim: " << this->runtime_dim << std::endl;
+
+    if constexpr (DIM == -1) {
+      if (this->runtime_dim == -1) {
+        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
+      }
+    }
+    tree_backward = tree_t();
+    tree_backward.init_tree(this->runtime_dim, this->state_space);
+  }
+
+  virtual void reset_internal() override {
+    this->Base::reset_internal();
+    init_backward_tree();
+    parents_backward.clear();
+    configs_backward.clear();
+  }
+
+  virtual void check_internal() const override {
+
+    CHECK_PRETTY_DYNORRT(tree_backward.size() == 0,
+                         "tree_backward.size() != 0");
+    CHECK_PRETTY_DYNORRT(parents_backward.size() == 0,
+                         "parents_backward.size() != 0");
+
+    CHECK_PRETTY_DYNORRT(configs_backward.size() == 0,
+                         "configs_backward.size() != 0");
+
+    this->Base::check_internal();
+  }
+
+  virtual TerminationCondition plan() override {
+
+    typename Base::state_t x_rand, x_new, x_near;
+
+    if constexpr (DIM == -1) {
+      if (this->runtime_dim == -1) {
+        THROW_PRETTY_DYNORRT("DIM == -1 and runtime_dim == -1");
+      }
+      x_rand.resize(this->runtime_dim);
+      x_new.resize(this->runtime_dim);
+      x_near.resize(this->runtime_dim);
+    }
+
+    check_internal();
+
+    // forward tree
+    this->parents.push_back(-1);
+    this->configs.push_back(this->start);
+    this->tree.addPoint(this->start, 0);
+
+    // backward tree
+    parents_backward.push_back(-1);
+    configs_backward.push_back(this->goal);
+    tree_backward.addPoint(this->goal, 0);
+
+    int num_it = 0;
+    auto tic = std::chrono::steady_clock::now();
+    bool path_found = false;
+
+    auto col = [this](const auto &x) {
+      return this->Base::is_collision_free_fun_timed(x);
+    };
+
+    auto get_elapsed_ms = [&] {
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::steady_clock::now() - tic)
+          .count();
+    };
+
+    auto should_terminate = [&] {
+      if (this->configs.size() + configs_backward.size() >
+          options.max_num_configs) {
+        return TerminationCondition::MAX_NUM_CONFIGS;
+      } else if (num_it > options.max_it) {
+        return TerminationCondition::MAX_IT;
+      } else if (get_elapsed_ms() > options.max_compute_time_ms) {
+        return TerminationCondition::MAX_TIME;
+      } else if (path_found) {
+        return TerminationCondition::GOAL_REACHED;
+      } else {
+        return TerminationCondition::RUNNING;
+      }
+    };
+
+    TerminationCondition termination_condition = should_terminate();
+    bool expand_forward = true;
+
+    int connect_id_forward = -1;
+    int connect_id_backward = -1;
+
+    while (termination_condition == TerminationCondition::RUNNING) {
+
+      expand_forward = static_cast<double>(std::rand()) / RAND_MAX >
+                       options.backward_probability;
+      auto tgt_configs_ptr =
+          expand_forward ? &configs_backward : &this->configs;
+      auto tree_ptr = expand_forward ? &this->tree : &tree_backward;
+      auto configs_ptr = expand_forward ? &this->configs : &configs_backward;
+      auto parents_ptr = expand_forward ? &this->parents : &parents_backward;
+      auto connect_id_this_ptr =
+          expand_forward ? &connect_id_forward : &connect_id_backward;
+      auto connect_id_tgt_ptr =
+          expand_forward ? &connect_id_backward : &connect_id_forward;
+
+      int goal_id = -1;
+      bool goal_connection_attempt =
+          static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias;
+      if (goal_connection_attempt) {
+        goal_id = std::rand() % tgt_configs_ptr->size();
+        x_rand = tgt_configs_ptr->at(goal_id);
+      } else {
+        if (options.xrand_collision_free) {
+          bool is_collision_free = false;
+          int num_tries = 0;
+          while (!is_collision_free &&
+                 num_tries < options.max_num_trials_col_free) {
+            this->state_space.sample_uniform(x_rand);
+            is_collision_free = col(x_rand);
+            num_tries++;
+          }
+          CHECK_PRETTY_DYNORRT(is_collision_free,
+                               "cannot generate a valid xrand");
+        } else {
+          this->state_space.sample_uniform(x_rand);
+        }
+      }
+
+      // get nearest neighbor
+      auto nn = tree_ptr->search(x_rand);
+      std::cout << "nn.id: " << nn.id << std::endl;
+      x_near = configs_ptr->at(nn.id);
+
+      bool full_step_attempt = nn.distance < options.max_step;
+      if (full_step_attempt) {
+        x_new = x_rand;
+      } else {
+        this->state_space.interpolate(x_near, x_rand,
+                                      options.max_step / nn.distance, x_new);
+      }
+
+      std::cout << "goal goal_connection_attempt" << goal_connection_attempt
+                << std::endl;
+      std::cout << "expand_forward" << expand_forward << std::endl;
+      std::cout << "x_rand: " << x_rand.transpose() << std::endl;
+      std::cout << "x_new: " << x_new.transpose() << std::endl;
+      std::cout << "x_near: " << x_near.transpose() << std::endl;
+
+      this->evaluated_edges += 1;
+      bool is_collision_free = is_edge_collision_free(
+          x_near, x_new, col, this->state_space, options.collision_resolution);
+      this->infeasible_edges += !is_collision_free;
+
+      if (is_collision_free) {
+        tree_ptr->addPoint(x_new, tree_ptr->size());
+        configs_ptr->push_back(x_new);
+        parents_ptr->push_back(nn.id);
+        CHECK_PRETTY_DYNORRT__(tree_ptr->size() == configs_ptr->size());
+        CHECK_PRETTY_DYNORRT__(tree_ptr->size() == parents_ptr->size());
+
+        // TODO: decide if I Should do this or do a second KD tree?
+        if (full_step_attempt && goal_connection_attempt) {
+          path_found = true;
+          MESSAGE_PRETTY_DYNORRT("path found");
+          CHECK_PRETTY_DYNORRT__(
+              this->state_space.distance(x_new, tgt_configs_ptr->at(goal_id)) <
+              options.goal_tolerance);
+          *connect_id_this_ptr = tree_ptr->size() - 1;
+          *connect_id_tgt_ptr = goal_id;
+        }
+        // Alternative: Second KD tree
+      }
+
+      num_it++;
+      termination_condition = should_terminate();
+
+    } // RRT CONNECT terminated
+
+    if (termination_condition == TerminationCondition::GOAL_REACHED) {
+
+      // forward tree
+      //
+      //
+
+      CHECK_PRETTY_DYNORRT__(this->configs.size() >= 1);
+      CHECK_PRETTY_DYNORRT__(configs_backward.size() >= 1);
+
+      auto fwd_path =
+          trace_back_solution(connect_id_forward, this->configs, this->parents);
+
+      auto bwd_path = trace_back_solution(connect_id_backward, configs_backward,
+                                          parents_backward);
+
+      print_path(fwd_path);
+      print_path(bwd_path);
+
+      CHECK_PRETTY_DYNORRT__(
+          this->state_space.distance(fwd_path.back(), bwd_path.back()) <
+          options.goal_tolerance);
+
+      this->path.insert(this->path.end(), fwd_path.begin(), fwd_path.end());
+      this->path.insert(this->path.end(), bwd_path.begin() + 1, bwd_path.end());
+    }
+    // else
+
+    return termination_condition;
+    //
+  }
+
+protected:
+  BiRRT_options options;
+  typename Base::tree_t tree_backward;
+  std::vector<int> parents_backward;
+  std::vector<typename Base::state_t> configs_backward;
 };
 
 template <typename StateSpace, int DIM>
@@ -213,12 +586,6 @@ public:
 
   virtual TerminationCondition plan() override {
 
-    if (Base::path.size() != 0) {
-      std::cout << "Warning: path.size() != 0" << std::endl;
-      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
-      return TerminationCondition::UNKNOWN;
-    }
-
     typename Base::state_t x_rand, x_new, x_near;
 
     if constexpr (DIM == -1) {
@@ -230,48 +597,59 @@ public:
       x_near.resize(Base::runtime_dim);
     }
 
-    if (Base::parents.size()) {
-      THROW_PRETTY_DYNORRT("parents.size() != 0");
-    }
-    if (Base::valid_configs.size()) {
-      THROW_PRETTY_DYNORRT("valid_configs.size() != 0");
-    }
-    if (Base::sample_configs.size()) {
-      THROW_PRETTY_DYNORRT("sample_configs.size() != 0");
-    }
-    if (Base::path.size()) {
-      THROW_PRETTY_DYNORRT("path.size() != 0");
-    }
+    Base::check_internal();
 
     Base::parents.push_back(-1);
-    Base::valid_configs.push_back(Base::start);
+    Base::configs.push_back(Base::start);
     Base::tree.addPoint(Base::start, 0);
 
     int num_it = 0;
 
     auto tic = std::chrono::steady_clock::now();
-    TerminationCondition termination_condition = TerminationCondition::UNKNOWN;
-    bool finished = false;
+    bool path_found = false;
 
     auto col = [this](const auto &x) {
       return this->Base::is_collision_free_fun_timed(x);
     };
 
-    while (!finished) {
-      num_it++;
+    auto get_elapsed_ms = [&] {
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::steady_clock::now() - tic)
+          .count();
+    };
 
-      if (double(rand()) / RAND_MAX < options.goal_bias) {
+    auto should_terminate = [&] {
+      if (Base::configs.size() > options.max_num_configs) {
+        return TerminationCondition::MAX_NUM_CONFIGS;
+      } else if (num_it > options.max_it) {
+        return TerminationCondition::MAX_IT;
+      } else if (get_elapsed_ms() > options.max_compute_time_ms) {
+        return TerminationCondition::MAX_TIME;
+      } else if (path_found) {
+        return TerminationCondition::GOAL_REACHED;
+      } else {
+        return TerminationCondition::RUNNING;
+      }
+    };
+
+    TerminationCondition termination_condition = should_terminate();
+
+    while (termination_condition == TerminationCondition::RUNNING) {
+
+      if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
         x_rand = Base::goal;
       } else {
         if (options.xrand_collision_free) {
           bool is_collision_free = false;
           int num_tries = 0;
           while (!is_collision_free &&
-                 num_tries < options.max_num_trias_xrand_col_free) {
+                 num_tries < options.max_num_trials_col_free) {
             Base::state_space.sample_uniform(x_rand);
-            is_collision_free = Base::is_collision_free_fun_timed(x_rand);
+            is_collision_free = col(x_rand);
             num_tries++;
           }
+          CHECK_PRETTY_DYNORRT(is_collision_free,
+                               "cannot generate a valid xrand");
         } else {
           Base::state_space.sample_uniform(x_rand);
         }
@@ -280,7 +658,7 @@ public:
       Base::sample_configs.push_back(x_rand);
 
       auto nn = Base::tree.search(x_rand);
-      x_near = Base::valid_configs[nn.id];
+      x_near = Base::configs[nn.id];
 
       if (nn.distance < options.max_step) {
         x_new = x_rand;
@@ -288,73 +666,62 @@ public:
         Base::state_space.interpolate(x_near, x_rand,
                                       options.max_step / nn.distance, x_new);
       }
+
+      Base::evaluated_edges += 1;
       bool is_collision_free = is_edge_collision_free(
-          x_near, x_new, col,
-          // Base::is_collision_free_fun_timed
-          Base::state_space, options.collision_resolution);
+          x_near, x_new, col, Base::state_space, options.collision_resolution);
+      Base::infeasible_edges += !is_collision_free;
 
       if (is_collision_free) {
-        Base::tree.addPoint(x_new, Base::valid_configs.size());
-        Base::valid_configs.push_back(x_new);
+        Base::tree.addPoint(x_new, Base::configs.size());
+        Base::configs.push_back(x_new);
         Base::parents.push_back(nn.id);
 
         if (Base::state_space.distance(x_new, Base::goal) <
             options.goal_tolerance) {
-          finished = true;
-          termination_condition = TerminationCondition::GOAL_REACHED;
+          path_found = true;
+          MESSAGE_PRETTY_DYNORRT("path found");
         }
       }
 
-      // update finish condition
-      if (Base::valid_configs.size() > options.max_num_configs) {
-        finished = true;
-        termination_condition = TerminationCondition::MAX_NUM_CONFIGS;
-      }
-      if (num_it > options.max_it) {
-        finished = true;
-        termination_condition = TerminationCondition::MAX_IT;
-      }
-      double elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-                              std::chrono::steady_clock::now() - tic)
-                              .count();
-      if (elapsed_ms > options.max_compute_time_ms) {
-        finished = true;
-        termination_condition = TerminationCondition::MAX_TIME;
-      }
-    }
+      num_it++;
+      termination_condition = should_terminate();
+
+    } // RRT terminated
 
     if (termination_condition == TerminationCondition::GOAL_REACHED) {
 
-      int i = Base::valid_configs.size() - 1;
-      Base::path.push_back(Base::valid_configs[i]);
-      if (Base::state_space.distance(Base::valid_configs[i], Base::goal) >
-          options.goal_tolerance) {
-        throw std::runtime_error("state_space.distance(valid_configs[i], goal) "
-                                 "< options.goal_tolerance");
-      }
-      i = Base::parents[i];
-      while (i != -1) {
-        Base::path.push_back(Base::valid_configs[i]);
-        i = Base::parents[i];
-      }
+      int i = Base::configs.size() - 1;
 
-      std::reverse(Base::path.begin(), Base::path.end());
+      CHECK_PRETTY_DYNORRT__(
+          Base::state_space.distance(Base::configs[i], Base::goal) <
+          options.goal_tolerance);
+
+      Base::path = trace_back_solution(i, Base::configs, Base::parents);
+
+      CHECK_PRETTY_DYNORRT__(
+          Base::state_space.distance(Base::path[0], Base::start) < 1e-6);
+      CHECK_PRETTY_DYNORRT__(
+          Base::state_space.distance(Base::path.back(), Base::goal) < 1e-6);
 
       Base::total_distance = 0;
       for (size_t i = 0; i < Base::path.size() - 1; i++) {
+
+        double distance =
+            Base::state_space.distance(Base::path[i], Base::path[i + 1]);
+        MESSAGE_PRETTY_DYNORRT(distance);
+        CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
+
         Base::total_distance +=
             Base::state_space.distance(Base::path[i], Base::path[i + 1]);
       }
     }
 
-    // std::cout << valid_configs.size() << std::endl;
-
-    std::cout << "RRT PLAN" << std::endl;
+    MESSAGE_PRETTY_DYNORRT("Output from RRT PLANNER");
     std::cout << "Terminate status: "
               << magic_enum::enum_name(termination_condition) << std::endl;
     std::cout << "num_it: " << num_it << std::endl;
-    std::cout << "valid_configs.size(): " << Base::valid_configs.size()
-              << std::endl;
+    std::cout << "configs.size(): " << Base::configs.size() << std::endl;
     std::cout << "compute time (ms): "
               << std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::steady_clock::now() - tic)
@@ -362,6 +729,8 @@ public:
               << std::endl;
     std::cout << "collisions time (ms): " << Base::collisions_time_ms
               << std::endl;
+    std::cout << "evaluated_edges: " << Base::evaluated_edges << std::endl;
+    std::cout << "infeasible_edges: " << Base::infeasible_edges << std::endl;
     std::cout << "path.size(): " << Base::path.size() << std::endl;
     std::cout << "total_distance: " << Base::total_distance << std::endl;
 
@@ -376,7 +745,7 @@ protected:
   //   is_collision_free_fun_t is_collision_free_fun;
   RRT_options options;
   //   std::vector<state_t> path;
-  //   std::vector<state_t> valid_configs, sample_configs;
+  //   std::vector<state_t> configs, sample_configs;
   //   std::vector<int> parents;
   //   int runtime_dim = DIM;
   //   double total_distance = -1;
