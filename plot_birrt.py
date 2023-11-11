@@ -11,17 +11,20 @@ import json
 
 
 build_cmd = ["make"]
-run_cmd = ["./main", "--run_test=test_birrt"]
+# run_cmd = ["./main", "--run_test=test_birrt"]
+run_cmd = ["./main", "--run_test=test_rrt_connect"]
 
-out = subprocess.run(build_cmd, cwd="build")
+cwd = "buildFastDebug"
+out = subprocess.run(build_cmd, cwd=cwd)
 
 assert out.returncode == 0
 
-out = subprocess.run(run_cmd, cwd="build")
+out = subprocess.run(run_cmd, cwd=cwd)
 assert out.returncode == 0
 
 
-with open("/tmp/dynorrt/test_birrt.json", "r") as f:
+# with open("/tmp/dynorrt/test_birrt.json", "r") as f:
+with open("/tmp/dynorrt/test_rrt_connect.json", "r") as f:
     d = json.load(f)
 
 sample_configs = d["sample_configs"]
