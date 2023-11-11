@@ -179,10 +179,11 @@ BOOST_AUTO_TEST_CASE(test_birrt) {
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 0.4), 0.5});
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 2), 0.5});
 
+  std::srand(time(NULL));
   BiRRT_options options{.max_it = 10000,
-                        .goal_bias = 0.2,
+                        .goal_bias = .2,
                         .collision_resolution = 0.01,
-                        .backward_probability = 0.5,
+                        .backward_probability = 0.3,
                         .max_step = 1,
                         .max_compute_time_ms = 1e9,
                         .goal_tolerance = 0.001,
@@ -237,7 +238,7 @@ BOOST_AUTO_TEST_CASE(test_birrt) {
   j["shortcut_path"] = shortcut_path;
 
   namespace fs = std::filesystem;
-  fs::path filePath = "/tmp/dynorrt/out.json";
+  fs::path filePath = "/tmp/dynorrt/test_birrt.json";
 
   if (!fs::exists(filePath)) {
     fs::create_directories(filePath.parent_path());

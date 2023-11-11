@@ -66,9 +66,9 @@ template <typename T, typename StateSpace, typename Fun>
 bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
                             StateSpace state_space, double resolution) {
 
-  MESSAGE_PRETTY_DYNORRT("is_edge_collision_free");
-  std::cout << x_start.transpose() << std::endl;
-  std::cout << x_end.transpose() << std::endl;
+  // MESSAGE_PRETTY_DYNORRT("is_edge_collision_free");
+  // std::cout << x_start.transpose() << std::endl;
+  // std::cout << x_end.transpose() << std::endl;
 
   T tmp = x_start;
   if (is_collision_free_fun(x_end)) {
@@ -455,10 +455,14 @@ public:
                        options.backward_probability;
       auto tgt_configs_ptr =
           expand_forward ? &configs_backward : &this->configs;
-      auto tree_ptr = expand_forward ? &this->tree : &tree_backward;
-      auto configs_ptr = expand_forward ? &this->configs : &configs_backward;
-      auto parents_ptr = expand_forward ? &this->parents : &parents_backward;
-      auto connect_id_this_ptr =
+
+      auto src_tree_ptr = expand_forward ? &this->tree : &tree_backward;
+      auto src_configs_ptr =
+          expand_forward ? &this->configs : &configs_backward;
+      auto src_parents_ptr =
+          expand_forward ? &this->parents : &parents_backward;
+
+      auto connect_id_src_ptr =
           expand_forward ? &connect_id_forward : &connect_id_backward;
       auto connect_id_tgt_ptr =
           expand_forward ? &connect_id_backward : &connect_id_forward;
@@ -485,11 +489,10 @@ public:
           this->state_space.sample_uniform(x_rand);
         }
       }
-
-      // get nearest neighbor
-      auto nn = tree_ptr->search(x_rand);
+      this->sample_configs.push_back(x_rand);
+      auto nn = src_tree_ptr->search(x_rand);
       std::cout << "nn.id: " << nn.id << std::endl;
-      x_near = configs_ptr->at(nn.id);
+      x_near = src_configs_ptr->at(nn.id);
 
       bool full_step_attempt = nn.distance < options.max_step;
       if (full_step_attempt) {
@@ -512,11 +515,11 @@ public:
       this->infeasible_edges += !is_collision_free;
 
       if (is_collision_free) {
-        tree_ptr->addPoint(x_new, tree_ptr->size());
-        configs_ptr->push_back(x_new);
-        parents_ptr->push_back(nn.id);
-        CHECK_PRETTY_DYNORRT__(tree_ptr->size() == configs_ptr->size());
-        CHECK_PRETTY_DYNORRT__(tree_ptr->size() == parents_ptr->size());
+        src_tree_ptr->addPoint(x_new, src_tree_ptr->size());
+        src_configs_ptr->push_back(x_new);
+        src_parents_ptr->push_back(nn.id);
+        CHECK_PRETTY_DYNORRT__(src_tree_ptr->size() == src_configs_ptr->size());
+        CHECK_PRETTY_DYNORRT__(src_tree_ptr->size() == src_parents_ptr->size());
 
         // TODO: decide if I Should do this or do a second KD tree?
         if (full_step_attempt && goal_connection_attempt) {
@@ -525,7 +528,7 @@ public:
           CHECK_PRETTY_DYNORRT__(
               this->state_space.distance(x_new, tgt_configs_ptr->at(goal_id)) <
               options.goal_tolerance);
-          *connect_id_this_ptr = tree_ptr->size() - 1;
+          *connect_id_src_ptr = src_tree_ptr->size() - 1;
           *connect_id_tgt_ptr = goal_id;
         }
         // Alternative: Second KD tree
