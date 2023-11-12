@@ -20,6 +20,124 @@
 
 // options
 
+/*
+ Sample code from https://www.redblobgames.com/pathfinding/a-star/
+ Copyright 2014 Red Blob Games <redblobgames@gmail.com>
+
+ Feel free to use this code in your own projects, including commercial projects
+ License: Apache v2.0 <http://www.apache.org/licenses/LICENSE-2.0.html>
+*/
+
+#include <algorithm>
+#include <array>
+#include <cstdlib>
+#include <iomanip>
+#include <iostream>
+#include <queue>
+#include <tuple>
+#include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+
+template <typename T, typename priority_t> struct PriorityQueue {
+  typedef std::pair<priority_t, T> PQElement;
+  std::priority_queue<PQElement, std::vector<PQElement>,
+                      std::greater<PQElement>>
+      elements;
+
+  inline bool empty() const { return elements.empty(); }
+
+  inline void put(T item, priority_t priority) {
+    elements.emplace(priority, item);
+  }
+
+  T get() {
+    T best_item = elements.top().second;
+    elements.pop();
+    return best_item;
+  }
+};
+
+template <typename Location, typename Graph>
+void dijkstra_search(Graph graph, Location start, Location goal,
+                     std::unordered_map<Location, Location> &came_from,
+                     std::unordered_map<Location, double> &cost_so_far) {
+  PriorityQueue<Location, double> frontier;
+  frontier.put(start, 0);
+
+  came_from[start] = start;
+  cost_so_far[start] = 0;
+
+  while (!frontier.empty()) {
+    Location current = frontier.get();
+
+    if (current == goal) {
+      break;
+    }
+
+    for (Location next : graph.neighbors(current)) {
+      double new_cost = cost_so_far[current] + graph.cost(current, next);
+      if (cost_so_far.find(next) == cost_so_far.end() ||
+          new_cost < cost_so_far[next]) {
+        cost_so_far[next] = new_cost;
+        came_from[next] = current;
+        frontier.put(next, new_cost);
+      }
+    }
+  }
+}
+
+template <typename Location>
+std::vector<Location>
+reconstruct_path(Location start, Location goal,
+                 std::unordered_map<Location, Location> came_from) {
+  std::vector<Location> path;
+  Location current = goal;
+  if (came_from.find(goal) == came_from.end()) {
+    return path; // no path can be found
+  }
+  while (current != start) {
+    path.push_back(current);
+    current = came_from[current];
+  }
+  path.push_back(start); // optional
+  std::reverse(path.begin(), path.end());
+  return path;
+}
+
+template <typename Location, typename Graph>
+void a_star_search(Graph graph, Location start, Location goal,
+                   std::unordered_map<Location, Location> &came_from,
+                   std::unordered_map<Location, double> &cost_so_far,
+                   std::function<double(Location, Location)> cost,
+                   std::function<double(Location, Location)> heuristic) {
+  PriorityQueue<Location, double> frontier;
+  frontier.put(start, 0);
+
+  came_from[start] = start;
+  cost_so_far[start] = 0;
+
+  while (!frontier.empty()) {
+    Location current = frontier.get();
+
+    if (current == goal) {
+      break;
+    }
+
+    for (Location next : graph[current]) {
+      double new_cost = cost_so_far[current] + cost(current, next);
+      if (cost_so_far.find(next) == cost_so_far.end() ||
+          new_cost < cost_so_far[next]) {
+        cost_so_far[next] = new_cost;
+        double priority = new_cost + heuristic(next, goal);
+        frontier.put(next, priority);
+        came_from[next] = current;
+      }
+    }
+  }
+}
+
 namespace dynorrt {
 
 struct RRT_options {
@@ -51,6 +169,19 @@ struct BiRRT_options {
   void print(std::ostream & = std::cout);
 };
 
+struct PRM_options {
+  int num_vertices_0 = 200;
+  double increase_vertices_rate = 1.5;
+  double collision_resolution = 0.01;
+  int max_it = 10;
+  double connection_radius = 1.;
+  double max_compute_time_ms = 1e9;
+  bool xrand_collision_free = true;
+  int max_num_trials_col_free = 1000;
+
+  void print(std::ostream & = std::cout);
+};
+
 } // namespace dynorrt
 
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::RRT_options, max_it,
@@ -67,6 +198,11 @@ TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
                                           max_num_configs, xrand_collision_free,
                                           max_num_trials_col_free);
 
+TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
+    dynorrt::PRM_options, num_vertices_0, increase_vertices_rate,
+    collision_resolution, max_it, connection_radius, max_compute_time_ms,
+    xrand_collision_free, max_num_trials_col_free);
+
 inline void dynorrt::RRT_options::print(std::ostream &out) {
   toml::value v = *this;
   out << v << std::endl;
@@ -75,6 +211,12 @@ inline void dynorrt::RRT_options::print(std::ostream &out) {
 inline void dynorrt::BiRRT_options::print(std::ostream &out) {
   toml::value v = *this;
   out << v << std::endl;
+}
+
+inline void dynorrt::PRM_options::print(std::ostream &out) {
+  toml::value v = *this;
+  out << v << std::endl;
+  // THROW_PRETTY_DYNORRT("Not implemented in base class!");
 }
 
 namespace dynorrt {
@@ -839,6 +981,184 @@ public:
     return termination_condition;
     //
   }
+};
+
+template <typename StateSpace, int DIM>
+class PRM : public PlannerBase<StateSpace, DIM> {
+
+  using AdjacencyList = std::vector<std::vector<int>>;
+  using Base = PlannerBase<StateSpace, DIM>;
+
+public:
+  PRM() = default;
+  virtual ~PRM() = default;
+
+  virtual void print_options(std::ostream &out = std::cout) override {
+    options.print(out);
+  }
+
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    options = toml::find<PRM_options>(cfg, "PRM_options");
+  }
+
+  AdjacencyList &get_adjacency_list() { return adjacency_list; }
+
+  void set_options(PRM_options t_options) { options = t_options; }
+
+  virtual TerminationCondition plan() override {
+    TerminationCondition termination_condition = TerminationCondition::UNKNOWN;
+
+    CHECK_PRETTY_DYNORRT__(adjacency_list.size() == 0);
+
+    Base::check_internal();
+
+    MESSAGE_PRETTY_DYNORRT("Options");
+    this->print_options();
+
+    auto col = [this](const auto &x) {
+      return this->Base::is_collision_free_fun_timed(x);
+    };
+
+    CHECK_PRETTY_DYNORRT__(options.num_vertices_0 >= 2);
+
+    this->configs.push_back(Base::start);
+    this->configs.push_back(Base::goal);
+
+    // Generate N random collision free configs
+
+    auto tic = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < options.num_vertices_0 - 2; i++) {
+      bool is_collision_free = false;
+      int num_tries = 0;
+      if (options.xrand_collision_free) {
+        while (!is_collision_free &&
+               num_tries < options.max_num_trials_col_free) {
+          Base::state_space.sample_uniform(this->x_rand);
+          is_collision_free = col(this->x_rand);
+          num_tries++;
+        }
+        CHECK_PRETTY_DYNORRT(is_collision_free,
+                             "cannot generate a valid xrand");
+        this->configs.push_back(this->x_rand);
+      } else {
+        Base::state_space.sample_uniform(this->x_rand);
+      }
+    }
+    double time_sample_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tic)
+            .count();
+
+    // Vertices build.
+
+    // Now lets get the connections
+    adjacency_list.resize(this->configs.size());
+
+    for (size_t i = 0; i < this->configs.size(); i++) {
+      this->tree.addPoint(this->configs[i], i, false);
+    }
+    this->tree.splitOutstanding();
+
+    auto tic2 = std::chrono::steady_clock::now();
+    // NOTE: using a K-d Tree helps only if there are a lot of points!
+    for (int i = 0; i < this->configs.size(); i++) {
+
+      auto nn =
+          this->tree.searchBall(this->configs[i], options.connection_radius);
+      for (int j = 0; j < nn.size(); j++) {
+        auto &src = this->configs[i];
+        auto &tgt = this->configs[nn[j].id];
+        if (i >= nn[j].id) {
+          continue;
+        }
+        bool is_collision_free =
+            is_edge_collision_free(src, tgt, col, this->state_space,
+                                   this->options.collision_resolution);
+        if (is_collision_free) {
+          adjacency_list[i].push_back(nn[j].id);
+          adjacency_list[nn[j].id].push_back(i);
+        }
+      }
+
+      // for (int j = i + 1; j < this->configs.size(); j++) {
+      //   auto &src = this->configs[i];
+      //   auto &tgt = this->configs[j];
+      //   if (this->state_space.distance(src, tgt) < options.connection_radius)
+      //   {
+      //     bool is_collision_free =
+      //         is_edge_collision_free(src, tgt, col, this->state_space,
+      //                                this->options.collision_resolution);
+      //     if (is_collision_free) {
+      //       adjacency_list[i].push_back(j);
+      //       adjacency_list[j].push_back(i);
+      //     }
+      //   }
+      // }
+    }
+    double time_build_graph_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tic2)
+            .count();
+
+    MESSAGE_PRETTY_DYNORRT("graph built!");
+
+    // Search a Path between start and goal
+    //
+
+    // NOTE: I can just compute the collisions for edges lazily when required!
+    // (if no graph is available)
+    using Location = int;
+    int start_id = 0;
+    int goal_id = 1;
+    std::unordered_map<Location, Location> came_from;
+    std::unordered_map<Location, double> cost_so_far;
+
+    std::function<double(Location, Location)> cost = [this](Location a,
+                                                            Location b) {
+      return this->state_space.distance(this->configs[a], this->configs[b]);
+    };
+
+    std::function<double(Location, Location)> heuristic = [this](Location a,
+                                                                 Location b) {
+      return this->state_space.distance(this->configs[a], this->configs[b]);
+    };
+
+    auto tic3 = std::chrono::steady_clock::now();
+    a_star_search(adjacency_list, start_id, goal_id, came_from, cost_so_far,
+                  cost, heuristic);
+    double time_search_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tic3)
+            .count();
+
+    std::cout << "time_sample_ms: " << time_sample_ms << std::endl;
+    std::cout << "time_build_graph_ms: " << time_build_graph_ms << std::endl;
+    std::cout << "time build - time col:"
+              << time_build_graph_ms - this->collisions_time_ms << std::endl;
+    std::cout << "time_search_ms: " << time_search_ms << std::endl;
+    std::cout << "time_collisions_ms: " << this->collisions_time_ms
+              << std::endl;
+
+    if (cost_so_far.find(goal_id) == cost_so_far.end()) {
+      MESSAGE_PRETTY_DYNORRT("failed to find a solution!");
+      return TerminationCondition::UNKNOWN;
+
+    } else {
+
+      std::vector<Location> path_id;
+      path_id = reconstruct_path(start_id, goal_id, came_from);
+      this->path.clear();
+
+      for (size_t i = 0; i < path_id.size(); i++) {
+        this->path.push_back(this->configs[path_id[i]]);
+      }
+      return TerminationCondition::GOAL_REACHED;
+    }
+  }
+
+private:
+  PRM_options options;
+  AdjacencyList adjacency_list;
 };
 
 template <typename StateSpace, int DIM>

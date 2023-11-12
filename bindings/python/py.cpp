@@ -97,6 +97,7 @@ PYBIND11_MODULE(pydynorrt, m) {
   using RRT_X = RRT<RX, -1>;
   using BiRRT_X = BiRRT<RX, -1>;
   using RRTConnect_X = RRTConnect<RX, -1>;
+  using PRM_X = PRM<RX, -1>;
 
   // using RRT_RX = dynotree::KDTree<int, -1, 32, double, RX>;
   py::class_<RRT_options>(m, "RRT_options")
@@ -142,6 +143,11 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_options", &BiRRT_X::set_options);
 
   py::class_<RRTConnect_X, BiRRT_X>(m, "RRTConnect_X").def(py::init<>());
+
+  py::class_<PRM_X, PlannerBase_RX>(m, "PRM_X")
+      .def(py::init<>())
+      .def("set_options", &PRM_X::set_options)
+      .def("get_adjacency_list", &PRM_X::get_adjacency_list);
 
   m.def("srand", [](int seed) { std::srand(seed); });
   m.def("rand", []() { return std::rand(); });

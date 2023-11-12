@@ -12,7 +12,13 @@ import time
 #
 #
 # sys.path.append(f"./{cwd}/bindings/python")
-sys.path.append("bindings/python")
+# sys.path.append("bindings/python")
+
+cwd = "buildRelease"
+build_cmd = ["make", "-j4"]
+out = subprocess.run(build_cmd, cwd=cwd)
+assert out.returncode == 0
+
 import pydynorrt
 
 pydynorrt.srand(2)
@@ -29,12 +35,16 @@ class Obstacle:
 
 obstacles = [Obstacle(np.array([1, 0.4]), 0.5), Obstacle(np.array([1, 2]), 0.5)]
 
+counter = 0
+
 
 def is_collision_free(x: np.ndarray) -> bool:
     """
     x: 3D vector (x, y, theta)
 
     """
+    global counter
+    counter += 1
     for obs in obstacles:
         if np.linalg.norm(x - obs.center) < obs.radius:
             return False
@@ -65,28 +75,30 @@ def plot_robot(ax, x, color="black", alpha=1.0):
 # """
 
 options_rrt_str = "planner_config/rrt_v0.toml"
+options_prm_str = "planner_config/prm_v0.toml"
 
 planners = [
     pydynorrt.RRT_X,
     pydynorrt.BiRRT_X,
     pydynorrt.RRTConnect_X,
+    pydynorrt.PRM_X,
 ]
-options = [options_rrt_str, None, None]
-names = ["RRT", "BiRRT", "RRT_Connect"]
+options = [options_rrt_str, None, None, options_prm_str]
+names = ["RRT", "BiRRT", "RRT_Connect", "PRM"]
 
-planners = [
-    pydynorrt.RRT_X,
-    # pydynorrt.BiRRT_X,
-    # pydynorrt.RRTConnect_X,
-]
-options = [
-    options_rrt_str,
-    # None, None
-]
-names = [
-    "RRT",
-    # "BiRRT", "RRT_Connect"
-]
+# planners = [
+#     pydynorrt.RRT_X,
+#     # pydynorrt.BiRRT_X,
+#     # pydynorrt.RRTConnect_X,
+# ]
+# options = [
+#     options_rrt_str,
+#     # None, None
+# ]
+# names = [
+#     "RRT",
+#     # "BiRRT", "RRT_Connect"
+# ]
 
 
 for name, planner, options in zip(names, planners, options):
@@ -115,10 +127,25 @@ for name, planner, options in zip(names, planners, options):
         # rrt.set_options(rrt_options)
 
     out = rrt.plan()
+    print("counter", counter)
     path = rrt.get_path()
     fine_path = rrt.get_fine_path(0.1)
     valid = rrt.get_configs()
     sample = rrt.get_sample_configs()
+
+    if name == "PRM":
+        # get adjacency matrix
+        adjacency = rrt.get_adjacency_list()
+        # print(adjacency)
+
+        for i in range(len(adjacency)):
+            for j in adjacency[i]:
+                ax.plot(
+                    [valid[i][0], valid[j][0]],
+                    [valid[i][1], valid[j][1]],
+                    color="black",
+                    alpha=0.2,
+                )
 
     for v in sample:
         plot_robot(ax, v, color="blue", alpha=0.5)
