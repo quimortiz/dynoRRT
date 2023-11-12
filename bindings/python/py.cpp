@@ -98,6 +98,7 @@ PYBIND11_MODULE(pydynorrt, m) {
   using BiRRT_X = BiRRT<RX, -1>;
   using RRTConnect_X = RRTConnect<RX, -1>;
   using PRM_X = PRM<RX, -1>;
+  using LazyPRM_X = LazyPRM<RX, -1>;
 
   // using RRT_RX = dynotree::KDTree<int, -1, 32, double, RX>;
   py::class_<RRT_options>(m, "RRT_options")
@@ -147,7 +148,16 @@ PYBIND11_MODULE(pydynorrt, m) {
   py::class_<PRM_X, PlannerBase_RX>(m, "PRM_X")
       .def(py::init<>())
       .def("set_options", &PRM_X::set_options)
-      .def("get_adjacency_list", &PRM_X::get_adjacency_list);
+      .def("get_adjacency_list", &PRM_X::get_adjacency_list)
+      .def("get_check_edges_valid", &PRM_X::get_check_edges_valid)
+      .def("get_check_edges_invalid", &PRM_X::get_check_edges_invalid);
+
+  py::class_<LazyPRM_X, PlannerBase_RX>(m, "LazyPRM_X")
+      .def(py::init<>())
+      .def("set_options", &LazyPRM_X::set_options)
+      .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
+      .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
+      .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
 
   m.def("srand", [](int seed) { std::srand(seed); });
   m.def("rand", []() { return std::rand(); });

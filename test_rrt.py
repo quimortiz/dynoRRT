@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from typing import Tuple, List
 from dataclasses import dataclass
 import time
+import os
 
 # build_cmd = ["make"]
 # cwd = "buildRelease"
@@ -14,7 +15,8 @@ import time
 # sys.path.append(f"./{cwd}/bindings/python")
 # sys.path.append("bindings/python")
 
-cwd = "buildRelease"
+cwd = os.environ.get("CWD", "build")
+# cwd = "buildRelease"
 build_cmd = ["make", "-j4"]
 out = subprocess.run(build_cmd, cwd=cwd)
 assert out.returncode == 0
@@ -76,15 +78,26 @@ def plot_robot(ax, x, color="black", alpha=1.0):
 
 options_rrt_str = "planner_config/rrt_v0.toml"
 options_prm_str = "planner_config/prm_v0.toml"
+options_lazyprm_str = "planner_config/lazyprm_v0.toml"
 
 planners = [
-    pydynorrt.RRT_X,
-    pydynorrt.BiRRT_X,
-    pydynorrt.RRTConnect_X,
-    pydynorrt.PRM_X,
+    # pydynorrt.RRT_X,
+    # pydynorrt.BiRRT_X,
+    # pydynorrt.RRTConnect_X,
+    # pydynorrt.PRM_X,
+    pydynorrt.LazyPRM_X
 ]
-options = [options_rrt_str, None, None, options_prm_str]
-names = ["RRT", "BiRRT", "RRT_Connect", "PRM"]
+options = [
+    # options_rrt_str, None, None,
+    # options_prm_str
+    options_lazyprm_str
+]
+
+names = [
+    # "RRT", "BiRRT", "RRT_Connect",
+    # "PRM",
+    "LazyPRM",
+]
 
 # planners = [
 #     pydynorrt.RRT_X,
@@ -133,7 +146,7 @@ for name, planner, options in zip(names, planners, options):
     valid = rrt.get_configs()
     sample = rrt.get_sample_configs()
 
-    if name == "PRM":
+    if name == "PRM" or name == "LazyPRM":
         # get adjacency matrix
         adjacency = rrt.get_adjacency_list()
         # print(adjacency)
@@ -146,6 +159,29 @@ for name, planner, options in zip(names, planners, options):
                     color="black",
                     alpha=0.2,
                 )
+
+        edges_valid = rrt.get_check_edges_valid()
+        edges_invalid = rrt.get_check_edges_invalid()
+        print("edges_valid", edges_valid)
+        print("edges_invalid", edges_invalid)
+
+        for i in range(len(edges_valid)):
+            ax.plot(
+                [valid[edges_valid[i][0]][0], valid[edges_valid[i][1]][0]],
+                [valid[edges_valid[i][0]][1], valid[edges_valid[i][1]][1]],
+                color="green",
+                alpha=0.5,
+            )
+        for i in range(len(edges_invalid)):
+            ax.plot(
+                [valid[edges_invalid[i][0]][0], valid[edges_invalid[i][1]][0]],
+                [valid[edges_invalid[i][0]][1], valid[edges_invalid[i][1]][1]],
+                color="red",
+                alpha=0.5,
+            )
+
+    # .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
+    # .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
 
     for v in sample:
         plot_robot(ax, v, color="blue", alpha=0.5)

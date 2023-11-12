@@ -40,6 +40,25 @@
 #include <utility>
 #include <vector>
 
+inline auto index_2d_to_1d_symmetric(int i, int j, int n) {
+  if (i > j) {
+    std::swap(i, j);
+  }
+  return i * n + j;
+};
+inline auto index_1d_to_2d(int index, int n) {
+  int i = index / n;
+  int j = index % n;
+  return std::make_pair(i, j);
+};
+
+struct pair_hash {
+  template <class T, class U>
+  std::size_t operator()(std::pair<T, U> const &pair) const {
+    return std::hash<T>()(pair.first) ^ std::hash<U>()(pair.second);
+  }
+};
+
 template <typename T, typename priority_t> struct PriorityQueue {
   typedef std::pair<priority_t, T> PQElement;
   std::priority_queue<PQElement, std::vector<PQElement>,
@@ -126,7 +145,11 @@ void a_star_search(Graph graph, Location start, Location goal,
     }
 
     for (Location next : graph[current]) {
-      double new_cost = cost_so_far[current] + cost(current, next);
+      double edge_cost = cost(current, next);
+      if (edge_cost == std::numeric_limits<double>::infinity()) {
+        continue;
+      }
+      double new_cost = cost_so_far[current] + edge_cost;
       if (cost_so_far.find(next) == cost_so_far.end() ||
           new_cost < cost_so_far[next]) {
         cost_so_far[next] = new_cost;
@@ -171,14 +194,26 @@ struct BiRRT_options {
 
 struct PRM_options {
   int num_vertices_0 = 200;
-  double increase_vertices_rate = 1.5;
+  double increase_vertices_rate = 2.;
   double collision_resolution = 0.01;
   int max_it = 10;
   double connection_radius = 1.;
   double max_compute_time_ms = 1e9;
   bool xrand_collision_free = true;
   int max_num_trials_col_free = 1000;
+  bool incremental_collision_check = false;
+  void print(std::ostream & = std::cout);
+};
 
+struct PRMlazy_options {
+  int num_vertices_0 = 200;
+  double increase_vertices_rate = 2.;
+  double collision_resolution = 0.01;
+  int max_lazy_iterations = 1000;
+  double connection_radius = .5;
+  double max_compute_time_ms = 1e9;
+  bool xrand_collision_free = true;
+  int max_num_trials_col_free = 1000;
   void print(std::ostream & = std::cout);
 };
 
@@ -201,7 +236,12 @@ TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
     dynorrt::PRM_options, num_vertices_0, increase_vertices_rate,
     collision_resolution, max_it, connection_radius, max_compute_time_ms,
-    xrand_collision_free, max_num_trials_col_free);
+    xrand_collision_free, max_num_trials_col_free, incremental_collision_check);
+
+TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
+    dynorrt::PRMlazy_options, num_vertices_0, increase_vertices_rate,
+    collision_resolution, max_lazy_iterations, connection_radius,
+    max_compute_time_ms, xrand_collision_free, max_num_trials_col_free);
 
 inline void dynorrt::RRT_options::print(std::ostream &out) {
   toml::value v = *this;
@@ -216,7 +256,11 @@ inline void dynorrt::BiRRT_options::print(std::ostream &out) {
 inline void dynorrt::PRM_options::print(std::ostream &out) {
   toml::value v = *this;
   out << v << std::endl;
-  // THROW_PRETTY_DYNORRT("Not implemented in base class!");
+}
+
+inline void dynorrt::PRMlazy_options::print(std::ostream &out) {
+  toml::value v = *this;
+  out << v << std::endl;
 }
 
 namespace dynorrt {
@@ -984,6 +1028,301 @@ public:
 };
 
 template <typename StateSpace, int DIM>
+class LazyPRM : public PlannerBase<StateSpace, DIM> {
+  // TODO: continue here!!
+
+public:
+  virtual ~LazyPRM() = default;
+
+  virtual void print_options(std::ostream &out = std::cout) override {
+    options.print(out);
+  }
+
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    options = toml::find<PRMlazy_options>(cfg, "PRMlazy_options");
+  }
+
+  std::vector<std::vector<int>> &get_adjacency_list() { return adjacency_list; }
+
+  void set_options(PRMlazy_options t_options) { options = t_options; }
+
+  virtual TerminationCondition plan() override {
+
+    TerminationCondition termination_condition = TerminationCondition::UNKNOWN;
+
+    CHECK_PRETTY_DYNORRT__(adjacency_list.size() == 0);
+
+    this->check_internal();
+
+    MESSAGE_PRETTY_DYNORRT("Options");
+    this->print_options();
+
+    auto col = [this](const auto &x) {
+      return this->is_collision_free_fun_timed(x);
+    };
+
+    CHECK_PRETTY_DYNORRT__(options.num_vertices_0 >= 2);
+
+    this->configs.push_back(this->start);
+    this->configs.push_back(this->goal);
+
+    // Generate N random collision free configs
+
+    // REFACTOR THIS CODE!!! only on one place
+    auto tic = std::chrono::steady_clock::now();
+    for (size_t i = 0; i < options.num_vertices_0 - 2; i++) {
+      bool is_collision_free = false;
+      int num_tries = 0;
+      if (options.xrand_collision_free) {
+        while (!is_collision_free &&
+               num_tries < options.max_num_trials_col_free) {
+          this->state_space.sample_uniform(this->x_rand);
+          is_collision_free = col(this->x_rand);
+          num_tries++;
+        }
+        CHECK_PRETTY_DYNORRT(is_collision_free,
+                             "cannot generate a valid xrand");
+        this->configs.push_back(this->x_rand);
+      } else {
+        this->state_space.sample_uniform(this->x_rand);
+      }
+    }
+    double time_sample_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tic)
+            .count();
+
+    // Vertices build.
+
+    // Now lets get the connections
+    adjacency_list.resize(this->configs.size());
+
+    for (size_t i = 0; i < this->configs.size(); i++) {
+      this->tree.addPoint(this->configs[i], i, false);
+    }
+    this->tree.splitOutstanding();
+
+    auto tic2 = std::chrono::steady_clock::now();
+    // NOTE: using a K-d Tree helps only if there are a lot of points!
+    for (int i = 0; i < this->configs.size(); i++) {
+
+      auto nn =
+          this->tree.searchBall(this->configs[i], options.connection_radius);
+      for (int j = 0; j < nn.size(); j++) {
+        auto &src = this->configs[i];
+        auto &tgt = this->configs[nn[j].id];
+        if (i >= nn[j].id) {
+          continue;
+        }
+        adjacency_list[i].push_back(nn[j].id);
+        adjacency_list[nn[j].id].push_back(i);
+      }
+    }
+
+    // for (int j = i + 1; j < this->configs.size(); j++) {
+    //   auto &src = this->configs[i];
+    //   auto &tgt = this->configs[j];
+    //   if (this->state_space.distance(src, tgt) < options.connection_radius)
+    //   {
+    //
+    // if ( options.incremental_collision_check ||
+    //     is_edge_collision_free(src, tgt, col, this->state_space,
+    //                            this->options.collision_resolution)) {
+    //
+    //
+    //       adjacency_list[i].push_back(j);
+    //       adjacency_list[j].push_back(i);
+    //     }
+    //   }
+    // }
+    double time_build_graph_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tic2)
+            .count();
+
+    MESSAGE_PRETTY_DYNORRT("graph built!");
+
+    // Search a Path between start and goal
+    //
+
+    // NOTE: I can just compute the collisions for edges lazily when required!
+    // (if no graph is available)
+    using Location = int;
+    int start_id = 0;
+    int goal_id = 1;
+    std::unordered_map<Location, Location> came_from;
+    std::unordered_map<Location, double> cost_so_far;
+
+    // Use this to avoid recomputing collisions --> save such that (i,j) with i
+    // < j
+    std::unordered_map<int, int> edges_map; // -1, 0 , 1
+    // { -1: not checked, 0: collision, 1: no collision}
+
+    for (size_t i = 0; i < this->configs.size(); i++) {
+      for (size_t j = i + 1; j < this->configs.size(); j++) {
+        edges_map[index_2d_to_1d_symmetric(i, j, this->configs.size())] = -1;
+      }
+    }
+
+    // TODO: get evaluated edges afterwards!
+    auto twod_index_to_one_d_index = [](int i, int j, int n) {
+      if (i > j) {
+        std::swap(i, j);
+      }
+      return i * n + j;
+    };
+
+    auto index_1d_to_2d = [](int index, int n) {
+      int i = index / n;
+      int j = index % n;
+      return std::make_pair(i, j);
+    };
+
+    std::function<double(Location, Location)> cost = [&](Location a,
+                                                         Location b) {
+      //
+      int index = index_2d_to_1d_symmetric(a, b, this->configs.size());
+      int status = edges_map[index];
+
+      if (status == 0) {
+        return std::numeric_limits<double>::infinity();
+      } else {
+        return this->state_space.distance(this->configs[a], this->configs[b]);
+      }
+    };
+
+    std::function<double(Location, Location)> heuristic = [this](Location a,
+                                                                 Location b) {
+      return this->state_space.distance(this->configs[a], this->configs[b]);
+    };
+
+    for (size_t it = 0; it < options.max_lazy_iterations; it++) {
+
+      came_from.clear();
+      cost_so_far.clear();
+      a_star_search(adjacency_list, start_id, goal_id, came_from, cost_so_far,
+                    cost, heuristic);
+
+      if (cost_so_far.find(goal_id) == cost_so_far.end()) {
+        MESSAGE_PRETTY_DYNORRT("failed to find a solution!");
+        return TerminationCondition::UNKNOWN;
+
+      } else {
+
+        std::vector<Location> path_id;
+        path_id = reconstruct_path(start_id, goal_id, came_from);
+        bool path_valid = true;
+
+        std::cout << "path id is " << std::endl;
+        for (auto &x : path_id) {
+          std::cout << x << " ";
+        }
+
+        for (size_t i = 0; i < path_id.size() - 1; i++) {
+
+          int index = index_2d_to_1d_symmetric(path_id.at(i), path_id.at(i + 1),
+                                               this->configs.size());
+
+          int status = edges_map[index];
+          if (status == 0) {
+            THROW_PRETTY_DYNORRT("why?");
+          } else if (status == 1) {
+
+          } else {
+            auto &src = this->configs.at(path_id.at(i));
+            auto &tgt = this->configs.at(path_id.at(i + 1));
+            bool free =
+                is_edge_collision_free(src, tgt, col, this->state_space,
+                                       this->options.collision_resolution);
+            edges_map[index] = static_cast<int>(free);
+            if (!free) {
+              path_valid = false;
+              break;
+            }
+          }
+        }
+        if (path_valid) {
+          MESSAGE_PRETTY_DYNORRT("solved");
+
+          this->path.clear();
+          for (size_t i = 0; i < path_id.size(); i++) {
+            this->path.push_back(this->configs[path_id[i]]);
+          }
+
+          termination_condition = TerminationCondition::GOAL_REACHED;
+          break;
+        } else {
+
+          MESSAGE_PRETTY_DYNORRT("collision in PATH -- Running again");
+        }
+      }
+    }
+
+    auto tic3 = std::chrono::steady_clock::now();
+    double time_search_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - tic3)
+            .count();
+
+    std::cout << "time_sample_ms: " << time_sample_ms << std::endl;
+    std::cout << "time_build_graph_ms: " << time_build_graph_ms << std::endl;
+    std::cout << "time build - time col:"
+              << time_build_graph_ms - this->collisions_time_ms << std::endl;
+    std::cout << "time_search_ms: " << time_search_ms << std::endl;
+    std::cout << "time_collisions_ms: " << this->collisions_time_ms
+              << std::endl;
+
+    // REFACTOR!!
+    for (auto &t : edges_map) {
+      std::pair<int, int> pair = index_1d_to_2d(t.first, this->configs.size());
+      if (pair.first > pair.second) {
+        std::swap(pair.first, pair.second);
+      }
+      if (pair.first == pair.second) {
+        THROW_PRETTY_DYNORRT("pair.first == pair.second");
+      }
+      if (t.second == 1) {
+        check_edges_valid.push_back(pair);
+      } else if (t.second == 0) {
+        check_edges_invalid.push_back(pair);
+      }
+    }
+
+    return termination_condition;
+
+    // if (cost_so_far.find(goal_id) == cost_so_far.end()) {
+    //   MESSAGE_PRETTY_DYNORRT("failed to find a solution!");
+    //   return TerminationCondition::UNKNOWN;
+    //
+    // } else {
+    //
+    //   std::vector<Location> path_id;
+    //   path_id = reconstruct_path(start_id, goal_id, came_from);
+    //   this->path.clear();
+    //
+    //   for (size_t i = 0; i < path_id.size(); i++) {
+    //     this->path.push_back(this->configs[path_id[i]]);
+    //   }
+    //   return TerminationCondition::GOAL_REACHED;
+    // }
+  }
+
+  std::vector<std::pair<int, int>> get_check_edges_valid() {
+    return check_edges_valid;
+  }
+
+  std::vector<std::pair<int, int>> get_check_edges_invalid() {
+    return check_edges_invalid;
+  }
+
+private:
+  std::vector<std::vector<int>> adjacency_list;
+  std::vector<std::pair<int, int>> check_edges_valid;
+  std::vector<std::pair<int, int>> check_edges_invalid;
+  PRMlazy_options options;
+};
+
+template <typename StateSpace, int DIM>
 class PRM : public PlannerBase<StateSpace, DIM> {
 
   using AdjacencyList = std::vector<std::vector<int>>;
@@ -1071,10 +1410,11 @@ public:
         if (i >= nn[j].id) {
           continue;
         }
-        bool is_collision_free =
+        if (options.incremental_collision_check ||
             is_edge_collision_free(src, tgt, col, this->state_space,
-                                   this->options.collision_resolution);
-        if (is_collision_free) {
+                                   this->options.collision_resolution)
+
+        ) {
           adjacency_list[i].push_back(nn[j].id);
           adjacency_list[nn[j].id].push_back(i);
         }
@@ -1083,12 +1423,15 @@ public:
       // for (int j = i + 1; j < this->configs.size(); j++) {
       //   auto &src = this->configs[i];
       //   auto &tgt = this->configs[j];
-      //   if (this->state_space.distance(src, tgt) < options.connection_radius)
+      //   if (this->state_space.distance(src, tgt) <
+      //   options.connection_radius)
       //   {
-      //     bool is_collision_free =
-      //         is_edge_collision_free(src, tgt, col, this->state_space,
-      //                                this->options.collision_resolution);
-      //     if (is_collision_free) {
+      //
+      // if ( options.incremental_collision_check ||
+      //     is_edge_collision_free(src, tgt, col, this->state_space,
+      //                            this->options.collision_resolution)) {
+      //
+      //
       //       adjacency_list[i].push_back(j);
       //       adjacency_list[j].push_back(i);
       //     }
@@ -1105,17 +1448,51 @@ public:
     // Search a Path between start and goal
     //
 
-    // NOTE: I can just compute the collisions for edges lazily when required!
-    // (if no graph is available)
+    // NOTE: I can just compute the collisions for edges lazily when
+    // required! (if no graph is available)
     using Location = int;
     int start_id = 0;
     int goal_id = 1;
     std::unordered_map<Location, Location> came_from;
     std::unordered_map<Location, double> cost_so_far;
 
-    std::function<double(Location, Location)> cost = [this](Location a,
-                                                            Location b) {
-      return this->state_space.distance(this->configs[a], this->configs[b]);
+    // Use this to avoid recomputing collisions --> save such that (i,j)
+    // with i < j
+    std::unordered_map<int, bool> incremental_checked_edges;
+
+    // TODO: get evaluated edges afterwards!
+
+    std::function<double(Location, Location)> cost = [&](Location a,
+                                                         Location b) {
+      if (this->options.incremental_collision_check) {
+
+        int index = index_2d_to_1d_symmetric(a, b, this->configs.size());
+
+        // check if the edge has been checked before
+        if (incremental_checked_edges.find(index) !=
+            incremental_checked_edges.end()) {
+          if (incremental_checked_edges[index]) {
+            return this->state_space.distance(this->configs[a],
+                                              this->configs[b]);
+          } else {
+            return std::numeric_limits<double>::infinity();
+          }
+        }
+
+        bool cfree = is_edge_collision_free(this->configs[a], this->configs[b],
+                                            col, this->state_space,
+                                            this->options.collision_resolution);
+        incremental_checked_edges[index] = cfree;
+
+        if (cfree) {
+          return this->state_space.distance(this->configs[a], this->configs[b]);
+
+        } else {
+          return std::numeric_limits<double>::infinity();
+        }
+      } else {
+        return this->state_space.distance(this->configs[a], this->configs[b]);
+      }
     };
 
     std::function<double(Location, Location)> heuristic = [this](Location a,
@@ -1139,6 +1516,21 @@ public:
     std::cout << "time_collisions_ms: " << this->collisions_time_ms
               << std::endl;
 
+    for (auto &t : incremental_checked_edges) {
+      std::pair<int, int> pair = index_1d_to_2d(t.first, this->configs.size());
+      if (pair.first > pair.second) {
+        std::swap(pair.first, pair.second);
+      }
+      if (pair.first == pair.second) {
+        THROW_PRETTY_DYNORRT("pair.first == pair.second");
+      }
+      if (t.second) {
+        check_edges_valid.push_back(pair);
+      } else {
+        check_edges_invalid.push_back(pair);
+      }
+    }
+
     if (cost_so_far.find(goal_id) == cost_so_far.end()) {
       MESSAGE_PRETTY_DYNORRT("failed to find a solution!");
       return TerminationCondition::UNKNOWN;
@@ -1156,9 +1548,19 @@ public:
     }
   }
 
+  std::vector<std::pair<int, int>> &get_check_edges_valid() {
+    return check_edges_valid;
+  }
+
+  std::vector<std::pair<int, int>> &get_check_edges_invalid() {
+    return check_edges_invalid;
+  }
+
 private:
   PRM_options options;
   AdjacencyList adjacency_list;
+  std::vector<std::pair<int, int>> check_edges_valid;
+  std::vector<std::pair<int, int>> check_edges_invalid;
 };
 
 template <typename StateSpace, int DIM>
