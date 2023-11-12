@@ -1,0 +1,4 @@
+[PRM_options]
+connection_radius = 0.3
+num_vertices_0 = 500
+incremental_collision_check = true

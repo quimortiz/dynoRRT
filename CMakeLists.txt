@@ -7,14 +7,20 @@ project(
   VERSION 0.0.1
   LANGUAGES CXX)
 
-# set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
-# set(CMAKE_CXX_EXTENSIONS Off)
-
 include(FetchContent)
 
 FetchContent_Declare(magic_enum
                      GIT_REPOSITORY https://github.com/Neargye/magic_enum)
 FetchContent_MakeAvailable(magic_enum)
+
+# TODO: I don't like this here! but toml requires the standard to be set
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
+set(CMAKE_CXX_EXTENSIONS Off)
+
+FetchContent_Declare(toml11 GIT_REPOSITORY https://github.com/ToruNiina/toml11)
+
+FetchContent_MakeAvailable(toml11)
 
 # FetchContent_Declare(json GIT_REPOSITORY https://github.com/nlohmann/json)
 FetchContent_Declare(
@@ -22,15 +28,21 @@ FetchContent_Declare(
   URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
 FetchContent_MakeAvailable(json)
 
+# NOTE: still linking error when I try to compile in the conda env from
+# pinocchio.
 find_package(
   Boost REQUIRED COMPONENTS unit_test_framework system filesystem serialization
                             PATHS /usr/lib/x86_64-linux-gnu/)
 
-find_package(Eigen3 3.3 REQUIRED)
+find_package(Eigen3 REQUIRED)
+# Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
+# EXACT)
 
 include(GNUInstallDirs)
 add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
+
+add_executable(play_toml ./src/play_toml.cpp)
 
 target_include_directories(
   dynorrt INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -51,12 +63,26 @@ add_executable(main ./src/main.cpp)
 # target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_test(NAME test COMMAND main)
+target_link_libraries(
+  play_toml
+  PRIVATE dynorrt::dynorrt
+          dynotree::dynotree
+          Eigen3::Eigen
+          magic_enum::magic_enum
+          nlohmann_json::nlohmann_json
+          Boost::unit_test_framework
+          toml11::toml11)
 
 target_link_libraries(
   main
-  PRIVATE dynorrt::dynorrt dynotree::dynotree Eigen3::Eigen
-          magic_enum::magic_enum nlohmann_json::nlohmann_json
-          Boost::unit_test_framework)
+  PUBLIC Eigen3::Eigen
+  PRIVATE dynorrt::dynorrt
+          dynotree::dynotree
+          Eigen3::Eigen
+          magic_enum::magic_enum
+          nlohmann_json::nlohmann_json
+          Boost::unit_test_framework
+          toml11::toml11)
 
 set_target_properties(
   main

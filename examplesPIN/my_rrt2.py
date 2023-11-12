@@ -218,7 +218,7 @@ rrt_options.max_step = 1.0
 rrt_options.collision_resolution = 0.2
 
 rrt = pydynorrt.RRT_X()
-rrt.init_tree(6)
+rrt.init(6)
 rrt.set_start(q_i)
 rrt.set_goal(q_g)
 
@@ -260,13 +260,19 @@ rrt.set_bounds_to_state(lb, ub)
 rrt.set_options(rrt_options)
 
 
+tic = time.time()
 out = rrt.plan()
+elasped_time_ms = (time.time() - tic) * 1000
+
+print("Compute time (ms) : ", elasped_time_ms)
+print("Number of collision checks: ", counter_collision)
+print("Collision checks per second: ", counter_collision / elasped_time_ms * 1000)
+
 path = rrt.get_path()
 fine_path = rrt.get_fine_path(0.1)
-valid = rrt.get_valid_configs()
+valid = rrt.get_configs()
 sample = rrt.get_sample_configs()
 parents = rrt.get_parents()
-print("Number of collision checks: ", counter_collision)
 
 if os.environ.get("INTERACTIVE") is not None:
     input("Press Enter to continue...")

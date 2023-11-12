@@ -11,17 +11,20 @@ import json
 
 
 build_cmd = ["make"]
-run_cmd = ["./main", "--run_test=test_1"]
+# run_cmd = ["./main", "--run_test=test_birrt"]
+run_cmd = ["./main", "--run_test=test_rrt_connect"]
 
-out = subprocess.run(build_cmd, cwd="build")
+cwd = "buildFastDebug"
+out = subprocess.run(build_cmd, cwd=cwd)
 
 assert out.returncode == 0
 
-out = subprocess.run(run_cmd, cwd="build")
+out = subprocess.run(run_cmd, cwd=cwd)
 assert out.returncode == 0
 
 
-with open("/tmp/dynorrt/out.json", "r") as f:
+# with open("/tmp/dynorrt/test_birrt.json", "r") as f:
+with open("/tmp/dynorrt/test_rrt_connect.json", "r") as f:
     d = json.load(f)
 
 sample_configs = d["sample_configs"]
@@ -31,6 +34,8 @@ path = d["path"]
 fine_path = d["fine_path"]
 shortcut_path = d["shortcut_path"]
 
+configs_backward = d["configs_backward"]
+parents_backward = d["parents_backward"]
 
 import sys
 
@@ -77,7 +82,11 @@ def compute_two_points(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
 xlim = [0, 3]
 ylim = [0, 3]
 
-obstacles = [(np.array([1, 0.4]), 0.5), (np.array([1, 2]), 0.5)]
+obstacles = [
+    (np.array([1, 0.4]), 0.5),
+    (np.array([1, 2]), 0.5),
+    (np.array([2.2, 0.9]), 0.5),
+]
 
 
 def plot_env(ax, env):
@@ -122,12 +131,23 @@ ax.set_title("env, start and goal configurations")
 
 
 for i in range(len(sample_configs)):
-    plot_robot(ax, sample_configs[i], color="blue")
+    # plot_robot(ax, sample_configs[i], color="blue", alpha=0.1)
+    plt.plot(
+        [sample_configs[i][0]],
+        [sample_configs[i][1]],
+        marker="o",
+        markersize=12,
+        color="blue",
+        alpha=0.1,
+    )
 
 
 for i in range(len(configs)):
-    print(configs[i])
-    plot_robot(ax, configs[i], color="gray")
+    plot_robot(ax, configs[i], color="green", alpha=0.6)
+
+
+for i in range(len(configs_backward)):
+    plot_robot(ax, configs_backward[i], color="red", alpha=0.6)
 
 
 plot_robot(ax, start, "green")
@@ -143,58 +163,31 @@ for p, i in enumerate(parents):
         ax.plot(
             [configs[i][0], configs[p][0]],
             [configs[i][1], configs[p][1]],
-            color="yellow",
-            alpha=0.5,
+            color="green",
+            alpha=0.2,
             # linestyle="dashed",
         )
 
+for p, i in enumerate(parents_backward):
+    if i != -1:
+        # plot_robot(ax, configs[i], color="gray")
+        # plot_robot(ax, configs[p], color="gray")
+        ax.plot(
+            [configs_backward[i][0], configs_backward[p][0]],
+            [configs_backward[i][1], configs_backward[p][1]],
+            color="red",
+            alpha=0.2,
+            # linestyle="dashed",
+        )
+for i in range(0, len(path) - 1):
+    # plot_robot(ax, path[i], color="black", alpha=0.5)
+    ax.plot(
+        [path[i][0], path[i + 1][0]],
+        [path[i][1], path[i + 1][1]],
+        linestyle="dashed",
+        color="black",
+        alpha=0.5,
+    )
+    # path[i][0]], [path[i][1]], linestyle="dashed", color="black", alpha=0.5)
 
-for i in range(1, len(path) - 1):
-    plot_robot(ax, path[i], color="black", alpha=0.5)
-
-
-for i in range(1, len(fine_path) - 1):
-    plot_robot(ax, fine_path[i], color="black", alpha=0.2)
-
-# for i in range(1,len(shortcut_path) - 1):
-for i in range(len(shortcut_path)):
-    plot_robot(ax, shortcut_path[i], color="orange", alpha=1)
-
-
-#
-# # trace back the solution
-#
-# i = len(configs) - 1
-# path = []
-# path.append(np.copy(configs[i]))
-# while i != -1:
-#     path.append(np.copy(configs[i]))
-#     i = parents[i]
-#
-# # interpolate the path
-#
-# # reverse
-# path.reverse()
-#
-# for i in range(len(path) - 1):
-#     _start = path[i]
-#     _goal = path[i + 1]
-#     for i in range(N):
-#         out = np.zeros(3)
-#         interpolate_fun(_start, _goal, i / N, out)
-#         plot_robot(ax, out, color="gray", alpha=0.5)
-# # add the last configuration
-# plot_robot(ax, path[-1], color="gray", alpha=0.5)
-#
-#
-# for p in path:
-#     plot_robot(ax, p, color="blue", alpha=1)
-#
-#
-# print("path", path)
-#
-# ax.set_title("rrt solution")
 plt.show()
-#
-#
-# # just build rrt

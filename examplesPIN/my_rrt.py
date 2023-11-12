@@ -75,7 +75,7 @@ rrt_options.collision_resolution = 0.1
 rrt = pydynorrt.RRT_X()
 rrt.set_start(q_start)
 rrt.set_goal(q_goal)
-rrt.init_tree(2)
+rrt.init(2)
 rrt.set_is_collision_free_fun(lambda x: not coll(x))
 lb = np.array([-3.2, -3.2])
 ub = np.array([3.2, 3.2])
@@ -85,7 +85,7 @@ rrt.set_options(rrt_options)
 out = rrt.plan()
 path = rrt.get_path()
 fine_path = rrt.get_fine_path(0.1)
-valid = rrt.get_valid_configs()
+valid = rrt.get_configs()
 sample = rrt.get_sample_configs()
 
 

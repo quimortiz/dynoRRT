@@ -16,6 +16,8 @@
 
 using json = nlohmann::json;
 
+using namespace dynorrt;
+
 struct CircleObstacle {
   Eigen::Vector2d center;
   double radius;
@@ -97,11 +99,12 @@ BOOST_AUTO_TEST_CASE(test_1) {
 
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 0.4), 0.5});
   obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 2), 0.5});
+  // obstacles.push_back(CircleObstacle{Eigen::Vector2d(2.2, .9), 0.5});
 
   RRT_options options{.max_it = 1000,
                       .goal_bias = 0.05,
                       .collision_resolution = 0.01,
-                      .max_step = 10,
+                      .max_step = 1.,
                       .max_compute_time_ms = 1e9,
                       .goal_tolerance = 0.001,
                       .max_num_configs = 10000};
@@ -110,40 +113,232 @@ BOOST_AUTO_TEST_CASE(test_1) {
   rrt.set_state_space(state_space);
   rrt.set_start(Eigen::Vector3d(0.1, 0.1, M_PI / 2));
   rrt.set_goal(Eigen::Vector3d(2.0, 0.2, 0));
-  rrt.init_tree();
+  rrt.init(-1);
 
-  rrt.set_is_collision_free_fun(
-      [&](const auto &x) { return !is_collision(x, obstacles, radius); });
+  auto col_free = [&](const auto &x) {
+    return !is_collision(x, obstacles, radius);
+  };
+  rrt.set_is_collision_free_fun(col_free);
 
   TerminationCondition termination_condition = rrt.plan();
 
   std::cout << magic_enum::enum_name(termination_condition) << std::endl;
-
-  std::vector<Eigen::Vector3d> path, fine_path;
+  std::vector<Eigen::Vector3d> path, fine_path, shortcut_path;
   if (termination_condition == TerminationCondition::GOAL_REACHED) {
     path = rrt.get_path();
-    fine_path = rrt.get_fine_path(0.01);
+    fine_path = rrt.get_fine_path(0.1);
+    shortcut_path = path_shortcut_v1(path, col_free, rrt.get_state_space(),
+                                     options.collision_resolution);
   }
 
   // export to json
   json j;
   j["terminate_status"] = magic_enum::enum_name(termination_condition);
 
-  std::vector<Eigen::Vector3d> valid_configs, sample_configs;
+  std::vector<Eigen::Vector3d> configs, sample_configs;
   std::vector<int> parents;
 
-  valid_configs = rrt.get_valid_configs();
+  configs = rrt.get_configs();
   sample_configs = rrt.get_sample_configs();
   parents = rrt.get_parents();
+  path = rrt.get_path();
 
-  j["valid_configs"] = valid_configs;
+  j["configs"] = configs;
   j["sample_configs"] = sample_configs;
   j["parents"] = parents;
+  j["path"] = path;
+  j["fine_path"] = fine_path;
+  j["shortcut_path"] = shortcut_path;
 
-  std::ofstream o("../out.json");
+  namespace fs = std::filesystem;
+  fs::path filePath = "/tmp/dynorrt/out.json";
+
+  if (!fs::exists(filePath)) {
+    fs::create_directories(filePath.parent_path());
+    std::cout << "The directory path has been created." << std::endl;
+  } else {
+    std::cout << "The file already exists." << std::endl;
+  }
+
+  std::ofstream o(filePath.c_str());
   o << std::setw(2) << j << std::endl;
-
   BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
 
   // continue here!!
+}
+
+BOOST_AUTO_TEST_CASE(test_birrt) {
+
+  using state_space_t = dynotree::R2SO2<double>;
+  using tree_t = dynotree::KDTree<int, 3, 32, double, state_space_t>;
+
+  state_space_t state_space;
+  state_space.set_bounds(Eigen::Vector2d(0, 0), Eigen::Vector2d(3, 3));
+
+  BiRRT<state_space_t, 3> birrt;
+
+  std::vector<CircleObstacle> obstacles;
+
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 0.4), 0.5});
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 2), 0.5});
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(2.2, .9), 0.5});
+
+  std::srand(time(NULL));
+  BiRRT_options options{.max_it = 10000,
+                        .goal_bias = .8,
+                        .collision_resolution = 0.01,
+                        .backward_probability = 0.5,
+                        .max_step = .5,
+                        .max_compute_time_ms = 1e9,
+                        .goal_tolerance = 0.001,
+                        .max_num_configs = 10000,
+                        .xrand_collision_free = true,
+                        .max_num_trials_col_free = 1000};
+
+  birrt.set_options(options);
+  birrt.set_state_space(state_space);
+  birrt.set_start(Eigen::Vector3d(0.1, 0.1, M_PI / 2));
+  birrt.set_goal(Eigen::Vector3d(2.0, 0.2, 0));
+  birrt.init(-1);
+
+  auto col_free = [&](const auto &x) {
+    return !is_collision(x, obstacles, radius);
+  };
+  birrt.set_is_collision_free_fun(col_free);
+
+  TerminationCondition termination_condition = birrt.plan();
+
+  std::cout << magic_enum::enum_name(termination_condition) << std::endl;
+  std::vector<Eigen::Vector3d> path, fine_path, shortcut_path;
+  if (termination_condition == TerminationCondition::GOAL_REACHED) {
+    path = birrt.get_path();
+    fine_path = birrt.get_fine_path(0.1);
+    shortcut_path = path_shortcut_v1(path, col_free, birrt.get_state_space(),
+                                     options.collision_resolution);
+  }
+
+  // export to json
+  json j;
+  j["terminate_status"] = magic_enum::enum_name(termination_condition);
+
+  std::vector<Eigen::Vector3d> configs, sample_configs;
+  std::vector<int> parents;
+
+  configs = birrt.get_configs();
+  sample_configs = birrt.get_sample_configs();
+  parents = birrt.get_parents();
+  path = birrt.get_path();
+
+  j["configs"] = configs;
+  j["sample_configs"] = sample_configs;
+  j["parents"] = parents;
+
+  j["configs_backward"] = birrt.get_configs_backward();
+  j["parents_backward"] = birrt.get_parents_backward();
+
+  j["path"] = path;
+  j["fine_path"] = fine_path;
+  j["shortcut_path"] = shortcut_path;
+
+  namespace fs = std::filesystem;
+  fs::path filePath = "/tmp/dynorrt/test_birrt.json";
+
+  if (!fs::exists(filePath)) {
+    fs::create_directories(filePath.parent_path());
+    std::cout << "The directory path has been created." << std::endl;
+  } else {
+    std::cout << "The file already exists." << std::endl;
+  }
+
+  std::ofstream o(filePath.c_str());
+  o << std::setw(2) << j << std::endl;
+  BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
+}
+
+BOOST_AUTO_TEST_CASE(test_rrt_connect) {
+
+  using state_space_t = dynotree::R2SO2<double>;
+  using tree_t = dynotree::KDTree<int, 3, 32, double, state_space_t>;
+
+  state_space_t state_space;
+  state_space.set_bounds(Eigen::Vector2d(0, 0), Eigen::Vector2d(3, 3));
+
+  RRTConnect<state_space_t, 3> birrt;
+
+  std::vector<CircleObstacle> obstacles;
+
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 0.4), 0.5});
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(1, 2), 0.5});
+  obstacles.push_back(CircleObstacle{Eigen::Vector2d(2.2, .9), 0.5});
+
+  std::srand(time(NULL));
+  BiRRT_options options{.max_it = 10000,
+                        .goal_bias = .8,
+                        .collision_resolution = 0.01,
+                        .backward_probability = 0.5,
+                        .max_step = 1.,
+                        .max_compute_time_ms = 1e9,
+                        .goal_tolerance = 0.001,
+                        .max_num_configs = 10000,
+                        .xrand_collision_free = true,
+                        .max_num_trials_col_free = 1000};
+
+  birrt.set_options(options);
+  birrt.set_state_space(state_space);
+  birrt.set_start(Eigen::Vector3d(0.1, 0.1, M_PI / 2));
+  birrt.set_goal(Eigen::Vector3d(2.0, 0.2, 0));
+  birrt.init(-1);
+
+  auto col_free = [&](const auto &x) {
+    return !is_collision(x, obstacles, radius);
+  };
+  birrt.set_is_collision_free_fun(col_free);
+
+  TerminationCondition termination_condition = birrt.plan();
+
+  std::cout << magic_enum::enum_name(termination_condition) << std::endl;
+  std::vector<Eigen::Vector3d> path, fine_path, shortcut_path;
+  if (termination_condition == TerminationCondition::GOAL_REACHED) {
+    path = birrt.get_path();
+    fine_path = birrt.get_fine_path(0.1);
+    shortcut_path = path_shortcut_v1(path, col_free, birrt.get_state_space(),
+                                     options.collision_resolution);
+  }
+
+  // export to json
+  json j;
+  j["terminate_status"] = magic_enum::enum_name(termination_condition);
+
+  std::vector<Eigen::Vector3d> configs, sample_configs;
+  std::vector<int> parents;
+
+  configs = birrt.get_configs();
+  sample_configs = birrt.get_sample_configs();
+  parents = birrt.get_parents();
+  path = birrt.get_path();
+
+  j["configs"] = configs;
+  j["sample_configs"] = sample_configs;
+  j["parents"] = parents;
+
+  j["configs_backward"] = birrt.get_configs_backward();
+  j["parents_backward"] = birrt.get_parents_backward();
+
+  j["path"] = path;
+  j["fine_path"] = fine_path;
+  j["shortcut_path"] = shortcut_path;
+
+  namespace fs = std::filesystem;
+  fs::path filePath = "/tmp/dynorrt/test_rrt_connect.json";
+
+  if (!fs::exists(filePath)) {
+    fs::create_directories(filePath.parent_path());
+    std::cout << "The directory path has been created." << std::endl;
+  } else {
+    std::cout << "The file already exists." << std::endl;
+  }
+
+  std::ofstream o(filePath.c_str());
+  o << std::setw(2) << j << std::endl;
+  BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
 }

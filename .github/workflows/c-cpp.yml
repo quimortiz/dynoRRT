@@ -2,7 +2,7 @@ name: C/C++ CI
 
 on:
   push:
-    branches: [ "main","dev" ]
+    # branches: [ "main","dev" ]
   pull_request:
     branches: [ "main","dev" ]
 
@@ -48,14 +48,13 @@ jobs:
            pip3 install matplotlib
     - name: Examples Python
       run: |
-           cd build
-           python3 ../test_rrt.py
+           PYTHONPATH="build/bindings/python/" python3  test_rrt.py
     - name: C++ with Python visualization
-      run: python3 plot.py
+      run: |
+           PYTHONPATH="build/bindings/python/" python3  plot.py
 
     - name: Python with Pinocchio
       run:  |
           pip3 install pin example-robot-data meshcat scipy tqdm
-          cd build/bindings/python
-          python3 ../../../examplesPIN/my_rrt.py
-          python3 ../../../examplesPIN/my_rrt2.py
+          PYTHONPATH="build/bindings/python/" python3 examplesPIN/my_rrt.py
+          PYTHONPATH="build/bindings/python/" python3 examplesPIN/my_rrt2.py
