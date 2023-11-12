@@ -16,6 +16,8 @@
 
 using json = nlohmann::json;
 
+using namespace dynorrt;
+
 struct CircleObstacle {
   Eigen::Vector2d center;
   double radius;
@@ -111,7 +113,7 @@ BOOST_AUTO_TEST_CASE(test_1) {
   rrt.set_state_space(state_space);
   rrt.set_start(Eigen::Vector3d(0.1, 0.1, M_PI / 2));
   rrt.set_goal(Eigen::Vector3d(2.0, 0.2, 0));
-  rrt.init_tree();
+  rrt.init(-1);
 
   auto col_free = [&](const auto &x) {
     return !is_collision(x, obstacles, radius);
@@ -197,8 +199,7 @@ BOOST_AUTO_TEST_CASE(test_birrt) {
   birrt.set_state_space(state_space);
   birrt.set_start(Eigen::Vector3d(0.1, 0.1, M_PI / 2));
   birrt.set_goal(Eigen::Vector3d(2.0, 0.2, 0));
-  birrt.init_tree();
-  birrt.init_backward_tree();
+  birrt.init(-1);
 
   auto col_free = [&](const auto &x) {
     return !is_collision(x, obstacles, radius);
@@ -286,8 +287,7 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
   birrt.set_state_space(state_space);
   birrt.set_start(Eigen::Vector3d(0.1, 0.1, M_PI / 2));
   birrt.set_goal(Eigen::Vector3d(2.0, 0.2, 0));
-  birrt.init_tree();
-  birrt.init_backward_tree();
+  birrt.init(-1);
 
   auto col_free = [&](const auto &x) {
     return !is_collision(x, obstacles, radius);

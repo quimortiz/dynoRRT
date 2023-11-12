@@ -7,14 +7,16 @@ project(
   VERSION 0.0.1
   LANGUAGES CXX)
 
-# set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
-# set(CMAKE_CXX_EXTENSIONS Off)
-
 include(FetchContent)
 
 FetchContent_Declare(magic_enum
                      GIT_REPOSITORY https://github.com/Neargye/magic_enum)
 FetchContent_MakeAvailable(magic_enum)
+
+# TODO: I don't like this here! but toml requires the standard to be set
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED On)
+set(CMAKE_CXX_EXTENSIONS Off)
 
 FetchContent_Declare(toml11 GIT_REPOSITORY https://github.com/ToruNiina/toml11)
 

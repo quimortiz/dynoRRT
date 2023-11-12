@@ -1,3 +1,6 @@
+
+#include "dynoRRT/dynorrt_macros.h"
+
 #include "dynotree/KDTree.h"
 #include "magic_enum.hpp"
 
@@ -15,43 +18,7 @@
 #include <ctime>
 #include <iostream>
 
-class pretty_runtime_exception : public std::runtime_error {
-  // Adapted from:
-  // https://stackoverflow.com/questions/348833/how-to-know-the-exact-line-of-code-where-an-exception-has-been-caused
-
-public:
-  pretty_runtime_exception(const std::string &arg, const char *file, int line,
-                           const char *function)
-      : std::runtime_error(arg) {
-    std::ostringstream o;
-    o << "Error in " << function << " (" << file << ":" << line << "): " << arg
-      << std::endl;
-    msg = o.str();
-  }
-  ~pretty_runtime_exception() throw() {}
-  const char *what() const throw() { return msg.c_str(); }
-
-private:
-  std::string msg;
-};
-
-#define THROW_PRETTY_DYNORRT(arg)                                              \
-  throw pretty_runtime_exception(arg, __FILE__, __LINE__, __FUNCTION__);
-
-#define CHECK_PRETTY_DYNORRT(condition, arg)                                   \
-  if (!(condition)) {                                                          \
-    throw pretty_runtime_exception(arg, __FILE__, __LINE__, __FUNCTION__);     \
-  }
-
-#define CHECK_PRETTY_DYNORRT__(condition)                                      \
-  if (!(condition)) {                                                          \
-    throw pretty_runtime_exception(#condition, __FILE__, __LINE__,             \
-                                   __FUNCTION__);                              \
-  }
-
-#define MESSAGE_PRETTY_DYNORRT(arg)                                            \
-  std::cout << "Message in " << __FUNCTION__ << " (" << __FILE__ << ":"        \
-            << __LINE__ << "): " << arg << std::endl;
+namespace dynorrt {
 
 template <typename T> void print_path(const std::vector<T> &path) {
 
@@ -171,6 +138,8 @@ public:
   using is_collision_free_fun_t = std::function<bool(state_t)>;
   using edge_t = std::pair<state_t, state_t>;
 
+  virtual ~PlannerBase() = default;
+
   void set_state_space(StateSpace t_state_space) {
     state_space = t_state_space;
   }
@@ -231,7 +200,7 @@ public:
     return path;
   }
 
-  void init_tree(int t_runtime_dim = -1) {
+  virtual void init(int t_runtime_dim = -1) {
 
     runtime_dim = t_runtime_dim;
     std::cout << "init tree" << std::endl;
@@ -310,10 +279,12 @@ public:
     infeasible_edges = 0;
     total_distance = -1;
     collisions_time_ms = 0;
-    init_tree();
+    init();
   }
 
-  virtual TerminationCondition plan() = 0;
+  virtual TerminationCondition plan() {
+    THROW_PRETTY_DYNORRT("Not implemented in base class!");
+  }
 
 protected:
   StateSpace state_space;
@@ -358,13 +329,28 @@ class BiRRT : public PlannerBase<StateSpace, DIM> {
 public:
   using Base = PlannerBase<StateSpace, DIM>;
   using tree_t = typename Base::tree_t;
+  using state_t = typename Base::state_t;
   using Configs = std::vector<typename Base::state_t>;
+
+  struct T_helper {
+    std::vector<int> *parents;
+    std::vector<state_t> *configs;
+    tree_t *tree;
+    bool is_forward;
+  };
+
+  virtual ~BiRRT() = default;
 
   void set_options(BiRRT_options t_options) { options = t_options; }
   BiRRT_options get_options() { return options; }
 
   Configs &get_configs_backward() { return configs_backward; }
   std::vector<int> &get_parents_backward() { return parents_backward; }
+
+  virtual void init(int t_runtime_dim = -1) override {
+    Base::init(t_runtime_dim);
+    init_backward_tree(t_runtime_dim);
+  }
 
   void init_backward_tree(int t_runtime_dim = -1) {
     this->runtime_dim = t_runtime_dim;
@@ -450,30 +436,39 @@ public:
     int connect_id_forward = -1;
     int connect_id_backward = -1;
 
+    T_helper Ta{.parents = &this->parents,
+                .configs = &this->configs,
+                .tree = &this->tree,
+                .is_forward = true
+
+    };
+
+    T_helper Tb{.parents = &parents_backward,
+                .configs = &configs_backward,
+                .tree = &tree_backward,
+                .is_forward = false};
+
+    T_helper Tsrc, Ttgt;
+
     while (termination_condition == TerminationCondition::RUNNING) {
 
       expand_forward = static_cast<double>(std::rand()) / RAND_MAX >
                        options.backward_probability;
-      auto tgt_configs_ptr =
-          expand_forward ? &configs_backward : &this->configs;
 
-      auto src_tree_ptr = expand_forward ? &this->tree : &tree_backward;
-      auto src_configs_ptr =
-          expand_forward ? &this->configs : &configs_backward;
-      auto src_parents_ptr =
-          expand_forward ? &this->parents : &parents_backward;
-
-      auto connect_id_src_ptr =
-          expand_forward ? &connect_id_forward : &connect_id_backward;
-      auto connect_id_tgt_ptr =
-          expand_forward ? &connect_id_backward : &connect_id_forward;
+      if (expand_forward) {
+        Tsrc = Ta;
+        Ttgt = Tb;
+      } else {
+        Tsrc = Tb;
+        Ttgt = Ta;
+      }
 
       int goal_id = -1;
       bool goal_connection_attempt =
           static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias;
       if (goal_connection_attempt) {
-        goal_id = std::rand() % tgt_configs_ptr->size();
-        this->x_rand = tgt_configs_ptr->at(goal_id);
+        goal_id = std::rand() % Ttgt.configs->size();
+        this->x_rand = Ttgt.configs->at(goal_id);
       } else {
         if (options.xrand_collision_free) {
           bool is_collision_free = false;
@@ -491,9 +486,9 @@ public:
         }
       }
       this->sample_configs.push_back(this->x_rand);
-      auto nn = src_tree_ptr->search(this->x_rand);
+      auto nn = Tsrc.tree->search(this->x_rand);
       std::cout << "nn.id: " << nn.id << std::endl;
-      this->x_near = src_configs_ptr->at(nn.id);
+      this->x_near = Tsrc.configs->at(nn.id);
 
       bool full_step_attempt = nn.distance < options.max_step;
       if (full_step_attempt) {
@@ -503,13 +498,6 @@ public:
                                       options.max_step / nn.distance,
                                       this->x_new);
       }
-
-      std::cout << "goal goal_connection_attempt" << goal_connection_attempt
-                << std::endl;
-      std::cout << "expand_forward" << expand_forward << std::endl;
-      std::cout << "x_rand: " << this->x_rand.transpose() << std::endl;
-      std::cout << "x_new: " << this->x_new.transpose() << std::endl;
-      std::cout << "x_near: " << this->x_near.transpose() << std::endl;
 
       this->evaluated_edges += 1;
       bool is_collision_free = is_edge_collision_free(
@@ -525,24 +513,27 @@ public:
       this->infeasible_edges += !is_collision_free;
 
       if (is_collision_free) {
-        src_tree_ptr->addPoint(this->x_new, src_tree_ptr->size());
-        src_configs_ptr->push_back(this->x_new);
-        src_parents_ptr->push_back(nn.id);
-        CHECK_PRETTY_DYNORRT__(src_tree_ptr->size() == src_configs_ptr->size());
-        CHECK_PRETTY_DYNORRT__(src_tree_ptr->size() == src_parents_ptr->size());
+        Tsrc.tree->addPoint(this->x_new, Tsrc.tree->size());
+        Tsrc.configs->push_back(this->x_new);
+        Tsrc.parents->push_back(nn.id);
+        CHECK_PRETTY_DYNORRT__(Tsrc.tree->size() == Tsrc.configs->size());
+        CHECK_PRETTY_DYNORRT__(Tsrc.tree->size() == Tsrc.parents->size());
 
-        // TODO: decide if I Should do this or do a second KD tree?
         if (full_step_attempt && goal_connection_attempt) {
           path_found = true;
-          MESSAGE_PRETTY_DYNORRT("path found");
-          CHECK_PRETTY_DYNORRT__(
-              this->state_space.distance(this->x_new,
-                                         tgt_configs_ptr->at(goal_id)) <
-              options.goal_tolerance);
-          *connect_id_src_ptr = src_tree_ptr->size() - 1;
-          *connect_id_tgt_ptr = goal_id;
+          MESSAGE_PRETTY_DYNORRT("Path found!");
+          CHECK_PRETTY_DYNORRT__(this->state_space.distance(
+                                     this->x_new, Ttgt.configs->at(goal_id)) <
+                                 options.goal_tolerance);
+
+          if (expand_forward) {
+            connect_id_forward = Tsrc.tree->size() - 1;
+            connect_id_backward = goal_id;
+          } else {
+            connect_id_forward = goal_id;
+            connect_id_backward = Tsrc.tree->size() - 1;
+          }
         }
-        // Alternative: Second KD tree
       }
 
       num_it++;
@@ -551,10 +542,6 @@ public:
     } // RRT CONNECT terminated
 
     if (termination_condition == TerminationCondition::GOAL_REACHED) {
-
-      // forward tree
-      //
-      //
 
       CHECK_PRETTY_DYNORRT__(this->configs.size() >= 1);
       CHECK_PRETTY_DYNORRT__(configs_backward.size() >= 1);
@@ -571,13 +558,9 @@ public:
 
       std::reverse(bwd_path.begin(), bwd_path.end());
 
-      print_path(fwd_path);
-      print_path(bwd_path);
-
       this->path.insert(this->path.end(), fwd_path.begin(), fwd_path.end());
       this->path.insert(this->path.end(), bwd_path.begin() + 1, bwd_path.end());
     }
-    // else
 
     return termination_condition;
     //
@@ -598,6 +581,8 @@ class RRTConnect : public BiRRT<StateSpace, DIM> {
   using tree_t = typename Base::Base::tree_t;
 
 public:
+  virtual ~RRTConnect() = default;
+
   virtual TerminationCondition plan() override {
 
     auto &options = this->options;
@@ -649,24 +634,17 @@ public:
     int connect_id_forward = -1;
     int connect_id_backward = -1;
 
-    struct T {
-      std::vector<int> *parents;
-      std::vector<state_t> *configs;
-      tree_t *tree;
-      bool is_forward;
-    };
-
-    T Ta{.parents = &this->parents,
-         .configs = &this->configs,
-         .tree = &this->tree,
-         .is_forward = true
+    typename Base::T_helper Ta{.parents = &this->parents,
+                               .configs = &this->configs,
+                               .tree = &this->tree,
+                               .is_forward = true
 
     };
 
-    T Tb{.parents = &this->parents_backward,
-         .configs = &this->configs_backward,
-         .tree = &this->tree_backward,
-         .is_forward = false};
+    typename Base::T_helper Tb{.parents = &this->parents_backward,
+                               .configs = &this->configs_backward,
+                               .tree = &this->tree_backward,
+                               .is_forward = false};
 
     while (termination_condition == TerminationCondition::RUNNING) {
 
@@ -803,6 +781,8 @@ class RRT : public PlannerBase<StateSpace, DIM> {
 public:
   RRT() = default;
 
+  virtual ~RRT() = default;
+
   void set_options(RRT_options t_options) { options = t_options; }
 
   virtual TerminationCondition plan() override {
@@ -927,7 +907,6 @@ public:
 
         double distance =
             Base::state_space.distance(Base::path[i], Base::path[i + 1]);
-        MESSAGE_PRETTY_DYNORRT(distance);
         CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
 
         Base::total_distance +=
@@ -956,16 +935,7 @@ public:
   };
 
 protected:
-  //   StateSpace state_space;
-  //   state_t start;
-  //   state_t goal;
-  //   tree_t tree;
-  //   is_collision_free_fun_t is_collision_free_fun;
   RRT_options options;
-  //   std::vector<state_t> path;
-  //   std::vector<state_t> configs, sample_configs;
-  //   std::vector<int> parents;
-  //   int runtime_dim = DIM;
-  //   double total_distance = -1;
-  //   double collisions_time_ms = 0;
 };
+
+} // namespace dynorrt

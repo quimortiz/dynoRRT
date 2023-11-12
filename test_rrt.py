@@ -50,19 +50,11 @@ def plot_robot(ax, x, color="black", alpha=1.0):
     ax.plot([x[0]], [x[1]], marker="o", color=color, alpha=alpha)
 
 
-fig, ax = plt.subplots()
-start = np.array([0.1, 0.1])
-goal = np.array([2.0, 0.2])
-
-
-plot_env(ax, obstacles)
-
-
-ax.set_xlim(xlim)
-ax.set_ylim(ylim)
-ax.set_aspect("equal")
-ax.set_title("env, start and goal configurations")
-
+planners = [
+    pydynorrt.RRT_X,
+    pydynorrt.BiRRT_X,
+    pydynorrt.RRTConnect_X,
+]
 
 rrt_options = pydynorrt.RRT_options()
 rrt_options.max_it = 80
@@ -70,52 +62,66 @@ rrt_options.max_step = 1.0
 rrt_options.collision_resolution = 0.1
 rrt_options.goal_bias = 0.1
 
-rrt = pydynorrt.RRT_X()
-rrt.set_start(start)
-rrt.set_goal(goal)
-rrt.init_tree(2)
-rrt.set_is_collision_free_fun(is_collision_free)
-rrt.set_bounds_to_state([xlim[0], ylim[0]], [xlim[1], ylim[1]])
-rrt.set_options(rrt_options)
+options = [rrt_options, None, None]
+names = ["RRT", "BiRRT", "RRT_Connect"]
 
 
-out = rrt.plan()
-path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.1)
-valid = rrt.get_configs()
-sample = rrt.get_sample_configs()
+for name, planner, options in zip(names, planners, options):
 
-for v in sample:
-    plot_robot(ax, v, color="blue", alpha=0.5)
+    fig, ax = plt.subplots()
+    start = np.array([0.1, 0.1])
+    goal = np.array([2.0, 0.2])
+    plot_env(ax, obstacles)
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.set_aspect("equal")
+    ax.set_title("env, start and goal configurations")
 
-for v in valid:
-    plot_robot(ax, v, color="gray", alpha=0.5)
+    rrt = planner()
+    rrt.set_start(start)
+    rrt.set_goal(goal)
+    rrt.init(2)
+    rrt.set_is_collision_free_fun(is_collision_free)
+    rrt.set_bounds_to_state([xlim[0], ylim[0]], [xlim[1], ylim[1]])
 
+    if options is not None:
+        rrt.set_options(rrt_options)
 
-for i in range(len(path)):
-    plot_robot(ax, path[i], color="black")
+    out = rrt.plan()
+    path = rrt.get_path()
+    fine_path = rrt.get_fine_path(0.1)
+    valid = rrt.get_configs()
+    sample = rrt.get_sample_configs()
 
-for i in range(len(fine_path)):
-    plot_robot(ax, fine_path[i], color="yellow")
+    for v in sample:
+        plot_robot(ax, v, color="blue", alpha=0.5)
 
+    for v in valid:
+        plot_robot(ax, v, color="gray", alpha=0.5)
 
-parents = rrt.get_parents()
+    for i in range(len(path)):
+        plot_robot(ax, path[i], color="black")
 
+    for i in range(len(fine_path)):
+        plot_robot(ax, fine_path[i], color="yellow")
 
-for i, p in enumerate(parents):
-    if p != -1:
-        print(f"{i} -> {p}")
-        ax.plot(
-            [valid[i][0], valid[p][0]],
-            [valid[i][1], valid[p][1]],
-            color="black",
-            alpha=0.5,
-        )
+    parents = rrt.get_parents()
 
-plot_robot(ax, start, "green")
-plot_robot(ax, goal, "red")
+    for i, p in enumerate(parents):
+        if p != -1:
+            print(f"{i} -> {p}")
+            ax.plot(
+                [valid[i][0], valid[p][0]],
+                [valid[i][1], valid[p][1]],
+                color="black",
+                alpha=0.5,
+            )
 
-plt.show()
+    plot_robot(ax, start, "green")
+    plot_robot(ax, goal, "red")
+    plt.title(name)
+
+    plt.show()
 
 
 # TODO: print the tree using the parent pointers!

@@ -75,7 +75,7 @@ rrt_options.collision_resolution = 0.1
 rrt = pydynorrt.RRT_X()
 rrt.set_start(q_start)
 rrt.set_goal(q_goal)
-rrt.init_tree(2)
+rrt.init(2)
 rrt.set_is_collision_free_fun(lambda x: not coll(x))
 lb = np.array([-3.2, -3.2])
 ub = np.array([3.2, 3.2])
