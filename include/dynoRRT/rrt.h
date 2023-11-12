@@ -1,5 +1,5 @@
-
 #include "dynoRRT/dynorrt_macros.h"
+#include "dynoRRT/toml_extra_macros.h"
 
 #include "dynotree/KDTree.h"
 #include "magic_enum.hpp"
@@ -17,6 +17,65 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+
+// options
+
+namespace dynorrt {
+
+struct RRT_options {
+  int max_it = 10000;
+  double goal_bias = 0.05;
+  double collision_resolution = 0.01;
+  double max_step = 1.;
+  double max_compute_time_ms = 1e9;
+  double goal_tolerance = 0.001;
+  int max_num_configs = 10000;
+  bool xrand_collision_free = true;
+  int max_num_trials_col_free = 1000;
+
+  void print(std::ostream & = std::cout);
+};
+
+struct BiRRT_options {
+  int max_it = 10000;
+  double goal_bias = 0.05;
+  double collision_resolution = 0.01;
+  double backward_probability = 0.5;
+  double max_step = 0.1;
+  double max_compute_time_ms = 1e9;
+  double goal_tolerance = 0.001;
+  int max_num_configs = 10000;
+  bool xrand_collision_free = true;
+  int max_num_trials_col_free = 1000;
+
+  void print(std::ostream & = std::cout);
+};
+
+} // namespace dynorrt
+
+TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::RRT_options, max_it,
+                                          goal_bias, collision_resolution,
+                                          max_step, max_compute_time_ms,
+                                          goal_tolerance, max_num_configs,
+                                          xrand_collision_free,
+                                          max_num_trials_col_free);
+
+TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
+                                          goal_bias, collision_resolution,
+                                          backward_probability, max_step,
+                                          max_compute_time_ms, goal_tolerance,
+                                          max_num_configs, xrand_collision_free,
+                                          max_num_trials_col_free);
+
+inline void dynorrt::RRT_options::print(std::ostream &out) {
+  toml::value v = *this;
+  out << v << std::endl;
+}
+
+inline void dynorrt::BiRRT_options::print(std::ostream &out) {
+  toml::value v = *this;
+  out << v << std::endl;
+}
 
 namespace dynorrt {
 
@@ -108,18 +167,6 @@ auto trace_back_solution(int id, std::vector<T> configs,
   return path;
 };
 
-struct RRT_options {
-  int max_it = 10000;
-  double goal_bias = 0.05;
-  double collision_resolution = 0.01;
-  double max_step = 1.;
-  double max_compute_time_ms = 1e9;
-  double goal_tolerance = 0.001;
-  int max_num_configs = 10000;
-  bool xrand_collision_free = true;
-  int max_num_trials_col_free = 1000;
-};
-
 enum class TerminationCondition {
   MAX_IT,
   MAX_TIME,
@@ -142,6 +189,30 @@ public:
 
   void set_state_space(StateSpace t_state_space) {
     state_space = t_state_space;
+  }
+
+  virtual void print_options(std::ostream &out = std::cout) {
+    THROW_PRETTY_DYNORRT("Not implemented in base class!");
+  }
+
+  void virtual set_options_from_toml(toml::value &cfg) {
+    THROW_PRETTY_DYNORRT("Not implemented in base class!");
+  }
+
+  virtual void read_cfg_file(const std::string &cfg_file) {
+
+    std::ifstream ifs(cfg_file);
+    if (!ifs) {
+      THROW_PRETTY_DYNORRT("Cannot open cfg_file: " + cfg_file);
+    }
+    auto cfg = toml::parse(ifs);
+    set_options_from_toml(cfg);
+  }
+
+  void virtual read_cfg_string(const std::string &cfg_string) {
+    std::stringstream ss(cfg_string);
+    auto cfg = toml::parse(ss);
+    set_options_from_toml(cfg);
   }
 
   std::vector<edge_t> get_valid_edges() { return valid_edges; }
@@ -292,7 +363,6 @@ protected:
   state_t goal;
   tree_t tree;
   is_collision_free_fun_t is_collision_free_fun;
-  RRT_options options;
   std::vector<state_t> path;
   std::vector<state_t> configs;
   std::vector<state_t> sample_configs;
@@ -306,19 +376,6 @@ protected:
   std::vector<std::pair<state_t, state_t>> invalid_edges;
 
   state_t x_rand, x_new, x_near;
-};
-
-struct BiRRT_options {
-  int max_it = 10000;
-  double goal_bias = 0.05;
-  double collision_resolution = 0.01;
-  double backward_probability = 0.5;
-  double max_step = 0.1;
-  double max_compute_time_ms = 1e9;
-  double goal_tolerance = 0.001;
-  int max_num_configs = 10000;
-  bool xrand_collision_free = true;
-  int max_num_trials_col_free = 1000;
 };
 
 // Continue here!
@@ -343,6 +400,14 @@ public:
 
   void set_options(BiRRT_options t_options) { options = t_options; }
   BiRRT_options get_options() { return options; }
+
+  virtual void print_options(std::ostream &out = std::cout) override {
+    options.print(out);
+  }
+
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    options = toml::find<BiRRT_options>(cfg, "RRT_options");
+  }
 
   Configs &get_configs_backward() { return configs_backward; }
   std::vector<int> &get_parents_backward() { return parents_backward; }
@@ -390,6 +455,9 @@ public:
   virtual TerminationCondition plan() override {
 
     check_internal();
+
+    MESSAGE_PRETTY_DYNORRT("Options");
+    this->print_options();
 
     // forward tree
     this->parents.push_back(-1);
@@ -584,10 +652,10 @@ public:
   virtual ~RRTConnect() = default;
 
   virtual TerminationCondition plan() override {
-
-    auto &options = this->options;
-
     this->check_internal();
+
+    MESSAGE_PRETTY_DYNORRT("Options");
+    this->print_options();
 
     // forward tree
     this->parents.push_back(-1);
@@ -615,11 +683,11 @@ public:
 
     auto should_terminate = [&] {
       if (this->configs.size() + this->configs_backward.size() >
-          options.max_num_configs) {
+          this->options.max_num_configs) {
         return TerminationCondition::MAX_NUM_CONFIGS;
-      } else if (num_it > options.max_it) {
+      } else if (num_it > this->options.max_it) {
         return TerminationCondition::MAX_IT;
-      } else if (get_elapsed_ms() > options.max_compute_time_ms) {
+      } else if (get_elapsed_ms() > this->options.max_compute_time_ms) {
         return TerminationCondition::MAX_TIME;
       } else if (path_found) {
         return TerminationCondition::GOAL_REACHED;
@@ -648,11 +716,11 @@ public:
 
     while (termination_condition == TerminationCondition::RUNNING) {
 
-      if (options.xrand_collision_free) {
+      if (this->options.xrand_collision_free) {
         bool is_collision_free = false;
         int num_tries = 0;
         while (!is_collision_free &&
-               num_tries < options.max_num_trials_col_free) {
+               num_tries < this->options.max_num_trials_col_free) {
           this->state_space.sample_uniform(this->x_rand);
           is_collision_free = col(this->x_rand);
           num_tries++;
@@ -672,19 +740,19 @@ public:
       auto nn_a = Ta.tree->search(this->x_rand);
       this->x_near = Ta.configs->at(nn_a.id);
 
-      bool full_step_attempt = nn_a.distance < options.max_step;
+      bool full_step_attempt = nn_a.distance < this->options.max_step;
       if (full_step_attempt) {
         this->x_new = this->x_rand;
       } else {
         this->state_space.interpolate(this->x_near, this->x_rand,
-                                      options.max_step / nn_a.distance,
+                                      this->options.max_step / nn_a.distance,
                                       this->x_new);
       }
 
       this->evaluated_edges += 1;
       bool is_collision_free = is_edge_collision_free(
           this->x_near, this->x_new, col, this->state_space,
-          options.collision_resolution);
+          this->options.collision_resolution);
 
       if (is_collision_free) {
         this->valid_edges.push_back({this->x_near, this->x_new});
@@ -702,18 +770,18 @@ public:
         auto nn_b = Tb.tree->search(this->x_rand);
         this->x_near = Tb.configs->at(nn_b.id);
 
-        bool full_step_attempt = nn_b.distance < options.max_step;
+        bool full_step_attempt = nn_b.distance < this->options.max_step;
         if (full_step_attempt) {
           this->x_new = this->x_rand;
         } else {
           this->state_space.interpolate(this->x_near, this->x_rand,
-                                        options.max_step / nn_b.distance,
+                                        this->options.max_step / nn_b.distance,
                                         this->x_new);
         }
         this->evaluated_edges += 1;
         bool is_collision_free = is_edge_collision_free(
             this->x_near, this->x_new, col, this->state_space,
-            options.collision_resolution);
+            this->options.collision_resolution);
         if (is_collision_free) {
           Tb.tree->addPoint(this->x_new, Tb.tree->size());
           Tb.configs->push_back(this->x_new);
@@ -756,7 +824,7 @@ public:
 
       CHECK_PRETTY_DYNORRT__(
           this->state_space.distance(fwd_path.back(), bwd_path.back()) <
-          options.goal_tolerance);
+          this->options.goal_tolerance);
 
       std::reverse(bwd_path.begin(), bwd_path.end());
 
@@ -783,11 +851,21 @@ public:
 
   virtual ~RRT() = default;
 
+  virtual void print_options(std::ostream &out = std::cout) override {
+    options.print(out);
+  }
+
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    options = toml::find<RRT_options>(cfg, "RRT_options");
+  }
+
   void set_options(RRT_options t_options) { options = t_options; }
 
   virtual TerminationCondition plan() override {
-
     Base::check_internal();
+
+    MESSAGE_PRETTY_DYNORRT("Options");
+    this->print_options();
 
     Base::parents.push_back(-1);
     Base::configs.push_back(Base::start);
@@ -939,3 +1017,8 @@ protected:
 };
 
 } // namespace dynorrt
+//
+//
+//
+
+//

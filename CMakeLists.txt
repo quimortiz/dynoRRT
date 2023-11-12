@@ -75,9 +75,14 @@ target_link_libraries(
 
 target_link_libraries(
   main
-  PRIVATE dynorrt::dynorrt dynotree::dynotree Eigen3::Eigen
-          magic_enum::magic_enum nlohmann_json::nlohmann_json
-          Boost::unit_test_framework)
+  PUBLIC Eigen3::Eigen
+  PRIVATE dynorrt::dynorrt
+          dynotree::dynotree
+          Eigen3::Eigen
+          magic_enum::magic_enum
+          nlohmann_json::nlohmann_json
+          Boost::unit_test_framework
+          toml11::toml11)
 
 set_target_properties(
   main

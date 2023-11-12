@@ -129,7 +129,9 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds_to_state", &PlannerBase_RX::set_bounds_to_state)
       .def("get_sample_configs", &PlannerBase_RX::get_sample_configs)
       .def("get_configs", &PlannerBase_RX::get_configs)
-      .def("get_parents", &PlannerBase_RX::get_parents);
+      .def("get_parents", &PlannerBase_RX::get_parents)
+      .def("read_cfg_file", &PlannerBase_RX::read_cfg_file)
+      .def("read_cfg_string", &PlannerBase_RX::read_cfg_string);
 
   py::class_<RRT_X, PlannerBase_RX>(m, "RRT_X")
       .def(py::init<>())

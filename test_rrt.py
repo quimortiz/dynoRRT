@@ -50,20 +50,43 @@ def plot_robot(ax, x, color="black", alpha=1.0):
     ax.plot([x[0]], [x[1]], marker="o", color=color, alpha=alpha)
 
 
+# rrt_options = pydynorrt.RRT_options()
+# rrt_options.max_it = 80
+# rrt_options.max_step = 1.0
+# rrt_options.collision_resolution = 0.1
+# rrt_options.goal_bias = 0.1
+
+
+# options_rrt_str = r"""
+# [RRT_options]
+# max_it = 100
+# max_step = 0.1
+# goal_bias = 0.5
+# """
+
+options_rrt_str = "planner_config/rrt_v0.toml"
+
 planners = [
     pydynorrt.RRT_X,
     pydynorrt.BiRRT_X,
     pydynorrt.RRTConnect_X,
 ]
-
-rrt_options = pydynorrt.RRT_options()
-rrt_options.max_it = 80
-rrt_options.max_step = 1.0
-rrt_options.collision_resolution = 0.1
-rrt_options.goal_bias = 0.1
-
-options = [rrt_options, None, None]
+options = [options_rrt_str, None, None]
 names = ["RRT", "BiRRT", "RRT_Connect"]
+
+planners = [
+    pydynorrt.RRT_X,
+    # pydynorrt.BiRRT_X,
+    # pydynorrt.RRTConnect_X,
+]
+options = [
+    options_rrt_str,
+    # None, None
+]
+names = [
+    "RRT",
+    # "BiRRT", "RRT_Connect"
+]
 
 
 for name, planner, options in zip(names, planners, options):
@@ -85,7 +108,11 @@ for name, planner, options in zip(names, planners, options):
     rrt.set_bounds_to_state([xlim[0], ylim[0]], [xlim[1], ylim[1]])
 
     if options is not None:
-        rrt.set_options(rrt_options)
+        if options.endswith(".toml"):
+            rrt.read_cfg_file(options)
+        else:
+            rrt.read_cfg_string(options)
+        # rrt.set_options(rrt_options)
 
     out = rrt.plan()
     path = rrt.get_path()

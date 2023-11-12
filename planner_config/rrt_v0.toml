@@ -1,0 +1,4 @@
+[RRT_options]
+max_it = 100
+max_step = 1.0
+goal_bias = 0.5
