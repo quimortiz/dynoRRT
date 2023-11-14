@@ -1,3 +1,4 @@
+#include "collision_manager.h"
 #include "dynoRRT/dynorrt_macros.h"
 #include "dynoRRT/toml_extra_macros.h"
 
@@ -274,6 +275,17 @@ template <typename T> void print_path(const std::vector<T> &path) {
   }
 }
 
+/**
+ * @brief      Check if a path is collision free.
+ * @tparam     T     The type of the state
+ * @tparam     StateSpace  The type of the state space
+ * @tparam     Fun   The type of the is collision free function
+ * @param[in]  path  The path we want to shortcut
+ * @param[in]  is_collision_free_fun  The is collision free function
+ * @param[in]  state_space  The state
+ * @param[in]  resolution  The resolution
+ * @return     True if collision free, False otherwise.
+ */
 template <typename T, typename StateSpace, typename Fun>
 bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
                             StateSpace state_space, double resolution) {
@@ -430,6 +442,13 @@ public:
   void
   set_is_collision_free_fun(is_collision_free_fun_t t_is_collision_free_fun) {
     is_collision_free_fun = t_is_collision_free_fun;
+  }
+
+  void
+  set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
+    is_collision_free_fun = [collision_manager](state_t x) {
+      return !collision_manager->is_collision(x);
+    };
   }
 
   bool is_collision_free_fun_timed(state_cref_t x) {

@@ -3,6 +3,7 @@
 
 #include <pybind11/functional.h>
 
+#include "dynoRRT/collision_manager.h"
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -120,6 +121,8 @@ PYBIND11_MODULE(pydynorrt, m) {
 
   py::class_<PlannerBase_RX>(m, "PlannerBase_X")
       .def(py::init<>())
+      .def("set_collision_manager",
+           &PlannerBase_RX::set_collision_manager)  // add point
       .def("set_start", &PlannerBase_RX::set_start) // add point
       .def("set_goal", &PlannerBase_RX::set_goal)
       .def("init", &PlannerBase_RX::init)
@@ -158,6 +161,28 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
       .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
       .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
+
+  py::class_<BallObstacle<2>>(m, "BallObs2")
+      .def(py::init<BallObstacle<2>::Cref, double>())
+      .def_readwrite("center", &BallObstacle<2>::center)
+      .def_readwrite("radius", &BallObstacle<2>::radius);
+
+  py::class_<CollisionManagerBallWorld<2>>(m, "CM2")
+      .def(py::init<>())
+      .def("add_obstacle", &CollisionManagerBallWorld<2>::add_obstacle)
+      .def("set_radius_robot", &CollisionManagerBallWorld<2>::set_radius_robot)
+      .def("set_obstacles", &CollisionManagerBallWorld<2>::set_obstacles);
+
+  py::class_<BallObstacle<-1>>(m, "BallObsX")
+      .def(py::init<BallObstacle<-1>::Cref, double>())
+      .def_readwrite("center", &BallObstacle<-1>::center)
+      .def_readwrite("radius", &BallObstacle<-1>::radius);
+
+  py::class_<CollisionManagerBallWorld<-1>>(m, "CMX")
+      .def(py::init<>())
+      .def("add_obstacle", &CollisionManagerBallWorld<-1>::add_obstacle)
+      .def("set_radius_robot", &CollisionManagerBallWorld<-1>::set_radius_robot)
+      .def("set_obstacles", &CollisionManagerBallWorld<-1>::set_obstacles);
 
   m.def("srand", [](int seed) { std::srand(seed); });
   m.def("rand", []() { return std::rand(); });

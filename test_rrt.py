@@ -37,6 +37,14 @@ class Obstacle:
 
 obstacles = [Obstacle(np.array([1, 0.4]), 0.5), Obstacle(np.array([1, 2]), 0.5)]
 
+obs1 = pydynorrt.BallObsX([1, 0.4], 0.5)
+obs2 = pydynorrt.BallObsX([1, 2], 0.5)
+
+cm2 = pydynorrt.CMX()
+cm2.add_obstacle(obs1)
+cm2.add_obstacle(obs2)
+cm2.set_radius_robot(0)
+
 counter = 0
 
 
@@ -84,19 +92,19 @@ planners = [
     # pydynorrt.RRT_X,
     # pydynorrt.BiRRT_X,
     # pydynorrt.RRTConnect_X,
-    # pydynorrt.PRM_X,
-    pydynorrt.LazyPRM_X
+    pydynorrt.PRM_X,
+    # pydynorrt.LazyPRM_X
 ]
 options = [
     # options_rrt_str, None, None,
-    # options_prm_str
-    options_lazyprm_str
+    options_prm_str
+    # options_lazyprm_str
 ]
 
 names = [
     # "RRT", "BiRRT", "RRT_Connect",
-    # "PRM",
-    "LazyPRM",
+    "PRM",
+    # "LazyPRM",
 ]
 
 # planners = [
@@ -129,7 +137,8 @@ for name, planner, options in zip(names, planners, options):
     rrt.set_start(start)
     rrt.set_goal(goal)
     rrt.init(2)
-    rrt.set_is_collision_free_fun(is_collision_free)
+    # rrt.set_is_collision_free_fun(is_collision_free)
+    rrt.set_collision_manager(cm2)
     rrt.set_bounds_to_state([xlim[0], ylim[0]], [xlim[1], ylim[1]])
 
     if options is not None:

@@ -1,7 +1,9 @@
 # dynoRRT
 
-A simple and performant motion planning for C++ and Python.
+A simple and performant motion planning library for C++ and Python.
 Install in seconds, solve in milliseconds!
+
+<!-- ROS free, OMPL free, MOVE-it free. -->
 
 Pre alpha state!
 
