@@ -1,7 +1,9 @@
 # dynoRRT
 
-A simple and performant motion planning for C++ and Python.
-Install in seconds, solve in milliseconds!
+A simple and performant motion planning library for C++ and Python.
+Install in seconds, solve in milliseconds! 
+
+Demo: From zero to hero in 2 Minutes (Real time Screen-cast)
 
 Pre alpha state!
 
@@ -15,11 +17,23 @@ https://github.com/Gepetto/supaero2022
 * RRT
 * RRT Connect
 * Bidirectional RRT
-* PRM
-* Incremental PRM (similar BIT\*)
+* PRM (Optionally, Check edges using Lazy Astar, Similar to BIT*)
 * LAZY PRM
 * COMING SOON: RRT\*
+* COMING SOON: AO-RRT
 * COMING SOON: PRM\*
+* COMING SOON: Sparse?
+
+Kinodynamic Planners (Think if can just reuse code from above?)
+* Kinodynamic RRT
+* SST*
+* AO-Kinodynamic RRT
+
+More Planners? 
+Check our latest work in kinodynamic motion planning using Search And Trajectory Optimization.
+Our recent state-of-the art motion planners optimal kinodynamic motion planning are in,
+https://github.com/quimortiz/dynoplan
+  
 
 # Collision and Robots
 
@@ -44,3 +58,7 @@ https://github.com/Gepetto/supaero2022
 # Test and CI
 
 * We will have good tests and CI
+* Code Coverage
+
+# Roadmap
+
