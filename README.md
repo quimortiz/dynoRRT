@@ -6,7 +6,8 @@ Install in seconds, solve in milliseconds!
 Pre alpha state!
 
 The code that uses Pinocchio is taken from:
-https://github.com/ymontmarin/_tps_robotique
+https://github.com/ymontmarin/_tps_robotique and 
+https://github.com/Gepetto/supaero2022
 
 
 # Planners
