@@ -115,7 +115,6 @@ names = [
 
 
 for name, planner, options in zip(names, planners, options):
-
     fig, ax = plt.subplots()
     start = np.array([0.1, 0.1])
     goal = np.array([2.0, 0.2])

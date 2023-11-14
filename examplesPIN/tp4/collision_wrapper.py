@@ -127,7 +127,6 @@ class CollisionWrapper:
         self.createDisplayPatchs(0)
 
     def createDisplayPatchs(self, ncollisions):
-
         if ncollisions == self.ncollisions:
             return
         elif ncollisions < self.ncollisions:  # Remove patches
