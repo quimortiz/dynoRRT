@@ -3,7 +3,7 @@
 A simple and performant motion planning library for C++ and Python.
 Install in seconds, solve in milliseconds! 
 
-Demo: From zero to hero in 2 Minutes (Real time Screen-cast)
+Demo: Pip install and Solve Motion Planning with state-of-the-art performance (2 minutes real time screencast)
 
 Pre alpha state!
 
