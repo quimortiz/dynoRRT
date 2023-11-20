@@ -1,14 +1,14 @@
 # dynoRRT
 
 A simple and performant motion planning library for C++ and Python.
-Install in seconds, solve in milliseconds! 
+Install in seconds, solve in milliseconds!
 
 Demo: Pip install and Solve Motion Planning with state-of-the-art performance (2 minutes real time screencast)
 
 Pre alpha state!
 
 The code that uses Pinocchio is taken from:
-https://github.com/ymontmarin/_tps_robotique and 
+https://github.com/ymontmarin/_tps_robotique and
 https://github.com/Gepetto/supaero2022
 
 
@@ -29,11 +29,11 @@ Kinodynamic Planners (Think if can just reuse code from above?)
 * SST*
 * AO-Kinodynamic RRT
 
-More Planners? 
+More Planners?
 Check our latest work in kinodynamic motion planning using Search And Trajectory Optimization.
 Our recent state-of-the art motion planners optimal kinodynamic motion planning are in,
 https://github.com/quimortiz/dynoplan
-  
+
 
 # Collision and Robots
 
@@ -61,4 +61,3 @@ https://github.com/quimortiz/dynoplan
 * Code Coverage
 
 # Roadmap
-
