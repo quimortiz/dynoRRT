@@ -64,7 +64,7 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-add_executable(main src/main.cpp)
+add_executable(main src/main.cpp src/test_dev.cpp)
 
 # target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

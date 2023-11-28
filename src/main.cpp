@@ -21,7 +21,29 @@
 #include "pinocchio/parsers/urdf.hpp"
 
 #include "pinocchio/algorithm/geometry.hpp"
-#include "pinocchio/algorithm/joint-configuration.hpp"
+
+#include <hpp/fcl/collision_object.h>
+#include <hpp/fcl/shape/geometric_shapes.h>
+#include <iostream>
+
+#include "dynotree/KDTree.h"
+#include "magic_enum.hpp"
+#include <Eigen/Dense>
+#include <chrono>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <nlohmann/json.hpp>
+
+#include "dynoRRT/collision_manager.h"
+#include "dynoRRT/eigen_conversions.hpp"
+#include "dynoRRT/rrt.h"
+#include <boost/test/unit_test.hpp>
+
+#include "pinocchio/parsers/srdf.hpp"
+#include "pinocchio/parsers/urdf.hpp"
+
+#include "pinocchio/algorithm/geometry.hpp"
 
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>

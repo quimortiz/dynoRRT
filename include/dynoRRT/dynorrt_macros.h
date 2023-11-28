@@ -45,4 +45,5 @@ private:
 
 #define MESSAGE_PRETTY_DYNORRT(arg)                                            \
   std::cout << "Message in " << __FUNCTION__ << " (" << __FILE__ << ":"        \
-            << __LINE__ << "): " << arg << std::endl;
+            << __LINE__ << ")\n"                                               \
+            << arg << std::endl;

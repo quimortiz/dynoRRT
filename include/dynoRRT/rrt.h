@@ -1,3 +1,5 @@
+#pragma once
+
 #include "collision_manager.h"
 #include "dynoRRT/dynorrt_macros.h"
 #include "dynoRRT/toml_extra_macros.h"
@@ -8,38 +10,25 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
+#include <boost/fusion/functional/invocation/invoke.hpp>
 #include <chrono>
-#include <exception>
 #include <fstream>
-#include <iomanip>
 #include <nlohmann/json.hpp>
 
-#include <climits>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
 
-// options
-
-/*
- Sample code from https://www.redblobgames.com/pathfinding/a-star/
- Copyright 2014 Red Blob Games <redblobgames@gmail.com>
-
- Feel free to use this code in your own projects, including commercial projects
- License: Apache v2.0 <http://www.apache.org/licenses/LICENSE-2.0.html>
-*/
-
 #include <algorithm>
-#include <array>
 #include <cstdlib>
-#include <iomanip>
-#include <iostream>
 #include <queue>
-#include <tuple>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
+
+using json = nlohmann::json;
+
+using namespace dynorrt;
 
 inline auto index_2d_to_1d_symmetric(int i, int j, int n) {
   if (i > j) {
@@ -371,8 +360,58 @@ enum class TerminationCondition {
   GOAL_REACHED,
   MAX_NUM_CONFIGS,
   RUNNING,
+  // The following are for Anytime Assymp optimal planners
+  MAX_IT_GOAL_REACHED,
+  MAX_TIME_GOAL_REACHED,
+  MAX_NUM_CONFIGS_GOAL_REACHED,
+  RUNNING_GOAL_REACHED,
+  EXTERNAL_TRIGGER_GOAL_REACHED,
   UNKNOWN
 };
+
+inline void ensure_connected_tree_with_no_cycles(
+    const std::vector<std::set<int>> &childrens) {
+
+  int num_configs = childrens.size();
+  std::vector<bool> visited(num_configs, false);
+
+  int start = 0;
+
+  std::queue<int> q;
+  q.push(start);
+
+  // Check that I visit all nodes once
+  while (!q.empty()) {
+    int current = q.front();
+    q.pop();
+    CHECK_PRETTY_DYNORRT__(visited[current] == false);
+    visited[current] = true;
+    for (auto child : childrens[current]) {
+      q.push(child);
+    }
+  }
+
+  // check that all nodes are visited
+  for (int i = 0; i < num_configs; i++) {
+    if (!visited[i]) {
+      std::cout << "i: " << i << std::endl;
+      std::cout << "num_configs: " << num_configs << std::endl;
+      std::cout << "visited[i]: " << visited[i] << std::endl;
+      CHECK_PRETTY_DYNORRT__(visited[i]);
+    }
+  }
+}
+
+inline bool is_termination_condition_solved(
+    const TerminationCondition &termination_condition) {
+  return termination_condition == TerminationCondition::GOAL_REACHED ||
+         termination_condition == TerminationCondition::MAX_IT_GOAL_REACHED ||
+         termination_condition == TerminationCondition::MAX_TIME_GOAL_REACHED ||
+         termination_condition ==
+             TerminationCondition::MAX_NUM_CONFIGS_GOAL_REACHED ||
+         termination_condition ==
+             TerminationCondition::EXTERNAL_TRIGGER_GOAL_REACHED;
+}
 
 template <typename StateSpace, int DIM> class PlannerBase {
 
@@ -1586,6 +1625,482 @@ private:
   AdjacencyList adjacency_list;
   std::vector<std::pair<int, int>> check_edges_valid;
   std::vector<std::pair<int, int>> check_edges_invalid;
+};
+
+bool inline ensure_childs_and_parents(
+    const std::vector<std::set<int>> &children,
+    const std::vector<int> &parents) {
+
+  if (parents.size() != children.size()) {
+    MESSAGE_PRETTY_DYNORRT("parents.size() != children.size()");
+    return false;
+  }
+
+  for (size_t i = 0; i < parents.size(); i++) {
+    if (parents[i] == -1) {
+      continue;
+    }
+    if (children[parents[i]].find(i) == children[parents[i]].end()) {
+      MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
+      std::cout << "parents[i] " << parents[i] << std::endl;
+      std::cout << "children[parents[i]] " << std::endl;
+      for (auto &x : children[parents[i]]) {
+        std::cout << x << " ";
+      }
+      return false;
+    }
+  }
+
+  for (size_t i = 0; i < children.size(); i++) {
+    // MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
+    for (auto &child : children[i]) {
+      std::cout << "child " << child << std::endl;
+      std::cout << "parents[child] " << parents[child] << std::endl;
+      if (parents[child] != i) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+// TODO
+// AO-RRT: TODO
+// RRT-Kinodynamic: Reuse RRT?
+// SST:
+
+// Reference:
+// Sampling-based Algorithms for Optimal Motion Planning
+// Sertac Karaman Emilio Frazzoli
+//
+// Algorithm 6
+// https://arxiv.org/pdf/1105.1186.pdf
+template <typename StateSpace, int DIM>
+class RRTStar : public PlannerBase<StateSpace, DIM> {
+
+  using Base = PlannerBase<StateSpace, DIM>;
+  using state_t = typename Base::state_t;
+
+public:
+  RRTStar() = default;
+
+  virtual ~RRTStar() = default;
+
+  virtual void print_options(std::ostream &out = std::cout) override {
+    options.print(out);
+  }
+
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    options = toml::find<RRT_options>(cfg, "RRT_options");
+  }
+
+  // Lets do recursive version first
+  void update_children(int start, double difference,
+                       const std::vector<int> &parents,
+                       const std::vector<std::set<int>> &children,
+                       std::vector<double> &cost_to_come, int &counter) {
+    counter++;
+    CHECK_PRETTY_DYNORRT__(counter < parents.size());
+    std::cout << "update children on " << start << std::endl;
+    CHECK_PRETTY_DYNORRT__(difference < 0);
+    CHECK_PRETTY_DYNORRT__(start > 0);
+    CHECK_PRETTY_DYNORRT__(start < parents.size());
+    CHECK_PRETTY_DYNORRT__(start < children.size());
+    CHECK_PRETTY_DYNORRT__(start < cost_to_come.size());
+    CHECK_PRETTY_DYNORRT__(parents.size() == children.size());
+    CHECK_PRETTY_DYNORRT__(parents.size() == cost_to_come.size());
+    for (auto &child : children.at(start)) {
+      cost_to_come.at(child) += difference;
+      update_children(child, difference, parents, children, cost_to_come,
+                      counter);
+    }
+  }
+
+  void set_options(RRT_options t_options) { options = t_options; }
+
+  std::vector<double> get_cost_to_come() { return cost_to_come; }
+  std::vector<std::set<int>> get_children() { return children; }
+  std::vector<std::vector<state_t>> get_paths() { return paths; }
+
+  void ensure_datastructures() {
+
+    int number_configs = this->configs.size();
+
+    CHECK_PRETTY_DYNORRT__(this->parents.size() == number_configs);
+    CHECK_PRETTY_DYNORRT__(this->children.size() == number_configs);
+    CHECK_PRETTY_DYNORRT__(this->cost_to_come.size() == number_configs);
+    CHECK_PRETTY_DYNORRT__(this->tree.size() == number_configs);
+  }
+
+  virtual TerminationCondition plan() override {
+    Base::check_internal();
+
+    MESSAGE_PRETTY_DYNORRT("Options");
+    this->print_options();
+
+    this->parents.push_back(-1);
+    this->children.push_back(std::set<int>());
+    this->configs.push_back(Base::start);
+    this->cost_to_come.push_back(0.);
+    this->tree.addPoint(Base::start, 0);
+
+    int num_it = 0;
+
+    auto tic = std::chrono::steady_clock::now();
+    bool path_found = false;
+
+    auto col = [this](const auto &x) {
+      return this->Base::is_collision_free_fun_timed(x);
+    };
+
+    auto get_elapsed_ms = [&] {
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::steady_clock::now() - tic)
+          .count();
+    };
+
+    auto should_terminate = [&] {
+      if (Base::configs.size() > options.max_num_configs) {
+        if (path_found) {
+          return TerminationCondition::MAX_NUM_CONFIGS_GOAL_REACHED;
+        } else {
+          return TerminationCondition::MAX_NUM_CONFIGS;
+        }
+      } else if (num_it > options.max_it) {
+        if (path_found) {
+          return TerminationCondition::MAX_IT_GOAL_REACHED;
+        } else {
+          return TerminationCondition::MAX_IT;
+        }
+      } else if (get_elapsed_ms() > options.max_compute_time_ms) {
+        if (path_found) {
+          return TerminationCondition::MAX_TIME_GOAL_REACHED;
+        } else {
+          return TerminationCondition::MAX_TIME;
+        }
+      } else {
+        if (path_found) {
+          return TerminationCondition::RUNNING_GOAL_REACHED;
+        } else {
+          return TerminationCondition::RUNNING;
+        }
+      }
+    };
+
+    TerminationCondition termination_condition = should_terminate();
+    int goal_id = -1;
+    double best_cost = std::numeric_limits<double>::infinity();
+
+    while (termination_condition == TerminationCondition::RUNNING ||
+           termination_condition ==
+               TerminationCondition::RUNNING_GOAL_REACHED) {
+
+      // check that the goal_id is never a parent of a node
+      if (goal_id != -1) {
+        for (auto &p : this->parents) {
+          if (p == goal_id) {
+            THROW_PRETTY_DYNORRT("goal_id is a parent of a node");
+          }
+        }
+      }
+
+      ensure_connected_tree_with_no_cycles(this->children);
+      ensure_datastructures();
+
+      if (!ensure_childs_and_parents(children, this->parents)) {
+        THROW_PRETTY_DYNORRT("parents and children are not consistent it " +
+                             std::to_string(num_it));
+      }
+
+      bool informed_rrt_star = false;
+      int max_attempts_informed = 1000;
+      if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
+        this->x_rand = Base::goal;
+      } else {
+        if (options.xrand_collision_free) {
+          bool is_collision_free = false;
+          int num_tries = 0;
+          while (!is_collision_free &&
+                 num_tries < options.max_num_trials_col_free) {
+
+            Base::state_space.sample_uniform(this->x_rand);
+            is_collision_free = col(this->x_rand);
+            if (informed_rrt_star) {
+              THROW_PRETTY_DYNORRT("not implemented");
+            }
+            num_tries++;
+          }
+          CHECK_PRETTY_DYNORRT(is_collision_free,
+                               "cannot generate a valid xrand");
+        } else {
+          Base::state_space.sample_uniform(this->x_rand);
+        }
+      }
+
+      Base::sample_configs.push_back(this->x_rand);
+
+      auto nn1 = Base::tree.search(this->x_rand);
+
+      if (nn1.id == goal_id) {
+        // I dont want to put nodes as children of the goal
+        nn1 = Base::tree.searchKnn(this->x_rand, 2).at(1);
+      }
+
+      this->x_near = Base::configs.at(nn1.id);
+
+      if (nn1.distance < options.max_step) {
+        this->x_new = this->x_rand;
+      } else {
+        Base::state_space.interpolate(this->x_near, this->x_rand,
+                                      options.max_step / nn1.distance,
+                                      this->x_new);
+      }
+
+      Base::evaluated_edges += 1;
+      bool is_collision_free = is_edge_collision_free(
+          this->x_near, this->x_new, col, Base::state_space,
+          options.collision_resolution);
+      Base::infeasible_edges += !is_collision_free;
+
+      if (is_collision_free) {
+        this->valid_edges.push_back({this->x_near, this->x_new});
+      } else if (!is_collision_free) {
+        this->invalid_edges.push_back({this->x_near, this->x_new});
+      }
+
+      if (is_collision_free) {
+
+        // Be Careful not to add the goal twice!
+        double distance_to_goal =
+            this->get_state_space().distance(this->x_new, this->goal);
+
+        // Compute all the nodes inside a ball
+        double radius_search = options.max_step;
+        auto _nns = this->tree.searchBall(this->x_new, radius_search);
+
+        bool is_goal = distance_to_goal < options.goal_tolerance;
+        int id_new;
+        if (path_found && is_goal) {
+          id_new = goal_id;
+        } else {
+          id_new = Base::configs.size();
+        }
+
+        std::unordered_map<int, int> edges_map; // -1, 0 , 1
+        // { -1: not checked, 0: collision, 1: no collision}
+
+        // NOTE: at most, there will be configs.size() + 1 points
+        int max_configs_index = Base::configs.size() + 1;
+        for (auto &_nn : _nns) {
+          edges_map[index_2d_to_1d_symmetric(_nn.id, id_new,
+                                             max_configs_index)] = -1;
+        }
+
+        int id_min = nn1.id;
+        std::cout << "nn1.id: " << nn1.id << std::endl;
+        double cost_min = cost_to_come.at(id_min) +
+                          this->state_space.distance(this->x_near, this->x_new);
+
+        for (auto &_nn : _nns) {
+
+          if (_nn.id == goal_id) {
+            // do not add a node as child of the goal
+            continue;
+          }
+
+          double tentative_g =
+              cost_to_come.at(_nn.id) +
+              this->state_space.distance(this->configs.at(_nn.id), this->x_new);
+          if (tentative_g < cost_min) {
+            if (edges_map[index_2d_to_1d_symmetric(_nn.id, id_new,
+                                                   max_configs_index)] == -1) {
+              bool is_collision_free = is_edge_collision_free(
+                  this->configs.at(_nn.id), this->x_new, col, Base::state_space,
+                  options.collision_resolution);
+              edges_map[index_2d_to_1d_symmetric(_nn.id, id_new,
+                                                 max_configs_index)] =
+                  static_cast<int>(is_collision_free);
+            }
+            if (edges_map[index_2d_to_1d_symmetric(_nn.id, id_new,
+                                                   max_configs_index)] == 1) {
+              id_min = _nn.id;
+              cost_min = tentative_g;
+            }
+          }
+        }
+
+        if (path_found && is_goal) {
+          if (id_min != this->parents.at(id_new)) {
+            // Rewire the goal
+            this->children.at(this->parents.at(id_new)).erase(id_new);
+            this->children.at(id_min).insert(id_new);
+            this->parents.at(id_new) = id_min;
+            this->cost_to_come.at(id_new) = cost_min;
+          }
+        } else {
+          Base::tree.addPoint(this->x_new, id_new);
+          Base::configs.push_back(this->x_new);
+          this->parents.push_back(id_min);
+          this->cost_to_come.push_back(cost_min);
+          this->children.push_back(std::set<int>());
+          this->children.at(id_min).insert(id_new);
+        }
+
+        if (!path_found && Base::state_space.distance(this->x_new, Base::goal) <
+                               options.goal_tolerance) {
+          path_found = true;
+          goal_id = id_new;
+          MESSAGE_PRETTY_DYNORRT("First Path Found");
+          MESSAGE_PRETTY_DYNORRT("Goal id: " << goal_id);
+        }
+
+        // std::cout << "CHILDREN" << std::endl;
+        //
+        // int counter = 0;
+        // for (auto &x : this->children) {
+        //   std::cout << counter++ << ": ";
+        //   for (auto &y : x) {
+        //     std::cout << y << " ";
+        //   }
+        //   std::cout << std::endl;
+        // }
+        //
+        // std::cout << "PARENTS" << std::endl;
+        // counter = 0;
+        // for (auto &x : this->parents) {
+        //   std::cout << counter++ << ": " << x << std::endl;
+        // }
+
+        if (id_new != goal_id) {
+          // Rewire the tree
+          for (auto &_nn : _nns) {
+            double tentative_g =
+                cost_to_come.at(id_new) +
+                this->state_space.distance(this->configs.at(id_new),
+                                           this->configs.at(_nn.id));
+            double current_g = cost_to_come.at(_nn.id);
+            if (tentative_g < current_g) {
+              if (edges_map[index_2d_to_1d_symmetric(
+                      _nn.id, id_new, Base::configs.size())] == -1) {
+                bool is_collision_free = is_edge_collision_free(
+                    this->configs.at(_nn.id), this->x_new, col,
+                    Base::state_space, options.collision_resolution);
+                edges_map[index_2d_to_1d_symmetric(_nn.id, id_new,
+                                                   Base::configs.size())] =
+                    static_cast<int>(is_collision_free);
+              }
+              if (edges_map[index_2d_to_1d_symmetric(
+                      _nn.id, id_new, Base::configs.size())] == 1) {
+                // Improve! I should rewire the tree
+                this->children.at(this->parents.at(_nn.id)).erase(_nn.id);
+                this->parents.at(_nn.id) = id_new;
+                this->children.at(id_new).insert(_nn.id);
+                this->cost_to_come.at(_nn.id) = tentative_g;
+                MESSAGE_PRETTY_DYNORRT("rewiring");
+                std::cout << "_nn.id: " << _nn.id << std::endl;
+                std::cout << "id new: " << id_new << std::endl;
+                std::cout << "tentative_g: " << tentative_g << std::endl;
+                std::cout << "current_g: " << current_g << std::endl;
+                double difference = tentative_g - current_g;
+                CHECK_PRETTY_DYNORRT__(difference < 0);
+                int counter = 0;
+
+                ensure_childs_and_parents(children, this->parents);
+
+                std::cout << "CHILDREN" << std::endl;
+
+                int _counter = 0;
+                for (auto &x : this->children) {
+                  std::cout << _counter++ << ": ";
+                  for (auto &y : x) {
+                    std::cout << y << " ";
+                  }
+                  std::cout << std::endl;
+                }
+
+                std::cout << "PARENTS" << std::endl;
+                counter = 0;
+                for (auto &x : this->parents) {
+                  std::cout << counter++ << ": " << x << std::endl;
+                }
+
+                counter = 0;
+                update_children(_nn.id, difference, this->parents,
+                                this->children, this->cost_to_come, counter);
+              }
+            }
+          }
+        }
+      }
+      if (path_found) {
+        double goal_cost_tentative = cost_to_come[goal_id];
+        // most of the times, the cost is the same!
+        if (goal_cost_tentative < best_cost) {
+          best_cost = goal_cost_tentative;
+          paths.push_back(
+              trace_back_solution(goal_id, Base::configs, Base::parents));
+          MESSAGE_PRETTY_DYNORRT("New Path Found!"
+                                 << " Number paths" << paths.size());
+        }
+      }
+      num_it++;
+      termination_condition = should_terminate();
+    } // RRT terminated
+
+    if (is_termination_condition_solved(termination_condition)) {
+
+      int i = goal_id;
+      MESSAGE_PRETTY_DYNORRT("goal id is" << i);
+
+      CHECK_PRETTY_DYNORRT__(
+          Base::state_space.distance(Base::configs[i], Base::goal) <
+          options.goal_tolerance);
+
+      Base::path = trace_back_solution(i, Base::configs, Base::parents);
+
+      CHECK_PRETTY_DYNORRT__(
+          Base::state_space.distance(Base::path[0], Base::start) < 1e-6);
+      CHECK_PRETTY_DYNORRT__(
+          Base::state_space.distance(Base::path.back(), Base::goal) < 1e-6);
+
+      Base::total_distance = 0;
+      for (size_t i = 0; i < Base::path.size() - 1; i++) {
+
+        double distance =
+            Base::state_space.distance(Base::path[i], Base::path[i + 1]);
+        CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
+
+        Base::total_distance +=
+            Base::state_space.distance(Base::path[i], Base::path[i + 1]);
+      }
+    }
+
+    MESSAGE_PRETTY_DYNORRT("Output from RRT PLANNER");
+    std::cout << "Terminate status: "
+              << magic_enum::enum_name(termination_condition) << std::endl;
+    std::cout << "num_it: " << num_it << std::endl;
+    std::cout << "configs.size(): " << Base::configs.size() << std::endl;
+    std::cout << "compute time (ms): "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::steady_clock::now() - tic)
+                     .count()
+              << std::endl;
+    std::cout << "collisions time (ms): " << Base::collisions_time_ms
+              << std::endl;
+    std::cout << "evaluated_edges: " << Base::evaluated_edges << std::endl;
+    std::cout << "infeasible_edges: " << Base::infeasible_edges << std::endl;
+    std::cout << "path.size(): " << Base::path.size() << std::endl;
+    std::cout << "total_distance: " << Base::total_distance << std::endl;
+
+    return termination_condition;
+  };
+
+protected:
+  std::vector<double> cost_to_come;
+  std::vector<std::set<int>> children;
+  std::vector<std::vector<state_t>> paths;
+  RRT_options options;
 };
 
 template <typename StateSpace, int DIM>
