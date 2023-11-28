@@ -387,6 +387,8 @@ public:
 
   void set_state_space(StateSpace t_state_space) {
     state_space = t_state_space;
+    tree = tree_t();
+    tree.init_tree(runtime_dim, state_space);
   }
 
   virtual void print_options(std::ostream &out = std::cout) {
@@ -567,7 +569,11 @@ protected:
   state_t start;
   state_t goal;
   tree_t tree;
-  is_collision_free_fun_t is_collision_free_fun;
+  is_collision_free_fun_t is_collision_free_fun = [](const auto &) {
+    THROW_PRETTY_DYNORRT("define a collision free fun!");
+    return false;
+  };
+
   std::vector<state_t> path;
   std::vector<state_t> configs;
   std::vector<state_t> sample_configs;

@@ -1,3 +1,5 @@
+#include "dynoRRT/dynorrt_macros.h"
+#include <string>
 #define BOOST_TEST_MODULE test_0
 #define BOOST_TEST_DYN_LINK
 
@@ -14,6 +16,16 @@
 #include "dynoRRT/eigen_conversions.hpp"
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
+
+#include "pinocchio/parsers/srdf.hpp"
+#include "pinocchio/parsers/urdf.hpp"
+
+#include "pinocchio/algorithm/geometry.hpp"
+#include "pinocchio/algorithm/joint-configuration.hpp"
+
+#include <hpp/fcl/collision_object.h>
+#include <hpp/fcl/shape/geometric_shapes.h>
+#include <iostream>
 
 using json = nlohmann::json;
 
@@ -444,4 +456,315 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
   std::ofstream o(filePath.c_str());
   o << std::setw(2) << j << std::endl;
   BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
+}
+
+#ifndef PINOCCHIO_MODEL_DIR
+#define PINOCCHIO_MODEL_DIR                                                    \
+  "/home/quim/croco/lib/python3.8/site-packages/cmeel.prefix/share/"
+#endif
+
+struct PinExternalObstacle {
+
+  std::string shape;
+  std::string name;
+  Eigen::VectorXd data;
+  Eigen::VectorXd translation;
+  Eigen::VectorXd rotation_angle_axis;
+};
+
+class Collision_manager_pinocchio {
+
+public:
+  void set_urdf_filename(const std::string &t_urdf_filename) {
+    urdf_filename = t_urdf_filename;
+  }
+
+  void set_srdf_filename(const std::string &t_srdf_filename) {
+    srdf_filename = t_srdf_filename;
+  }
+  void set_robots_model_path(const std::string &t_robot_model_path) {
+    robots_model_path = t_robot_model_path;
+  }
+
+  void add_external_obstacle(const PinExternalObstacle &obs) {
+    obstacles.push_back(obs);
+  }
+
+  void build() {
+
+    using namespace pinocchio;
+    pinocchio::urdf::buildModel(urdf_filename, model);
+
+    data = pinocchio::Data(model);
+
+    pinocchio::urdf::buildGeom(model, urdf_filename, pinocchio::COLLISION,
+                               geom_model, robots_model_path);
+
+    double radius = 0.1;
+    double length = 1.0;
+
+    std::string obstacle_base_name = "external_obs_";
+    int i = 0;
+    for (auto &obs : obstacles) {
+
+      boost::shared_ptr<fcl::CollisionGeometry> geometry;
+
+      if (obs.name == "cylinder") {
+        CHECK_PRETTY_DYNORRT(obs.data.size() == 2,
+                             "cylinder needs 2 parameters");
+        double radius = obs.data[0];
+        double length = obs.data[1];
+        geometry = boost::make_shared<fcl::Cylinder>(radius, length);
+      } else {
+        THROW_PRETTY_DYNORRT("only cylinder are supported");
+      }
+
+      SE3 placement = SE3::Identity();
+      CHECK_PRETTY_DYNORRT(obs.translation.size() == 3,
+                           "translation needs 3 parameters");
+      CHECK_PRETTY_DYNORRT(obs.rotation_angle_axis.size() == 4,
+                           "rotation_angle_axis needs 4 parameters");
+      placement.rotation() = Eigen::AngleAxisd(
+          obs.rotation_angle_axis[0], obs.rotation_angle_axis.tail<3>());
+      placement.translation() = obs.translation;
+
+      Model::JointIndex idx_geom = geom_model.addGeometryObject(GeometryObject(
+          obstacle_base_name + std::to_string(i) + "_" + obs.name, 0, geometry,
+          placement));
+
+      geom_model.geometryObjects[idx_geom].parentJoint = 0;
+      i++;
+    }
+
+    geom_model.addAllCollisionPairs();
+    pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
+    geom_data = GeometryData(geom_model);
+    build_done = true;
+  }
+
+  bool is_collision_free(const Eigen::VectorXd &q) {
+
+    num_collision_checks++;
+    auto tic = std::chrono::high_resolution_clock::now();
+    if (!build_done) {
+      THROW_PRETTY_DYNORRT("build not done");
+    }
+    bool out = !computeCollisions(model, data, geom_model, geom_data, q, true);
+    time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
+                   std::chrono::high_resolution_clock::now() - tic)
+                   .count() /
+               1000.0;
+    return out;
+  };
+
+  void reset_counters() {
+    time_ms = 0;
+    num_collision_checks = 0;
+  }
+  int get_num_collision_checks() { return num_collision_checks; }
+  double get_time_ms() { return time_ms; }
+
+private:
+  std::string urdf_filename;
+  std::string srdf_filename;
+  std::string env_urdf;
+  std::string robots_model_path;
+
+  std::vector<PinExternalObstacle> obstacles;
+  pinocchio::Model model;
+  pinocchio::Data data;
+  pinocchio::GeometryData geom_data;
+  bool build_done = false;
+  pinocchio::GeometryModel geom_model;
+  double time_ms = 0;
+  int num_collision_checks = 0;
+};
+
+BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
+
+  using namespace pinocchio;
+
+  // Eige ::VectorXd q_i(6), q_g(6);
+  // q_i << 1.0, -1.5, 2.1, -0.5, -0.5, 0;
+  // q_g << 3.0, -1.0, 1, -0.5, -0.5, 0;
+
+  // q_i = np.array([0, -1.5, 2.1, -0.5, -0.5, 0])
+  // q_g = np.array([3.1, -1.0, 1, -0.5, -0.5, 0])
+
+  Eigen::VectorXd q_i(6), q_g(6);
+
+  q_i << 0, -1.5, 2.1, -0.5, -0.5, 0;
+  q_g << 3.1, -1.0, 1, -0.5, -0.5, 0;
+  std::srand(1);
+
+  std::string robots_model_path = PINOCCHIO_MODEL_DIR;
+  bool use_reduced_model = true;
+  if (use_reduced_model) {
+    robots_model_path = "/home/quim/stg/quim-example-robot-data";
+  }
+
+  std::string urdf_filename =
+      robots_model_path +
+      std::string(
+          "/example-robot-data/robots/ur_description/urdf/ur5_robot.urdf");
+
+  std::string srdf_filename =
+      robots_model_path +
+      std::string("/example-robot-data/robots/ur_description/srdf/ur5.srdf");
+
+  if (use_reduced_model) {
+
+    urdf_filename =
+        robots_model_path +
+        std::string(
+            "/example-robot-data/robots/ur_description/urdf/ur5_robot.urdf");
+
+    srdf_filename =
+        robots_model_path +
+        std::string("/example-robot-data/robots/ur_description/srdf/ur5.srdf");
+  }
+
+  Model model;
+  pinocchio::urdf::buildModel(urdf_filename, model);
+
+  Data data(model);
+
+  GeometryModel geom_model;
+  pinocchio::urdf::buildGeom(model, urdf_filename, pinocchio::COLLISION,
+                             geom_model, robots_model_path);
+
+  double radius = 0.1;
+  double length = 1.0;
+
+  PinExternalObstacle obs1{.shape = "cylinder",
+                           .name = "cylinder",
+                           .data = Eigen::Vector2d(radius, length),
+                           .translation = Eigen::Vector3d(-0.5, 0.4, 0.5),
+                           .rotation_angle_axis =
+                               Eigen::Vector4d(M_PI / 2, 0, 0, 1)};
+
+  PinExternalObstacle obs2{.shape = "cylinder",
+                           .name = "cylinder",
+                           .data = Eigen::Vector2d(radius, length),
+                           .translation = Eigen::Vector3d(-0.5, -0.4, 0.5),
+                           .rotation_angle_axis =
+                               Eigen::Vector4d(M_PI / 2, 0, 0, 1)};
+
+  PinExternalObstacle obs3{.shape = "cylinder",
+                           .name = "cylinder",
+                           .data = Eigen::Vector2d(radius, length),
+                           .translation = Eigen::Vector3d(-0.5, 0.7, 0.5),
+                           .rotation_angle_axis =
+                               Eigen::Vector4d(M_PI / 2, 0, 0, 1)};
+  Collision_manager_pinocchio coll_manager;
+  coll_manager.add_external_obstacle(obs1);
+  coll_manager.add_external_obstacle(obs2);
+  coll_manager.add_external_obstacle(obs3);
+
+  coll_manager.set_urdf_filename(urdf_filename);
+  coll_manager.set_srdf_filename(srdf_filename);
+  coll_manager.set_robots_model_path(robots_model_path);
+  coll_manager.build();
+
+  // SE3 placement3 = SE3::Identity();
+  // placement3.rotation() = Eigen::AngleAxisd(M_PI / 2,
+  // Eigen::Vector3d::UnitZ()); placement3.translation() = Eigen::Vector3d(-0.5,
+  // 0.7, 0.5);
+  //
+  // Model::JointIndex idx_geom1 =
+  //     geom_model.addGeometryObject(GeometryObject("cyl1", 0, cyl1,
+  //     placement1));
+  // Model::JointIndex idx_geom2 =
+  //     geom_model.addGeometryObject(GeometryObject("cyl2", 0, cyl2,
+  //     placement2));
+  // Model::JointIndex idx_geom3 =
+  //     geom_model.addGeometryObject(GeometryObject("cyl3", 0, cyl3,
+  //     placement3));
+  //
+  // geom_model.geometryObjects[idx_geom1].parentJoint = 0;
+  // geom_model.geometryObjects[idx_geom2].parentJoint = 0;
+  // geom_model.geometryObjects[idx_geom3].parentJoint = 0;
+
+  // geom_model.addAllCollisionPairs();
+  // pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
+  // GeometryData geom_data(geom_model);
+
+  using state_space_t = dynotree::Rn<double>;
+  using tree_t = dynotree::KDTree<int, -1, 32, double, state_space_t>;
+
+  state_space_t state_space;
+
+  Eigen::VectorXd lb = Eigen::VectorXd::Constant(6, -3.2);
+  Eigen::VectorXd ub = Eigen::VectorXd::Constant(6, 3.2);
+  ub(1) = 0.0;
+
+  if (!coll_manager.is_collision_free(q_i)) {
+    THROW_PRETTY_DYNORRT("start is in collision");
+  }
+
+  if (!coll_manager.is_collision_free(q_g)) {
+    THROW_PRETTY_DYNORRT("goal  is in collision");
+  }
+
+  state_space.set_bounds(lb, ub);
+
+  RRT<state_space_t, -1> rrt;
+  rrt.init(6);
+  rrt.set_state_space(state_space);
+  rrt.set_start(q_i);
+  rrt.set_goal(q_g);
+  rrt.read_cfg_file("../planner_config/rrt_v0_PIN.toml");
+
+  int num_collision_checks = 0;
+
+  double col_time_ms = 0;
+
+  // rrt.set_is_collision_free_fun([&](const auto &q) {
+  //   num_collision_checks++;
+  //
+  //   auto tic = std::chrono::high_resolution_clock::now();
+  //   bool out = !computeCollisions(model, data, geom_model, geom_data, q,
+  //   true); auto toc = std::chrono::high_resolution_clock::now(); auto
+  //   duration =
+  //       std::chrono::duration_cast<std::chrono::microseconds>(toc - tic);
+  //   col_time_ms += duration.count() / 1000.0;
+  //   return out;
+  // });
+
+  rrt.set_is_collision_free_fun(
+      [&](const auto &q) { return coll_manager.is_collision_free(q); });
+
+  rrt.plan();
+
+  std::cout << "num_collision_checks: "
+            << coll_manager.get_num_collision_checks() << std::endl;
+  std::cout << "Average time per collision check [ms]: "
+            << coll_manager.get_time_ms() /
+                   coll_manager.get_num_collision_checks()
+            << std::endl;
+
+  auto path = rrt.get_path();
+  auto fine_path = rrt.get_fine_path(.1);
+
+  std::cout << "DONE" << std::endl;
+  std::cout << path.size() << std::endl;
+
+  json j;
+  j["path"] = path;
+  j["fine_path"] = fine_path;
+
+  namespace fs = std::filesystem;
+  fs::path filePath = "/tmp/dynorrt/rrt_path.json";
+
+  if (!fs::exists(filePath)) {
+    fs::create_directories(filePath.parent_path());
+    std::cout << "The directory path has been created." << std::endl;
+  } else {
+    std::cout << "The file already exists." << std::endl;
+  }
+
+  std::ofstream o(filePath.c_str());
+  o << std::setw(2) << j << std::endl;
+  // BOOST_TEST((termination_condition ==
+  // TerminationCondition::GOAL_REACHED));
 }

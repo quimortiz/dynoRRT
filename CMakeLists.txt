@@ -35,6 +35,9 @@ find_package(
                             PATHS /usr/lib/x86_64-linux-gnu/)
 
 find_package(Eigen3 REQUIRED)
+
+find_package(pinocchio REQUIRED)
+
 # Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
 # EXACT)
 
@@ -43,6 +46,9 @@ add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
 
 add_executable(play_toml ./src/play_toml.cpp)
+add_executable(pin_col src/pin_col.cpp)
+add_executable(pin_ur5_example src/pin_ur5_example.cpp)
+add_executable(pin_ur5_with_obs src/pin_ur5_with_obs.cpp)
 
 target_include_directories(
   dynorrt INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -58,11 +64,18 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-add_executable(main ./src/main.cpp)
+add_executable(main src/main.cpp)
 
 # target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_test(NAME test COMMAND main)
+
+target_link_libraries(pin_col pinocchio::pinocchio)
+
+target_link_libraries(pin_ur5_example pinocchio::pinocchio)
+
+target_link_libraries(pin_ur5_with_obs pinocchio::pinocchio)
+
 target_link_libraries(
   play_toml
   PRIVATE dynorrt::dynorrt
@@ -82,7 +95,8 @@ target_link_libraries(
           magic_enum::magic_enum
           nlohmann_json::nlohmann_json
           Boost::unit_test_framework
-          toml11::toml11)
+          toml11::toml11
+          pinocchio::pinocchio)
 
 set_target_properties(
   main
@@ -90,10 +104,10 @@ set_target_properties(
              CXX_STANDARD_REQUIRED YES
              CXX_EXTENSIONS NO)
 
-option(BUILD_PYTHON_BINDINGS_RRT OFF)
-message(STATUS "BUILD_PYTHON_BINDINGS_RRT ${BUILD_PYTHON_BINDINGS_RRT}")
+option(BUILD_PYRRT OFF)
+message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
 
-if(BUILD_PYTHON_BINDINGS_RRT)
+if(BUILD_PYRRT)
   add_subdirectory(bindings/python)
 endif()
 
