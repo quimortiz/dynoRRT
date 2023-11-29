@@ -163,6 +163,7 @@ struct RRT_options {
   int max_num_configs = 10000;
   bool xrand_collision_free = true;
   int max_num_trials_col_free = 1000;
+  bool debug = false;
 
   void print(std::ostream & = std::cout);
 };
@@ -214,7 +215,7 @@ TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::RRT_options, max_it,
                                           max_step, max_compute_time_ms,
                                           goal_tolerance, max_num_configs,
                                           xrand_collision_free,
-                                          max_num_trials_col_free);
+                                          max_num_trials_col_free, debug);
 
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
                                           goal_bias, collision_resolution,
@@ -1641,12 +1642,12 @@ bool inline ensure_childs_and_parents(
       continue;
     }
     if (children[parents[i]].find(i) == children[parents[i]].end()) {
-      MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
-      std::cout << "parents[i] " << parents[i] << std::endl;
-      std::cout << "children[parents[i]] " << std::endl;
-      for (auto &x : children[parents[i]]) {
-        std::cout << x << " ";
-      }
+      // MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
+      // std::cout << "parents[i] " << parents[i] << std::endl;
+      // std::cout << "children[parents[i]] " << std::endl;
+      // for (auto &x : children[parents[i]]) {
+      //   std::cout << x << " ";
+      // }
       return false;
     }
   }
@@ -1654,8 +1655,6 @@ bool inline ensure_childs_and_parents(
   for (size_t i = 0; i < children.size(); i++) {
     // MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
     for (auto &child : children[i]) {
-      std::cout << "child " << child << std::endl;
-      std::cout << "parents[child] " << parents[child] << std::endl;
       if (parents[child] != i) {
         return false;
       }
@@ -1673,7 +1672,6 @@ bool inline ensure_childs_and_parents(
 // Reference:
 // Sampling-based Algorithms for Optimal Motion Planning
 // Sertac Karaman Emilio Frazzoli
-//
 // Algorithm 6
 // https://arxiv.org/pdf/1105.1186.pdf
 template <typename StateSpace, int DIM>
@@ -1702,7 +1700,6 @@ public:
                        std::vector<double> &cost_to_come, int &counter) {
     counter++;
     CHECK_PRETTY_DYNORRT__(counter < parents.size());
-    std::cout << "update children on " << start << std::endl;
     CHECK_PRETTY_DYNORRT__(difference < 0);
     CHECK_PRETTY_DYNORRT__(start > 0);
     CHECK_PRETTY_DYNORRT__(start < parents.size());
@@ -1797,20 +1794,24 @@ public:
                TerminationCondition::RUNNING_GOAL_REACHED) {
 
       // check that the goal_id is never a parent of a node
-      if (goal_id != -1) {
-        for (auto &p : this->parents) {
-          if (p == goal_id) {
-            THROW_PRETTY_DYNORRT("goal_id is a parent of a node");
+
+      if (this->options.debug) {
+
+        if (goal_id != -1) {
+          for (auto &p : this->parents) {
+            if (p == goal_id) {
+              THROW_PRETTY_DYNORRT("goal_id is a parent of a node");
+            }
           }
         }
-      }
 
-      ensure_connected_tree_with_no_cycles(this->children);
-      ensure_datastructures();
+        ensure_connected_tree_with_no_cycles(this->children);
+        ensure_datastructures();
 
-      if (!ensure_childs_and_parents(children, this->parents)) {
-        THROW_PRETTY_DYNORRT("parents and children are not consistent it " +
-                             std::to_string(num_it));
+        if (!ensure_childs_and_parents(children, this->parents)) {
+          THROW_PRETTY_DYNORRT("parents and children are not consistent it " +
+                               std::to_string(num_it));
+        }
       }
 
       bool informed_rrt_star = false;
@@ -1898,7 +1899,7 @@ public:
         }
 
         int id_min = nn1.id;
-        std::cout << "nn1.id: " << nn1.id << std::endl;
+        // std::cout << "nn1.id: " << nn1.id << std::endl;
         double cost_min = cost_to_come.at(id_min) +
                           this->state_space.distance(this->x_near, this->x_new);
 
@@ -1997,33 +1998,33 @@ public:
                 this->parents.at(_nn.id) = id_new;
                 this->children.at(id_new).insert(_nn.id);
                 this->cost_to_come.at(_nn.id) = tentative_g;
-                MESSAGE_PRETTY_DYNORRT("rewiring");
-                std::cout << "_nn.id: " << _nn.id << std::endl;
-                std::cout << "id new: " << id_new << std::endl;
-                std::cout << "tentative_g: " << tentative_g << std::endl;
-                std::cout << "current_g: " << current_g << std::endl;
+                // MESSAGE_PRETTY_DYNORRT("rewiring");
+                // std::cout << "_nn.id: " << _nn.id << std::endl;
+                // std::cout << "id new: " << id_new << std::endl;
+                // std::cout << "tentative_g: " << tentative_g << std::endl;
+                // std::cout << "current_g: " << current_g << std::endl;
                 double difference = tentative_g - current_g;
                 CHECK_PRETTY_DYNORRT__(difference < 0);
                 int counter = 0;
 
-                ensure_childs_and_parents(children, this->parents);
+                if (this->options.debug)
+                  ensure_childs_and_parents(children, this->parents);
 
-                std::cout << "CHILDREN" << std::endl;
+                // std::cout << "CHILDREN" << std::endl;
+                // int _counter = 0;
+                // for (auto &x : this->children) {
+                //   std::cout << _counter++ << ": ";
+                //   for (auto &y : x) {
+                //     std::cout << y << " ";
+                //   }
+                //   std::cout << std::endl;
+                // }
 
-                int _counter = 0;
-                for (auto &x : this->children) {
-                  std::cout << _counter++ << ": ";
-                  for (auto &y : x) {
-                    std::cout << y << " ";
-                  }
-                  std::cout << std::endl;
-                }
-
-                std::cout << "PARENTS" << std::endl;
-                counter = 0;
-                for (auto &x : this->parents) {
-                  std::cout << counter++ << ": " << x << std::endl;
-                }
+                // std::cout << "PARENTS" << std::endl;
+                // counter = 0;
+                // for (auto &x : this->parents) {
+                //   std::cout << counter++ << ": " << x << std::endl;
+                // }
 
                 counter = 0;
                 update_children(_nn.id, difference, this->parents,

@@ -105,10 +105,17 @@ set_target_properties(
              CXX_EXTENSIONS NO)
 
 option(BUILD_PYRRT OFF)
+option(BUILD_BENCHMARK OFF)
+
 message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
+message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
 
 if(BUILD_PYRRT)
   add_subdirectory(bindings/python)
+endif()
+
+if(BUILD_BENCHMARK)
+  add_subdirectory(benchmark)
 endif()
 
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization
