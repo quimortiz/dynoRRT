@@ -45,10 +45,10 @@ include(GNUInstallDirs)
 add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
 
-add_executable(play_toml ./src/play_toml.cpp)
-add_executable(pin_col src/pin_col.cpp)
-add_executable(pin_ur5_example src/pin_ur5_example.cpp)
-add_executable(pin_ur5_with_obs src/pin_ur5_with_obs.cpp)
+add_executable(play_toml test/play_toml.cpp)
+add_executable(pin_col test/pin_col.cpp)
+add_executable(pin_ur5_example test/pin_ur5_example.cpp)
+add_executable(pin_ur5_with_obs test/pin_ur5_with_obs.cpp)
 
 target_include_directories(
   dynorrt INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -64,7 +64,7 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-add_executable(main src/main.cpp src/test_dev.cpp)
+add_executable(main test/main.cpp test/test_dev.cpp)
 
 # target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

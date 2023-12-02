@@ -48,7 +48,7 @@ public:
 
   bool is_collision(Cref &point) const {
     for (const auto &obstacle : obstacles_) {
-      if (obstacle.distance(point) < 0 - radius_robot) {
+      if (obstacle.distance(point) - radius_robot < 0) {
         return true;
       }
     }
@@ -79,6 +79,7 @@ public:
     f >> j;
 
     obstacles_ = j["obstacles"];
+    radius_robot = j["radius_robot"];
   }
 
 protected:

@@ -62,7 +62,7 @@ def is_collision_free(x: np.ndarray) -> bool:
 
 
 def plot_env(ax, env):
-    for obs in obstacles:
+    for obs in env:
         ax.add_patch(plt.Circle((obs.center), obs.radius, color="blue", alpha=0.5))
 
 

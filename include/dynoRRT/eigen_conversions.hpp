@@ -84,13 +84,6 @@ void from_json(const json &j, Eigen::Transform<T, N, Type> &transform) {
   from_json(j, transform.matrix());
 }
 
-// void inline from_json(const json &j, Eigen::VectorXd &vector) {
-//   vector.resize(j.size());
-//   for (std::size_t row = 0; row < j.size(); ++row) {
-//     const auto &jrow = j.at(row);
-//     vector(row) = jrow.get<double>();
-//   }
-// }
 // IMPLEMENTATION
 
 namespace jsonbase {
@@ -151,6 +144,17 @@ void from_json(const json &j, Eigen::Matrix<_Scalar, _Rows, _Cols, _Options,
     } else {
       matrix(static_cast<Index>(row), 0) = jrow.get<_Scalar>();
     }
+  }
+}
+
+template <typename _Scalar, int _Rows, int _Options, int _MaxRows, int _MaxCols>
+void inline from_json(
+    const json &j,
+    Eigen::Matrix<_Scalar, _Rows, 1, _Options, _MaxRows, _MaxCols> &vector) {
+  vector.resize(j.size());
+  for (std::size_t row = 0; row < j.size(); ++row) {
+    const auto &jrow = j.at(row);
+    vector(row) = jrow.get<_Scalar>();
   }
 }
 

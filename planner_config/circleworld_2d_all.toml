@@ -1,0 +1,44 @@
+envs = [
+"../../benchmark/envs/ballworld2/one_obs.json",
+"../../benchmark/envs/ballworld2/empty.json",
+"../../benchmark/envs/ballworld2/bugtrap.json",
+"../../benchmark/envs/ballworld2/random1.json"
+]
+
+planners = [
+# "RRTStar",
+# "RRT",
+# "RRTConnect",
+# "BiRRT",
+# "PRM",
+"LazyPRM"
+]
+
+
+
+[RRTStar_options]
+max_it = 5000
+goal_bias = 0.05
+collision_resolution = 0.01
+max_step = 0.2
+max_compute_time_ms = 1e3
+goal_tolerance = 0.001
+max_num_configs = 10000
+
+
+[RRT_options]
+max_it = 5000
+goal_bias = 0.05
+collision_resolution = 0.01
+max_step = 0.2
+max_compute_time_ms = 1e3
+goal_tolerance = 0.001
+max_num_configs = 10000
+
+[PRM_options]
+connection_radius = 0.5
+num_vertices_0 = 300
+incremental_collision_check = true
+
+[LazyPRM_options]
+connection_radius = 0.5
