@@ -361,11 +361,13 @@ enum class TerminationCondition {
   GOAL_REACHED,
   MAX_NUM_CONFIGS,
   RUNNING,
+  USER_DEFINED,
   // The following are for Anytime Assymp optimal planners
   MAX_IT_GOAL_REACHED,
   MAX_TIME_GOAL_REACHED,
   MAX_NUM_CONFIGS_GOAL_REACHED,
   RUNNING_GOAL_REACHED,
+  USER_DEFINED_GOAL_REACHED,
   EXTERNAL_TRIGGER_GOAL_REACHED,
   UNKNOWN
 };
@@ -411,7 +413,9 @@ inline bool is_termination_condition_solved(
          termination_condition ==
              TerminationCondition::MAX_NUM_CONFIGS_GOAL_REACHED ||
          termination_condition ==
-             TerminationCondition::EXTERNAL_TRIGGER_GOAL_REACHED;
+             TerminationCondition::EXTERNAL_TRIGGER_GOAL_REACHED ||
+         termination_condition ==
+             TerminationCondition::USER_DEFINED_GOAL_REACHED;
 }
 
 template <typename StateSpace, int DIM> class PlannerBase {
@@ -1743,9 +1747,10 @@ public:
     this->tree.addPoint(Base::start, 0);
 
     int num_it = 0;
-
-    auto tic = std::chrono::steady_clock::now();
+    int goal_id = -1;
+    double best_cost = std::numeric_limits<double>::infinity();
     bool path_found = false;
+    auto tic = std::chrono::steady_clock::now();
 
     auto col = [this](const auto &x) {
       return this->Base::is_collision_free_fun_timed(x);
@@ -1757,7 +1762,16 @@ public:
           .count();
     };
 
+    bool user_defined_terminate = false;
+
     auto should_terminate = [&] {
+      if (user_defined_terminate) {
+        if (path_found) {
+          return TerminationCondition::USER_DEFINED_GOAL_REACHED;
+        } else {
+          return TerminationCondition::USER_DEFINED;
+        }
+      }
       if (Base::configs.size() > options.max_num_configs) {
         if (path_found) {
           return TerminationCondition::MAX_NUM_CONFIGS_GOAL_REACHED;
@@ -1786,9 +1800,11 @@ public:
     };
 
     TerminationCondition termination_condition = should_terminate();
-    int goal_id = -1;
-    double best_cost = std::numeric_limits<double>::infinity();
 
+    bool informed_rrt_star = true;
+    MESSAGE_PRETTY_DYNORRT("informed RRT star " +
+                           std::to_string(informed_rrt_star));
+    int max_attempts_informed = 1000;
     while (termination_condition == TerminationCondition::RUNNING ||
            termination_condition ==
                TerminationCondition::RUNNING_GOAL_REACHED) {
@@ -1814,8 +1830,6 @@ public:
         }
       }
 
-      bool informed_rrt_star = false;
-      int max_attempts_informed = 1000;
       if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
         this->x_rand = Base::goal;
       } else {
@@ -1825,11 +1839,35 @@ public:
           while (!is_collision_free &&
                  num_tries < options.max_num_trials_col_free) {
 
-            Base::state_space.sample_uniform(this->x_rand);
-            is_collision_free = col(this->x_rand);
             if (informed_rrt_star) {
-              THROW_PRETTY_DYNORRT("not implemented");
+              int max_attempts_informed = 1000;
+              int num_attempts = 0;
+              bool found = false;
+              while (num_attempts < max_attempts_informed) {
+                num_attempts++;
+
+                Base::state_space.sample_uniform(this->x_rand);
+                double distance_to_goal =
+                    Base::state_space.distance(this->x_rand, Base::goal);
+                double distance_to_goal_start =
+                    Base::state_space.distance(this->x_rand, Base::start);
+                if (distance_to_goal + distance_to_goal_start < best_cost) {
+                  found = true;
+                  break;
+                }
+              }
+              if (!found) {
+                user_defined_terminate = true;
+                MESSAGE_PRETTY_DYNORRT("using informed RRT star -- suitable "
+                                       "sample not found in " +
+                                       std::to_string(max_attempts_informed) +
+                                       " attempt\n  "
+                                       "set user_defined_terminate to true");
+              }
+            } else {
+              Base::state_space.sample_uniform(this->x_rand);
             }
+            is_collision_free = col(this->x_rand);
             num_tries++;
           }
           CHECK_PRETTY_DYNORRT(is_collision_free,

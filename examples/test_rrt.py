@@ -137,8 +137,8 @@ for name, planner, options in zip(names, planners, options):
     rrt.set_start(start)
     rrt.set_goal(goal)
     rrt.init(2)
-    # rrt.set_is_collision_free_fun(is_collision_free)
-    rrt.set_collision_manager(cm2)
+    rrt.set_is_collision_free_fun(is_collision_free)
+    # rrt.set_collision_manager(cm2)
     rrt.set_bounds_to_state([xlim[0], ylim[0]], [xlim[1], ylim[1]])
 
     if options is not None:

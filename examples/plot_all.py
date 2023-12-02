@@ -12,9 +12,9 @@ import json
 
 
 build_cmd = ["make", "-j"]
-run_cmd = ["./main", "--run_test=t_rrtstar"]
+run_cmd = ["./main", "--run_test=t_all_planners_circleworld"]
 
-cwd = "buildDebug/"
+cwd = "buildAll/buildDebug/"
 out = subprocess.run(build_cmd, cwd=cwd)
 
 assert out.returncode == 0
@@ -39,6 +39,9 @@ configs = d["configs"]
 parents = d["parents"]
 path = d["path"]
 paths = d["paths"]
+
+
+# plot he world
 
 
 import sys

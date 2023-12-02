@@ -1,12 +1,15 @@
-
 #pragma once
 
+#include "dynoRRT/dynorrt_macros.h"
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
 #include "nlohmann/json.hpp"
 
 #include "eigen_conversions.hpp"
+#include <fstream>
+
+namespace dynorrt {
 
 template <int DIM> struct BallObstacle {
 
@@ -63,8 +66,25 @@ public:
 
   void set_radius_robot(double radius) { radius_robot = radius; }
 
+  void load_world(std::string file) {
+
+    std::ifstream f(file);
+    if (!f.good()) {
+      std::stringstream ss;
+      ss << "File " << file << " does not exist" << std::endl;
+      THROW_PRETTY_DYNORRT(ss.str());
+    }
+
+    json j;
+    f >> j;
+
+    obstacles_ = j["obstacles"];
+  }
+
 protected:
   double radius_robot = 0.1;
 
   std::vector<Obstacle> obstacles_;
 };
+
+} // namespace dynorrt

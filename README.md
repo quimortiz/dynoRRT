@@ -29,17 +29,29 @@ After 100 ms of compute time we get a tree with 15x more samples and better cost
 PRM star
 
 
+# TODO's
+
+
+
 
 # Roadmap to Release 0.1
 
-- [ ] Pinocchio Collision from URDF of environment
+- [x] Pinocchio Collision from URDF of environment
+- [ ] Pin col checkig in python binding
+- [ ] Example 1: UR5 Column
+- [ ] Example 2: Panda? Box
+- [ ] Example 3: Two Ur5
+- [ ] Example 4: Flying Ball
+- [ ] Script to run all planner on all problems
 - [ ] Pinocchio collision binary instead of distance. Faster?
+- [ ] PRM* as optimal planner?
 - [ ] SST star and Kyno RRT
 - [ ] AO RRT?
 - [ ] Options to use K-nearest neigh in planners graph
 - [ ] Pip Package
 - [ ] Conda package
-- [ ] Tutorial with jupyter lab, tested.
+- [ ] Tutorial with Jupyter lab, tested in CI.
+- [ ] Video
 
 # Planners
 

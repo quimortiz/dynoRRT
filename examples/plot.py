@@ -17,8 +17,9 @@ out = subprocess.run(build_cmd, cwd="build")
 
 assert out.returncode == 0
 
-out = subprocess.run(run_cmd, cwd="build")
-assert out.returncode == 0
+with open("/tmp/dynorrt/stdout.txt", "w") as f:
+    out = subprocess.run(run_cmd, cwd="build", stdout=f)
+    assert out.returncode == 0
 
 
 with open("/tmp/dynorrt/out.json", "r") as f:

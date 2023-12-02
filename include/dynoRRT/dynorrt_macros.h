@@ -21,6 +21,7 @@ public:
       << std::endl;
     msg = o.str();
   }
+
   ~pretty_runtime_exception() throw() {}
   const char *what() const throw() { return msg.c_str(); }
 

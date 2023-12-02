@@ -1,3 +1,4 @@
+#pragma once
 #include <toml.hpp>
 
 // namespace dynorrt {
