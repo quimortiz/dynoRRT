@@ -50,6 +50,8 @@
 #include <hpp/fcl/shape/geometric_shapes.h>
 #include <iostream>
 
+#include "dynoRRT/pin_col_manager.h"
+
 using json = nlohmann::json;
 
 using namespace dynorrt;
@@ -59,14 +61,26 @@ struct CircleObstacle {
   double radius;
 };
 
-// def compute_two_points(x: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-//     """
-//     x: 3D vector (x, y, theta)
-//
-//     """
-//     p1 = x[0:2]
-//     p2 = p1 + length * np.array([np.cos(x[2]), np.sin(x[2])])
-//     return p1, p2
+template <typename state_space_t, int DIM>
+std::shared_ptr<PlannerBase<state_space_t, DIM>>
+planner_from_name(const std::string &str) {
+
+  if (str == "RRT") {
+    return std::make_shared<RRT<state_space_t, DIM>>();
+  } else if (str == "BiRRT") {
+    return std::make_shared<BiRRT<state_space_t, DIM>>();
+  } else if (str == "RRTConnect") {
+    return std::make_shared<RRTConnect<state_space_t, DIM>>();
+  } else if (str == "RRTStar") {
+    return std::make_shared<RRTStar<state_space_t, DIM>>();
+  } else if (str == "PRM") {
+    return std::make_shared<PRM<state_space_t, DIM>>();
+  } else if (str == "LazyPRM") {
+    return std::make_shared<LazyPRM<state_space_t, DIM>>();
+  } else {
+    THROW_PRETTY_DYNORRT("Unknown planner name: " + str);
+  }
+}
 
 double length = .5;
 double robot_radius = 0.01;
@@ -77,16 +91,6 @@ void compute_two_points(const Eigen::Vector3d &x, Eigen::Vector2d &p1,
   p2 = p1 + .5 * Eigen::Vector2d(cos(x[2]), sin(x[2]));
 }
 
-// def distance_point_to_segment(p1: np.ndarray, p2: np.ndarray, p3: np.ndarray)
-// -> float:
-//     """
-//     p1, p2: two points defining the segment
-//     p3: the point
-//     """
-//     u = np.dot(p3 - p1, p2 - p1) / np.dot(p2 - p1, p2 - p1)
-//     u = np.clip(u, 0, 1)
-//     return np.linalg.norm(p1 + u * (p2 - p1) - p3)
-
 double distance_point_to_segment(const Eigen::Vector2d &p1,
                                  const Eigen::Vector2d &p2,
                                  const Eigen::Vector2d &x) {
@@ -94,17 +98,6 @@ double distance_point_to_segment(const Eigen::Vector2d &p1,
   u = std::clamp(u, 0.0, 1.0);
   return (p1 + u * (p2 - p1) - x).norm();
 }
-
-// def is_collision(x: np.ndarray) -> bool:
-//     """
-//     x: 3D vector (x, y, theta)
-//
-//     """
-//     p1, p2 = compute_two_points(x)
-//     for obs in obstacles:
-//         if distance_point_to_segment(p1, p2, obs[0]) < radius + obs[1]:
-//             return True
-//     return False
 
 bool is_collision(const Eigen::Vector3d &x,
                   std::vector<CircleObstacle> &obstacles, double radius_) {
@@ -486,123 +479,6 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
 
 #endif
 
-struct PinExternalObstacle {
-
-  std::string shape;
-  std::string name;
-  Eigen::VectorXd data;
-  Eigen::VectorXd translation;
-  Eigen::VectorXd rotation_angle_axis;
-};
-
-class Collision_manager_pinocchio {
-
-public:
-  void set_urdf_filename(const std::string &t_urdf_filename) {
-    urdf_filename = t_urdf_filename;
-  }
-
-  void set_srdf_filename(const std::string &t_srdf_filename) {
-    srdf_filename = t_srdf_filename;
-  }
-  void set_robots_model_path(const std::string &t_robot_model_path) {
-    robots_model_path = t_robot_model_path;
-  }
-
-  void add_external_obstacle(const PinExternalObstacle &obs) {
-    obstacles.push_back(obs);
-  }
-
-  void build() {
-
-    using namespace pinocchio;
-    pinocchio::urdf::buildModel(urdf_filename, model);
-
-    data = pinocchio::Data(model);
-
-    pinocchio::urdf::buildGeom(model, urdf_filename, pinocchio::COLLISION,
-                               geom_model, robots_model_path);
-
-    double radius = 0.1;
-    double length = 1.0;
-
-    std::string obstacle_base_name = "external_obs_";
-    int i = 0;
-    for (auto &obs : obstacles) {
-
-      boost::shared_ptr<fcl::CollisionGeometry> geometry;
-
-      if (obs.name == "cylinder") {
-        CHECK_PRETTY_DYNORRT(obs.data.size() == 2,
-                             "cylinder needs 2 parameters");
-        double radius = obs.data[0];
-        double length = obs.data[1];
-        geometry = boost::make_shared<fcl::Cylinder>(radius, length);
-      } else {
-        THROW_PRETTY_DYNORRT("only cylinder are supported");
-      }
-
-      SE3 placement = SE3::Identity();
-      CHECK_PRETTY_DYNORRT(obs.translation.size() == 3,
-                           "translation needs 3 parameters");
-      CHECK_PRETTY_DYNORRT(obs.rotation_angle_axis.size() == 4,
-                           "rotation_angle_axis needs 4 parameters");
-      placement.rotation() = Eigen::AngleAxisd(
-          obs.rotation_angle_axis[0], obs.rotation_angle_axis.tail<3>());
-      placement.translation() = obs.translation;
-
-      Model::JointIndex idx_geom = geom_model.addGeometryObject(GeometryObject(
-          obstacle_base_name + std::to_string(i) + "_" + obs.name, 0, geometry,
-          placement));
-
-      geom_model.geometryObjects[idx_geom].parentJoint = 0;
-      i++;
-    }
-
-    geom_model.addAllCollisionPairs();
-    pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
-    geom_data = GeometryData(geom_model);
-    build_done = true;
-  }
-
-  bool is_collision_free(const Eigen::VectorXd &q) {
-
-    num_collision_checks++;
-    auto tic = std::chrono::high_resolution_clock::now();
-    if (!build_done) {
-      THROW_PRETTY_DYNORRT("build not done");
-    }
-    bool out = !computeCollisions(model, data, geom_model, geom_data, q, true);
-    time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
-                   std::chrono::high_resolution_clock::now() - tic)
-                   .count() /
-               1000.0;
-    return out;
-  };
-
-  void reset_counters() {
-    time_ms = 0;
-    num_collision_checks = 0;
-  }
-  int get_num_collision_checks() { return num_collision_checks; }
-  double get_time_ms() { return time_ms; }
-
-private:
-  std::string urdf_filename;
-  std::string srdf_filename;
-  std::string env_urdf;
-  std::string robots_model_path;
-
-  std::vector<PinExternalObstacle> obstacles;
-  pinocchio::Model model;
-  pinocchio::Data data;
-  pinocchio::GeometryData geom_data;
-  bool build_done = false;
-  pinocchio::GeometryModel geom_model;
-  double time_ms = 0;
-  int num_collision_checks = 0;
-};
-
 BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
 
   using namespace pinocchio;
@@ -744,18 +620,6 @@ BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
 
   double col_time_ms = 0;
 
-  // rrt.set_is_collision_free_fun([&](const auto &q) {
-  //   num_collision_checks++;
-  //
-  //   auto tic = std::chrono::high_resolution_clock::now();
-  //   bool out = !computeCollisions(model, data, geom_model, geom_data, q,
-  //   true); auto toc = std::chrono::high_resolution_clock::now(); auto
-  //   duration =
-  //       std::chrono::duration_cast<std::chrono::microseconds>(toc - tic);
-  //   col_time_ms += duration.count() / 1000.0;
-  //   return out;
-  // });
-
   rrt.set_is_collision_free_fun(
       [&](const auto &q) { return coll_manager.is_collision_free(q); });
 
@@ -790,8 +654,6 @@ BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
 
   std::ofstream o(filePath.c_str());
   o << std::setw(2) << j << std::endl;
-  // BOOST_TEST((termination_condition ==
-  // TerminationCondition::GOAL_REACHED));
 }
 
 BOOST_AUTO_TEST_CASE(t_rrtstar) {
@@ -807,14 +669,6 @@ BOOST_AUTO_TEST_CASE(t_rrtstar) {
   RRTStar<state_space_t, 2> rrt_star;
 
   CollisionManagerBallWorld<2> collision_manager;
-  // BallObstacle<2> obs1, obs2;
-  // obs1.center = Eigen::Vector2d(1, 0.4);
-  // obs1.radius = 0.5;
-  // obs2.center = Eigen::Vector2d(1, 2);
-  // obs2.radius = 0.5;
-  //
-  // collision_manager.add_obstacle(obs1);
-  // collision_manager.add_obstacle(obs2);
 
   RRT_options options{.max_it = 1000,
                       .goal_bias = 0.05,
@@ -864,4 +718,100 @@ BOOST_AUTO_TEST_CASE(t_rrtstar) {
   std::ofstream o(filePath.c_str());
   o << std::setw(2) << j << std::endl;
   BOOST_TEST(is_termination_condition_solved(termination_condition));
+}
+
+namespace fs = std::filesystem;
+BOOST_AUTO_TEST_CASE(t_all_planners_circleworld) {
+
+  std::string options_cfg_all = "../../planner_config/circleworld_2d_all.toml";
+  std::ifstream ifs(options_cfg_all);
+  auto cfg = toml::parse(ifs);
+
+  std::vector<std::string> envs =
+      toml::find<std::vector<std::string>>(cfg, "envs");
+  std::vector<std::string> __planners =
+      toml::find<std::vector<std::string>>(cfg, "planners");
+
+  using state_space_t = dynotree::Rn<double, 2>;
+  using tree_t = dynotree::KDTree<int, 2, 32, double, state_space_t>;
+  using PlannerBase_t = PlannerBase<state_space_t, 2>;
+
+  std::vector<std::shared_ptr<PlannerBase_t>> planners;
+
+  for (auto &planner_name : __planners) {
+    std::shared_ptr<PlannerBase_t> planner =
+        planner_from_name<state_space_t, 2>(planner_name);
+    planners.push_back(planner);
+  }
+
+  std::vector<json> results;
+
+  for (auto &env : envs) {
+
+    std::ifstream f(env);
+
+    if (!f.good()) {
+      std::stringstream ss;
+      ss << "File " << env << " does not exist" << std::endl;
+      // THROW_PRETTY_DYNORRT(ss.str());
+      THROW_PRETTY_DYNORRT("hello");
+    }
+    json j;
+    f >> j;
+
+    std::cout << j << std::endl;
+
+    Eigen::VectorXd start = j["start"];
+    Eigen::VectorXd goal = j["goal"];
+    Eigen::VectorXd lb = j["lb"];
+    Eigen::VectorXd ub = j["ub"];
+
+    CollisionManagerBallWorld<2> col_manager;
+    col_manager.load_world(env);
+
+    state_space_t state_space;
+    state_space.set_bounds(lb, ub);
+
+    for (auto &planner : planners) {
+
+      planner->reset();
+      planner->read_cfg_file(options_cfg_all);
+      planner->set_state_space(state_space);
+      planner->set_start(start);
+      planner->set_goal(goal);
+      planner->init(2);
+      planner->set_collision_manager(&col_manager);
+      TerminationCondition termination_condition = planner->plan();
+      std::cout << magic_enum::enum_name(termination_condition) << std::endl;
+      BOOST_TEST(is_termination_condition_solved(termination_condition));
+
+      json j;
+      j["env"] = env;
+      j["terminate_status"] = magic_enum::enum_name(termination_condition);
+      j["planner_name"] = planner->get_name();
+      planner->get_planner_data(j);
+      results.push_back(j);
+    }
+  }
+
+  std::cout << "Writing all results to a file " << std::endl;
+  fs::path filePath = "/tmp/dynorrt/out.json";
+
+  if (!fs::exists(filePath)) {
+    fs::create_directories(filePath.parent_path());
+    std::cout << "The directory path has been created." << std::endl;
+  } else {
+    std::cout << "The file already exists." << std::endl;
+  }
+
+  std::ofstream o(filePath.c_str());
+  json jout;
+  jout["results"] = results;
+  jout["envs"] = envs;
+  std::vector<std::string> planners_names;
+  for (auto &planner : planners) {
+    planners_names.push_back(planner->get_name());
+  }
+  jout["planners"] = planners_names;
+  o << std::setw(2) << jout << std::endl;
 }

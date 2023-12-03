@@ -237,7 +237,7 @@ base_path = "/home/quim/stg/quim-example-robot-data/example-robot-data/"
 
 
 robot = pin.RobotWrapper.BuildFromURDF(
-    base_path + "robots/ur_description/urdf/ur5_robot.urdf",
+    base_path + "robots/ur_description/urdf/ur5_robot_with_box.urdf",
     base_path + "robots/ur_description/meshes/",
 )
 
@@ -641,6 +641,10 @@ for i, p in enumerate(parents):
         q2 = valid[p]
         display_edge(q1, q2, radius=0.005, color=[0.5, 0.5, 0.5, 1])
         time.sleep(0.05)
+
+
+# print invalid edges:
+
 
 for i in range(len(path) - 1):
     print(f"{i} -> {i+1}")

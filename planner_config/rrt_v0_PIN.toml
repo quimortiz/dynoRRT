@@ -1,4 +1,6 @@
 [RRT_options]
-max_it = 2000
-max_step = 1.0
+max_it = 5000
+max_step = 5.0
 collision_resolution = 0.2
+goal_bias = 0.2
+store_all = true
