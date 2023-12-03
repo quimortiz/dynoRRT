@@ -1,0 +1,37 @@
+{
+  "lb": [
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14
+  ],
+  "ub": [
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14
+  ],
+  "start": [
+    0,
+    -1.5,
+    2.1,
+    -0.5,
+    -0.5,
+    0
+  ],
+  "goal": [
+    3.1,
+    -1.0,
+    1,
+    -0.5,
+    -0.5,
+    0
+  ],
+  "urdf": "robots/ur_description/urdf/ur5_robot_with_box.urdf",
+  "meshes": "robots/ur_description/meshes/",
+  "srdf": "robots/ur_description/srdf/ur5_with_box.srdf"
+}
