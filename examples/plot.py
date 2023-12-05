@@ -1,13 +1,11 @@
+import json
+import subprocess
+import matplotlib.pyplot as plt
+from typing import Tuple, List
+import numpy as np
 import sys
 
 sys.path.append(".")
-
-import numpy as np
-from typing import Tuple, List
-import matplotlib.pyplot as plt
-
-import subprocess
-import json
 
 
 build_cmd = ["make"]
@@ -33,13 +31,8 @@ fine_path = d["fine_path"]
 shortcut_path = d["shortcut_path"]
 
 
-import sys
-
 sys.path.append(".")
 
-import numpy as np
-from typing import Tuple, List
-import matplotlib.pyplot as plt
 
 # np.random.seed(0)
 
@@ -196,6 +189,17 @@ for i in range(len(shortcut_path)):
 #
 # ax.set_title("rrt solution")
 plt.show()
+
+
+def fun(a, b):
+    return a + b
+
+
+a = 1
+b = 2
+fun(a, b)
+
+
 #
 #
 # # just build rrt

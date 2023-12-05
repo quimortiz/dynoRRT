@@ -1,0 +1,67 @@
+{
+  "lb": [
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14,
+    -3.14
+  ],
+  "ub": [
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14,
+    3.14
+  ],
+  "start": [
+    1.88495559,
+    -0.9424778,
+    1.88495559,
+    0.0,
+    0.0,
+    0.0,
+    -0.9424778,
+    -0.9424778,
+    1.57079633,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "goal": [
+    0.62831853,
+    -1.25663707,
+    1.88495559,
+    0.0,
+    0.0,
+    0.0,
+    -2.82743339,
+    -0.9424778,
+    1.57079633,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "urdf": "robots/ur_description/urdf/ur5_two_robots.urdf",
+  "meshes": "robots/ur_description/meshes/",
+  "srdf": "robots/ur_description/srdf/ur5_two_robots.srdf",
+  "state_space": [
+    "Rn:10"
+  ],
+  "base_path": "/home/quim/stg/quim-example-robot-data/example-robot-data/",
+  "idx_vis_name": "tool0",
+  "idx_vis_name2": "tool0ROBOT2"
+}

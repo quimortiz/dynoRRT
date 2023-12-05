@@ -1,6 +1,31 @@
+envs = [
+       "../../benchmark/envs/pinocchio/ur5_bin.json",
+       "../../benchmark/envs/pinocchio/se3_window.json",
+       "../../benchmark/envs/pinocchio/ur5_two_arms.json",
+       "../../benchmark/envs/pinocchio/point_mass_cables.json" ]
+
+planners = [
+  "RRT",
+  "RRTConnect",
+  "BiRRT" ]
+
+
+
+
 [RRT_options]
-max_it = 5000
-max_step = 5.0
+max_it = 20000
+max_num_configs = 20000
+max_step = 2.0 # For arm's
+# max_step = 1 # FOR SE(3)
+goal_tolerance = 0.001
 collision_resolution = 0.2
+goal_bias = 0.1
+store_all = false
+
+[BiRRT_options]
+max_it = 100000
 goal_bias = 0.2
-store_all = true
+collision_resolution = 0.2
+backward_probability = 0.2
+max_step = 2.0
+max_num_configs = 100000

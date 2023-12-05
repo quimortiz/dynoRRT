@@ -185,20 +185,38 @@ def _applyConfiguration(viz, name, placement):
     viz.viewer[name].set_transform(T)
 
 
-def display_edge(q1, q2, radius=0.01, color=[1.0, 0.0, 0.0, 1]):
-    global display_count
+def display_edge(
+    robot, q1, q2, IDX_TOOL, display_count, viz, radius=0.01, color=[1.0, 0.0, 0.0, 1]
+):
     # Placement of the end effector tip.
     M1 = robot.framePlacement(q1, IDX_TOOL)
     # Placement of the end effector tip.
     M2 = robot.framePlacement(q2, IDX_TOOL)
+
+    # print(M1)
+    # print(M2)
+
     middle = 0.5 * (M1.translation + M2.translation)
     direction = M2.translation - M1.translation
     length = np.linalg.norm(direction)
-    dire = direction / length
+    dire = direction / (length + 1e-6)
+    dire /= np.linalg.norm(dire)
+    if (
+        np.linalg.norm(dire - np.array([0.0, 0.0, 1.0])) < 1e-6
+        or np.linalg.norm(dire - np.array([0.0, 0.0, -1.0])) < 1e-6
+    ):
+        print("adding a little bit of noise")
+        dire += 0.001 * np.random.rand(3)
+        dire /= np.linalg.norm(dire)
+
     orth = np.cross(dire, np.array([0.0, 0.0, 1.0]))
     orth = orth / np.linalg.norm(orth)
     orth2 = np.cross(dire, orth)
     orth2 = orth2 / np.linalg.norm(orth2)
+
+    # print(f"orth={orth}")
+    # print(f"orth2={orth2}")
+    # print(f"dire={dire}")
     assert np.abs(np.linalg.norm(dire) - 1) < 1e-8
     assert np.abs(np.linalg.norm(orth) - 1) < 1e-8
     assert np.abs(np.linalg.norm(orth2) - 1) < 1e-8
@@ -220,6 +238,9 @@ def display_edge(q1, q2, radius=0.01, color=[1.0, 0.0, 0.0, 1]):
     # _radius = radius / length
     _radius = radius
     # print(f"_radius={_radius}")
-    _addCylinder(viz, name, length, _radius, color)
+    # _addCylinder(viz, name, length, _radius, color)
+    # _applyConfiguration(viz, name, Mcyl)
+    # display_count += 1
+    _addCylinder(viz, name, length, _radius, color=color)
     _applyConfiguration(viz, name, Mcyl)
     display_count += 1

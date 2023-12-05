@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<!--
+
+   UR-5 SRDF
+
+   This file is an alternative way of specifying semantics on the robot
+   structure.
+
+   It also provides:
+   - the set of interesting collision pairs
+
+  -->
+<robot name="Lrobot">
+
+
+</robot>

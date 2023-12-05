@@ -1,0 +1,52 @@
+envs = [
+      "../../benchmark/envs/pinocchio/ur5_bin.json",
+       "../../benchmark/envs/pinocchio/se3_window.json",
+       "../../benchmark/envs/pinocchio/ur5_two_arms.json",
+       "../../benchmark/envs/pinocchio/point_mass_cables.json"
+]
+
+planners = [
+  "RRT",
+  "RRTConnect",
+  "BiRRT" ,
+  "RRTStar",
+  "LazyPRM",
+  "PRM"
+  ]
+
+
+[RRTStar_options]
+max_it = 20000
+goal_bias = 0.1
+collision_resolution = 0.01
+max_step = 1.0
+max_compute_time_ms = 2e3
+goal_tolerance = 0.001
+max_num_configs = 20000
+
+[RRT_options]
+max_it = 20000
+max_num_configs = 20000
+max_step = 1.0 # For arm's
+# max_step = 1 # FOR SE(3)
+goal_tolerance = 0.001
+collision_resolution = 0.2
+goal_bias = 0.1
+store_all = false
+
+[BiRRT_options]
+max_it = 100000
+goal_bias = 0.2
+collision_resolution = 0.2
+backward_probability = 0.2
+max_step = 1.0
+max_num_configs = 100000
+
+[LazyPRM_options]
+connection_radius = 3.0
+num_vertices_0 = 5000
+
+[PRM_options]
+connection_radius = 3.0
+num_vertices_0 = 5000
+incremental_collision_check = true

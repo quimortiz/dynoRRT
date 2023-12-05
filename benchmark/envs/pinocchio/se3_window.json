@@ -1,0 +1,47 @@
+{
+  "lb": [
+    -2,
+    -2,
+    -1,
+    -1,
+    -1,
+    -1,
+    -1
+  ],
+  "ub": [
+    3,
+    2,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "start": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+  ],
+  "goal": [
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1
+  ],
+  "urdf": "/home/quim/stg/dynoRRT/benchmark/models/se3_window.urdf",
+  "meshes": "robots/ur_description/meshes/",
+  "srdf": "/home/quim/stg/dynoRRT/benchmark/models/se3_window.srdf",
+  "state_space": [
+    "Rn:3",
+    "SO3"
+  ],
+  "base_path": "",
+  "idx_vis_name": "base_link"
+}

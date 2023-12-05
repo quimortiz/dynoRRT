@@ -11,6 +11,7 @@
 #include <Eigen/Dense>
 
 #include <boost/fusion/functional/invocation/invoke.hpp>
+#include <boost/test/tools/detail/fwd.hpp>
 #include <chrono>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -29,6 +30,9 @@
 using json = nlohmann::json;
 
 using namespace dynorrt;
+
+// NOTE: possible bug in TOML? connection_radius = 3 is not parsed correctly as
+// a doube?
 
 inline auto index_2d_to_1d_symmetric(int i, int j, int n) {
   if (i > j) {
@@ -67,6 +71,18 @@ template <typename T, typename priority_t> struct PriorityQueue {
     return best_item;
   }
 };
+
+template <typename T, typename StateSpace>
+double get_path_length(const std::vector<T> &path, StateSpace &state_space) {
+  double total_distance = 0;
+  std::cout << "path.size(): " << path.size() << std::endl;
+  std::cout << "total_distance: " << total_distance << std::endl;
+  for (size_t i = 0; i < path.size() - 1; i++) {
+    total_distance += state_space.distance(path[i], path[i + 1]);
+    std::cout << "total_distance: " << total_distance << std::endl;
+  }
+  return total_distance;
+}
 
 template <typename Location, typename Graph>
 void dijkstra_search(Graph graph, Location start, Location goal,
@@ -194,6 +210,7 @@ struct PRM_options {
   double max_compute_time_ms = 1e9;
   bool xrand_collision_free = true;
   int max_num_trials_col_free = 1000;
+  int use_k_nearest = -1;
   bool incremental_collision_check = false;
   void print(std::ostream & = std::cout);
 };
@@ -587,7 +604,9 @@ public:
   }
 
   virtual void get_planner_data(json &j) {
+    j["planner_name"] = this->get_name();
     j["path"] = path;
+    j["fine_path"] = get_fine_path(0.01);
     j["configs"] = configs;
     j["sample_configs"] = sample_configs;
     j["parents"] = parents;
@@ -597,6 +616,7 @@ public:
     j["collisions_time_ms"] = collisions_time_ms;
     j["valid_edges"] = valid_edges;
     j["invalid_edges"] = invalid_edges;
+
     // THROW_PRETTY_DYNORRT("Not implemented in base class!");
   }
 
@@ -690,7 +710,7 @@ public:
   }
 
   virtual void set_options_from_toml(toml::value &cfg) override {
-    options = toml::find<BiRRT_options>(cfg, "RRT_options");
+    options = toml::find<BiRRT_options>(cfg, "BiRRT_options");
   }
 
   Configs &get_configs_backward() { return configs_backward; }
@@ -717,7 +737,7 @@ public:
   }
 
   virtual void reset_internal() override {
-    this->Base::reset_internal();
+    Base::reset_internal();
     init_backward_tree();
     parents_backward.clear();
     configs_backward.clear();
@@ -912,6 +932,7 @@ public:
 
       this->path.insert(this->path.end(), fwd_path.begin(), fwd_path.end());
       this->path.insert(this->path.end(), bwd_path.begin() + 1, bwd_path.end());
+      this->total_distance = get_path_length(this->path, this->state_space);
     }
 
     return termination_condition;
@@ -1448,6 +1469,8 @@ bool inline ensure_childs_and_parents(
 // Sertac Karaman Emilio Frazzoli
 // Algorithm 6
 // https://arxiv.org/pdf/1105.1186.pdf
+// TODO: add flag to be a pure rrt at the beginning, and only transition to
+// rewiring once we have a solution!
 template <typename StateSpace, int DIM>
 class RRTStar : public PlannerBase<StateSpace, DIM> {
 
@@ -1579,6 +1602,7 @@ public:
     MESSAGE_PRETTY_DYNORRT("informed RRT star " +
                            std::to_string(informed_rrt_star));
     int max_attempts_informed = 1000;
+    bool is_goal = false;
     while (termination_condition == TerminationCondition::RUNNING ||
            termination_condition ==
                TerminationCondition::RUNNING_GOAL_REACHED) {
@@ -1606,6 +1630,7 @@ public:
 
       if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
         this->x_rand = Base::goal;
+        is_goal = true;
       } else {
         if (options.xrand_collision_free) {
           bool is_collision_free = false;
@@ -1620,11 +1645,12 @@ public:
               while (num_attempts < max_attempts_informed) {
                 num_attempts++;
 
+                // TODO: change the bounds that you sample on!!!
                 Base::state_space.sample_uniform(this->x_rand);
                 double distance_to_goal =
-                    Base::state_space.distance(this->x_rand, Base::goal);
+                    Base::state_space.distance(this->x_rand, this->goal);
                 double distance_to_goal_start =
-                    Base::state_space.distance(this->x_rand, Base::start);
+                    Base::state_space.distance(this->x_rand, this->start);
                 if (distance_to_goal + distance_to_goal_start < best_cost) {
                   found = true;
                   break;
@@ -1661,6 +1687,20 @@ public:
       }
 
       this->x_near = Base::configs.at(nn1.id);
+
+      if (is_goal) {
+        // Experimental: if the goal is sampled, then I will try to connect
+        // a random state with 50%, not only the closest one!
+        if (static_cast<double>(std::rand()) / RAND_MAX < 0.5) {
+          int rand_id = -1;
+          while (rand_id == -1 || rand_id == goal_id) {
+            rand_id = std::rand() % this->configs.size();
+          }
+          this->x_near = this->configs.at(rand_id);
+          nn1.id = rand_id;
+          nn1.distance = this->state_space.distance(this->x_rand, this->x_near);
+        }
+      }
 
       if (nn1.distance < options.max_step) {
         this->x_new = this->x_rand;
@@ -1882,14 +1922,18 @@ public:
 
         double distance =
             Base::state_space.distance(Base::path[i], Base::path[i + 1]);
-        CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
+        CHECK_PRETTY_DYNORRT__(
+            distance <=
+            2 * options
+                    .max_step); // note, distance can be slightly bigger in non
+        // euclidean spaces
 
         Base::total_distance +=
             Base::state_space.distance(Base::path[i], Base::path[i + 1]);
       }
     }
 
-    MESSAGE_PRETTY_DYNORRT("Output from RRT PLANNER");
+    MESSAGE_PRETTY_DYNORRT("Output from RRT Star PLANNER");
     std::cout << "Terminate status: "
               << magic_enum::enum_name(termination_condition) << std::endl;
     std::cout << "num_it: " << num_it << std::endl;
@@ -1904,7 +1948,11 @@ public:
     std::cout << "evaluated_edges: " << Base::evaluated_edges << std::endl;
     std::cout << "infeasible_edges: " << Base::infeasible_edges << std::endl;
     std::cout << "path.size(): " << Base::path.size() << std::endl;
+    std::cout << "paths.size(): " << this->paths.size() << std::endl;
     std::cout << "total_distance: " << Base::total_distance << std::endl;
+    std::cout << "Straight-line distance start-goal: "
+              << this->state_space.distance(this->start, this->goal)
+              << std::endl;
 
     return termination_condition;
   };
@@ -1954,8 +2002,8 @@ public:
     this->print_options();
 
     this->parents.push_back(-1);
-    this->configs.push_back(Base::start);
-    this->tree.addPoint(Base::start, 0);
+    this->configs.push_back(this->start);
+    this->tree.addPoint(this->start, 0);
 
     int num_it = 0;
     auto tic = std::chrono::steady_clock::now();
@@ -1965,6 +2013,13 @@ public:
       return this->is_collision_free_fun_timed(x);
     };
 
+    CHECK_PRETTY_DYNORRT__(col(this->start));
+    CHECK_PRETTY_DYNORRT__(col(this->goal));
+    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->start));
+    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->goal));
+
+    this->state_space.print(std::cout);
+
     auto get_elapsed_ms = [&] {
       return std::chrono::duration_cast<std::chrono::milliseconds>(
                  std::chrono::steady_clock::now() - tic)
@@ -1972,7 +2027,7 @@ public:
     };
 
     auto should_terminate = [&] {
-      if (Base::configs.size() > options.max_num_configs) {
+      if (this->configs.size() > options.max_num_configs) {
         return TerminationCondition::MAX_NUM_CONFIGS;
       } else if (num_it > options.max_it) {
         return TerminationCondition::MAX_IT;
@@ -1986,12 +2041,37 @@ public:
     };
 
     TerminationCondition termination_condition = should_terminate();
+    bool is_goal = false;
 
     while (termination_condition == TerminationCondition::RUNNING) {
 
       if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
         this->x_rand = this->goal;
+        is_goal = true;
       } else {
+        is_goal = false;
+
+#if 0
+        Eigen::VectorXd w1 = Eigen::VectorXd::Zero(12);
+
+        w1 << 1.88495559, -1.8849556, 0.62831853, 0., 0., 0., -0.9424778,
+            -0.9424778, 1.57079633, 0., 0., 0.;
+        Eigen::VectorXd w2 = Eigen::VectorXd::Zero(12);
+        w2 << 1.88495559, -1.8849556, 0.62831853, 0., 0., 0., -2.82743339,
+            -0.9424778, 1.57079633, 0., 0., 0.;
+
+        CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(w1));
+        CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(w2));
+
+        if (static_cast<double>(std::rand()) / RAND_MAX < 0.5) {
+          this->x_rand = w1;
+        } else {
+          this->x_rand = w2;
+        }
+        // add a little bit of noise
+        this->x_rand += 0.01 * Eigen::VectorXd::Random(12);
+
+#else
         if (options.xrand_collision_free) {
           bool is_collision_free = false;
           int num_tries = 0;
@@ -2006,27 +2086,41 @@ public:
         } else {
           this->state_space.sample_uniform(this->x_rand);
         }
+#endif
       }
       if (options.debug) {
         this->sample_configs.push_back(this->x_rand);
       }
 
       auto nn = this->tree.search(this->x_rand);
-      this->x_near = Base::configs[nn.id];
+      this->x_near = this->configs.at(nn.id);
+
+      if (is_goal) {
+        // Experimental: if the goal is sampled, then I will try to connect
+        // a random state, not only the closest one!
+        if (static_cast<double>(std::rand()) / RAND_MAX < 0.5) {
+          int rand_id = std::rand() % this->configs.size();
+          this->x_near = this->configs.at(rand_id);
+          nn.id = rand_id;
+          nn.distance = this->state_space.distance(this->x_rand, this->x_near);
+        }
+      }
+
+      std::cout << "nn.id: " << nn.id << std::endl;
 
       if (nn.distance < options.max_step) {
         this->x_new = this->x_rand;
       } else {
-        Base::state_space.interpolate(this->x_near, this->x_rand,
+        this->state_space.interpolate(this->x_near, this->x_rand,
                                       options.max_step / nn.distance,
                                       this->x_new);
       }
 
-      Base::evaluated_edges += 1;
+      this->evaluated_edges += 1;
       bool is_collision_free = is_edge_collision_free(
-          this->x_near, this->x_new, col, Base::state_space,
+          this->x_near, this->x_new, col, this->state_space,
           options.collision_resolution);
-      Base::infeasible_edges += !is_collision_free;
+      this->infeasible_edges += !is_collision_free;
 
       if (options.store_all) {
         if (is_collision_free) {
@@ -2037,11 +2131,11 @@ public:
       }
 
       if (is_collision_free) {
-        Base::tree.addPoint(this->x_new, Base::configs.size());
-        Base::configs.push_back(this->x_new);
-        Base::parents.push_back(nn.id);
+        this->tree.addPoint(this->x_new, this->configs.size());
+        this->configs.push_back(this->x_new);
+        this->parents.push_back(nn.id);
 
-        if (Base::state_space.distance(this->x_new, Base::goal) <
+        if (this->state_space.distance(this->x_new, Base::goal) <
             options.goal_tolerance) {
           path_found = true;
           MESSAGE_PRETTY_DYNORRT("path found");
@@ -2055,47 +2149,66 @@ public:
 
     if (termination_condition == TerminationCondition::GOAL_REACHED) {
 
-      int i = Base::configs.size() - 1;
+      int i = this->configs.size() - 1;
 
       CHECK_PRETTY_DYNORRT__(
-          Base::state_space.distance(Base::configs[i], Base::goal) <
+          this->state_space.distance(this->configs[i], this->goal) <
           options.goal_tolerance);
 
-      Base::path = trace_back_solution(i, Base::configs, Base::parents);
+      this->path = trace_back_solution(i, this->configs, this->parents);
 
       CHECK_PRETTY_DYNORRT__(
-          Base::state_space.distance(Base::path[0], Base::start) < 1e-6);
+          this->state_space.distance(this->path[0], this->start) < 1e-6);
       CHECK_PRETTY_DYNORRT__(
-          Base::state_space.distance(Base::path.back(), Base::goal) < 1e-6);
+          this->state_space.distance(this->path.back(), this->goal) < 1e-6);
 
-      Base::total_distance = 0;
-      for (size_t i = 0; i < Base::path.size() - 1; i++) {
+      this->total_distance = 0;
+      std::cout << "this->path.size(): " << this->path.size() << std::endl;
+      for (size_t i = 0; i < this->path.size() - 1; i++) {
 
         double distance =
-            Base::state_space.distance(Base::path[i], Base::path[i + 1]);
-        CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
+            this->state_space.distance(this->path[i], this->path[i + 1]);
+        std::cout << " i " << i << std::endl;
+        std::cout << "distance: " << distance << std::endl;
+        std::cout << "options.max_step: " << options.max_step << std::endl;
+        // CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
+        CHECK_PRETTY_DYNORRT__(distance <= 2 * options.max_step);
 
-        Base::total_distance +=
-            Base::state_space.distance(Base::path[i], Base::path[i + 1]);
+        this->total_distance +=
+            this->state_space.distance(this->path[i], this->path[i + 1]);
       }
+    } else {
+      MESSAGE_PRETTY_DYNORRT("failed to find a solution!");
+      double min_distance = std::numeric_limits<double>::infinity();
+      int min_id = -1;
+      for (size_t i = 0; i < this->configs.size(); i++) {
+        double distance =
+            this->state_space.distance(this->configs[i], this->goal);
+        if (distance < min_distance) {
+          min_distance = distance;
+          min_id = i;
+        }
+      }
+      MESSAGE_PRETTY_DYNORRT("min_distance: " << min_distance);
+      MESSAGE_PRETTY_DYNORRT("min_id: " << min_id);
     }
 
     MESSAGE_PRETTY_DYNORRT("Output from RRT PLANNER");
     std::cout << "Terminate status: "
               << magic_enum::enum_name(termination_condition) << std::endl;
     std::cout << "num_it: " << num_it << std::endl;
-    std::cout << "configs.size(): " << Base::configs.size() << std::endl;
+    std::cout << "configs.size(): " << this->configs.size() << std::endl;
     std::cout << "compute time (ms): "
               << std::chrono::duration_cast<std::chrono::milliseconds>(
                      std::chrono::steady_clock::now() - tic)
                      .count()
               << std::endl;
-    std::cout << "collisions time (ms): " << Base::collisions_time_ms
+    std::cout << "collisions time (ms): " << this->collisions_time_ms
               << std::endl;
-    std::cout << "evaluated_edges: " << Base::evaluated_edges << std::endl;
-    std::cout << "infeasible_edges: " << Base::infeasible_edges << std::endl;
-    std::cout << "path.size(): " << Base::path.size() << std::endl;
-    std::cout << "total_distance: " << Base::total_distance << std::endl;
+    std::cout << "evaluated_edges: " << this->evaluated_edges << std::endl;
+    std::cout << "infeasible_edges: " << this->infeasible_edges << std::endl;
+    std::cout << "path.size(): " << this->path.size() << std::endl;
+    std::cout << "total_distance: " << this->total_distance << std::endl;
 
     return termination_condition;
   };

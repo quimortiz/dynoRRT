@@ -725,6 +725,11 @@ BOOST_AUTO_TEST_CASE(t_all_planners_circleworld) {
 
   std::string options_cfg_all = "../../planner_config/circleworld_2d_all.toml";
   std::ifstream ifs(options_cfg_all);
+  if (!ifs.good()) {
+    std::stringstream ss;
+    ss << "File " << options_cfg_all << " does not exist" << std::endl;
+    THROW_PRETTY_DYNORRT(ss.str());
+  }
   auto cfg = toml::parse(ifs);
 
   std::vector<std::string> envs =

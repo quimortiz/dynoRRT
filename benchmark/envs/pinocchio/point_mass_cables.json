@@ -1,0 +1,47 @@
+{
+
+  "lb": [
+    -1,
+    -1,
+    -1,
+    -1.5708,
+    -1.5708,
+    -1.5708,
+    -1.5708
+  ],
+  "ub": [
+    1,
+    1,
+    1,
+    1.5708,
+    1.5708,
+    1.5708,
+    1.5708
+  ],
+  "start": [
+    -0.62831853,
+    0.0,
+    0.0,
+    0.0,
+    0.9424778,
+    0.0,
+    -0.9424778
+  ],
+  "goal": [
+    0.62831853,
+    0.2,
+    0.3,
+    0.0,
+    0.9424778,
+    0.0,
+    -0.9424778
+  ],
+  "urdf": "/home/quim/stg/dynoRRT/benchmark/models/point_payload_two_robots.urdf",
+  "meshes": "robots/ur_description/meshes/",
+  "srdf": "/home/quim/stg/dynoRRT/benchmark/models/point_payload_two_robots.srdf",
+  "state_space": [
+    "Rn:7"
+  ],
+  "base_path": "",
+  "idx_vis_name": "point_mass"
+}

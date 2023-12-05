@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<!--
+
+   UR-5 SRDF
+
+   This file is an alternative way of specifying semantics on the robot
+   structure.
+
+   It also provides:
+   - the set of interesting collision pairs
+
+  -->
+<robot name="ur5">
+  <disable_collisions link1="cable_1" link2="cable_2"/>
+  <disable_collisions link1="cable_1" link2="robot_1"/>
+  <disable_collisions link1="cable_2" link2="robot_2"/>
+  <disable_collisions link1="cable_1" link2="point_mass"/>
+  <disable_collisions link1="cable_2" link2="point_mass"/>
+</robot>
