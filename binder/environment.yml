@@ -1,0 +1,11 @@
+name: environment-1
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - pip
+  - pip:
+    - numpy
+    - meshcat
+    - pin
+    - pydynorrt
