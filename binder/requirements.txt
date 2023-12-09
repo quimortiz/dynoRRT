@@ -1,0 +1,4 @@
+numpy
+meshcat
+pin
+pydynorrt
