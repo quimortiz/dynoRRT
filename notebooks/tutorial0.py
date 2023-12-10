@@ -135,7 +135,7 @@ max_it = 20000
 max_num_configs = 20000
 max_step = 1.0
 goal_tolerance = 0.001
-collision_resolution = 0.2
+collision_resolution = 0.05
 goal_bias = 0.1
 store_all = false
 """
@@ -155,7 +155,7 @@ assert out == pyrrt.TerminationCondition.GOAL_REACHED
 parents = rrt.get_parents()
 configs = rrt.get_configs()
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.01)
+fine_path = rrt.get_fine_path(0.05)
 
 # Some Planners will output a lot of information useful for visualization
 # and debugging -- see below. You can get this directly in a dictionary.
@@ -289,7 +289,7 @@ rrt.init(6)
 config_str = """
 [RRTConnect_options]
 max_it = 100000
-collision_resolution = 0.2
+collision_resolution = 0.05
 max_step = 1.0
 max_num_configs = 100000
 """
@@ -301,7 +301,7 @@ tic = time.time()
 out = rrt.plan()
 toc = time.time()
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.01)
+fine_path = rrt.get_fine_path(0.05)
 planner_data = rrt.get_planner_data()
 # Add a small sleep to give time for the std::cout inside the compiled library to appear on the screen
 # before we print from Python.
@@ -426,7 +426,7 @@ config_str = """
 [RRTStar_options]
 max_it = 20000
 goal_bias = 0.1
-collision_resolution = 0.01
+collision_resolution = 0.05
 max_step = 1.0
 max_compute_time_ms = 1e3 # One second of compute time
 goal_tolerance = 0.001
@@ -440,7 +440,7 @@ tic = time.time()
 out = rrt.plan()
 toc = time.time()
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.01)
+fine_path = rrt.get_fine_path(0.05)
 planner_data = rrt.get_planner_data()
 # Add a small sleep to give time for the std::cout inside the compiled library to appear on the screen
 # before we print from Python.
@@ -605,7 +605,7 @@ toc = time.time()
 
 print("plan time ", toc - tic)
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.01)
+fine_path = rrt.get_fine_path(0.05)
 planner_data = rrt.get_planner_data()
 
 configs = [np.array(x) for x in planner_data["configs"]]
@@ -752,7 +752,7 @@ toc = time.time()
 dif = toc - tic
 print("planning time ", dif)
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.01)
+fine_path = rrt.get_fine_path(0.05)
 planner_data = rrt.get_planner_data()
 
 adjacency_list = planner_data["adjacency_list"]
@@ -893,7 +893,7 @@ rrt.read_cfg_string(options)
 out = rrt.plan()
 
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.1)
+fine_path = rrt.get_fine_path(0.05)
 configs = rrt.get_configs()
 parents = rrt.get_parents()
 #
@@ -953,7 +953,7 @@ parents_bwd = planner_data["parents_backward"]
 configs_bwd = planner_data["configs_backward"]
 
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.1)
+fine_path = rrt.get_fine_path(0.05)
 configs = rrt.get_configs()
 parents = rrt.get_parents()
 #
@@ -1022,7 +1022,7 @@ check_edges_valid = planner_data["check_edges_valid"]
 check_edges_invalid = planner_data["check_edges_invalid"]
 
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(0.1)
+fine_path = rrt.get_fine_path(0.05)
 configs = rrt.get_configs()
 parents = rrt.get_parents()
 
