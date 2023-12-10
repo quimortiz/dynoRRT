@@ -428,7 +428,7 @@ max_it = 20000
 goal_bias = 0.1
 collision_resolution = 0.05
 max_step = 1.0
-max_compute_time_ms = 1e3 # One second of compute time
+max_compute_time_ms = 3e3 # One second of compute time
 goal_tolerance = 0.001
 max_num_configs = 20000
 """
