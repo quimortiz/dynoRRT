@@ -1,137 +1,96 @@
-# dynoRRT
+# DynoRRT
 
-A simple and performant motion planning library for C++ and Python.
-Install in seconds, solve in milliseconds!
+DynoRRT is a C++/Python library for sampling-based motion planning, such as Rapidly Exploring Random Trees (RRT) and Probabilistic Roadmaps (PRM).
 
-<!-- ROS free, OMPL free, MOVE-it free. -->
+It delivers state-of-the-art performance with an easy-to-use and install Python interface. The installation is straightforward: no need for ROS, system-wide packages, MOVEIT, or OMPL—just a simple `pip install`. Plus, it's significantly faster than OMPL.
 
-Pre alpha state!
+With DynoRRT, you can define and solve a motion planning problem within 60 seconds and solve it in milliseconds. Planning problems can be described using URDF Files. We rely on Pinocchio and HPP-FCL for collision detection and forward kinematics calculations. These libraries are statically linked, so you don't need them at runtime—or it's fine if you have another version of these libraries.
 
-The code that uses Pinocchio is taken from:
-https://github.com/ymontmarin/_tps_robotique
+The Python package is created using pybind11, and the API is very similar to the C++ interface. Additionally, the Python package provides a couple of utilities to visualize the problems using Pinocchio and Meshcat, but you're free to use any viewer you prefer.
 
+The library is currently in its alpha state. We are aiming for a public release of version 0.1 in January. The C++ packaging is still under development. Feel free to open a GitHub issue or pull request! Special help is needed for Mac support 😊
 
-How fast is DynoRRT?
-Benchmarking Motion planning is hard. In some algorithms, most of the time is spent in collision checking. Pinocchio and Hpp-FCL offer state of the art performance for collision checking.
-
-
-Let's evaluate only the motion planning algorithm:
-
-
-RRT
-Compare to ompl, RRT is 3 times faster in a 3D environment without collisions
-using same values of goal bias and max step size.
-(i.e., all compute time is spent only on neaerest neighbour computations, interpolation and memory allocation) -- see test t_bench_rrt in benchmark/main.
-
-RRT star
-After 100 ms of compute time we get a tree with 15x more samples and better cost.
-
-PRM star
-
-
-# TODO's
-
-
-# Python Package
-
-Locally
-
-```
-python3  -m build
-pip3 install dist/pydynorrt-0.0.1-cp38-cp38-linux_x86_64.whl --force-reinstall
+```bash
+pip3 install pydynorrt
 ```
 
+## Tutorial
+
+You can try it online! Run the `tutorial0` notebook in Binder.
 
 
 
-# Roadmap to Release 0.1
-
-- [x] Pinocchio Collision from URDF of environment
-- [ ] Pin col checkig in python binding
-- [ ] Example 1: UR5 Column
-- [ ] Example 2: Panda? Box
-- [ ] Example 3: Two Ur5
-- [ ] Example 4: Flying Ball
-- [ ] Script to run all planner on all problems
-- [ ] Pinocchio collision binary instead of distance. Faster?
-- [ ] PRM* as optimal planner?
-- [ ] SST star and Kyno RRT
-- [ ] AO RRT?
-- [ ] Options to use K-nearest neigh in planners graph
-- [ ] Pip Package
-- [ ] Conda package
-- [ ] Tutorial with Jupyter lab, tested in CI.
-- [ ] Video
 
 # Planners
 
-* RRT
-* RRT Connect
-* Bidirectional RRT
-* PRM
-* Incremental PRM (similar BIT\*)
-* LAZY PRM
-* RRT\*
-* COMING SOON: PRM\*
+**Geometric Planners:**
+- RRT
+- RRT Connect
+- Bidirectional RRT
+- PRM (Optionally, check edges using Lazy Astar, similar to BIT*)
+- LAZY PRM
+- RRT\*
+- (Coming soon) LazyPRM *, PRM*
 
-# it looks like:
+**Kinodynamic Planners:**
+- (Coming soon) Kinodynamic RRT
+- (Coming soon) SST*
+- AO RRT
 
-the docker container looks like:
-
-```
-srv
-mnt
-media
-home
-sbin -> usr/sbin
-lib64 -> usr/lib64
-lib -> usr/lib
-bin -> usr/bin
-var
-anaconda-post.log
-build_scripts
-usr
-opt
-sys
-proc
-dev
-urdfdom
-urdfdom_headers
-console_bridge
-etc
-run
-octomap
-hpp-fcl
-root
-pinocchio
-wheelhouse
-tmp
-io
-```
-
-
-
+Looking for more planners? Check out our latest work in kinodynamic motion planning using Search And Trajectory Optimization. Our state-of-the-art motion planners for optimal kinodynamic motion planning are available [here](https://github.com/quimortiz/dynoplan).
 
 # Collision and Robots
 
-* Using Python bindings: You can define the collision function in PYTHON
-* Robotics: Examples using Python Bindings of Pinocchio for collision checking
-* In C++: Flexibility to implement whatever you want.
-* In Python: Same, but it will be slower.
-* COMING SOON: C++ Pinocchio Interface
-* COMING SOON: C++ Collision for Point robot in 2D and 3D and spheres/boxes (maybe using hpp-fcl?, or just coding )
+- Using Python bindings: You can define the collision function in PYTHON
+- Robotics: Examples using Python Bindings of Pinocchio for collision checking
+- In C++: Flexibility to implement whatever you want.
+- In Python: Similar flexibility, but it may be slower.
+- C++ Pinocchio Interface: Define your problem using a URDF FILE.
+- C++ Collision for Point robot in 2D and 3D and spheres/boxes (maybe using hpp-fcl?, or just coding)
 
+# How To Use the Code
 
-# How To use the code
-
-* COMING SOON: Python Package
-* COMING SOON: C++: Easy integration in CMAKE build system. As submodule, Fetch Content...
-* COMING SOON: Conda Pacakge
-
-# Benchmark
-
-* COMING SOON:
+- Python Package
+- (Coming soon) C++: Easy integration into CMAKE build system. As submodule, Fetch Content...
+- (Coming soon) Conda Package
 
 # Test and CI
 
-* We will have good tests and CI
+We will have comprehensive tests and CI setup, including code coverage analysis.
+
+# Performance Benchmark
+
+How fast is DynoRRT?
+
+Benchmarking motion planning is challenging. In some algorithms, most of the time is spent in collision checking. Pinocchio and Hpp-fcl offer state-of-the-art performance for collision checking.
+
+Let's evaluate only the motion planning algorithm:
+
+**RRT:**
+- Compared to OMPL, RRT is 3 times faster in a 3D environment without collisions using the same values of goal bias and max step size. (i.e., all compute time is spent only on nearest neighbor computations, interpolation, and memory allocation) - see test `t_bench_rrt` in `benchmark/main`.
+
+**RRT star:**
+- After 100 ms of compute time, we get a tree with 15x more samples and better cost.
+
+**PRM star**
+- TODO
+
+
+# Build C++ Library and Python Package
+
+Coming soon
+
+# Roadmap
+
+
+Release 0.1
+
+- [ ] Get the tests working again
+- [ ] Implement good CI in Github
+- [ ] Add the missing planner PRM\*, LazyPRM\*.
+- [ ] Implement SST star and Kyno RRT
+- [ ] Create a Conda package
+- [ ] Add a video
+- [ ] Evaluate in MotionBenchMaker
+- [ ] Offer problem as two files (robot vs. environment)
+- [ ] Integrate in Dynoplan

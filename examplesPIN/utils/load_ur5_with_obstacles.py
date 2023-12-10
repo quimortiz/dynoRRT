@@ -18,7 +18,6 @@ def XYZRPYtoSE3(xyzrpy):
 
 
 def load_ur5_with_obstacles(robotname="ur5", reduced=False):
-
     ### Robot
     # Load the robot
     robot = robex.load(robotname)

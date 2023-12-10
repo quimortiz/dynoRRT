@@ -67,7 +67,6 @@ class RobotHand:
         self.visual_data = self.gmodel.createData()
 
     def addCollisionPairs(self):
-
         pairs = [
             ["finger12", "wrist"],
             ["finger12", "palm_left"],
@@ -115,7 +114,7 @@ class RobotHand:
             ["thumb2", "finger22"],
             ["thumb2", "finger23"],
         ]
-        for (n1, n2) in pairs:
+        for n1, n2 in pairs:
             self.gmodel.addCollisionPair(
                 pin.CollisionPair(
                     self.gmodel.getGeometryId("world/" + n1),

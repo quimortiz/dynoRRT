@@ -177,11 +177,9 @@ class _LeafNodeTrait(_Node):
 
 
 class _NonLeafNodeTrait(_Node):
-
     CandidateChild = namedtuple("CandidateChild", "node, distance, metric")
 
     def do_add_data(self, data, distance, mtree):
-
         min_radius_increase_needed = self.CandidateChild(None, None, _INFINITY)
         nearest_distance = self.CandidateChild(None, None, _INFINITY)
 
