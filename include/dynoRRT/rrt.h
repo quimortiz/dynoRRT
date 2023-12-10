@@ -75,11 +75,8 @@ template <typename T, typename priority_t> struct PriorityQueue {
 template <typename T, typename StateSpace>
 double get_path_length(const std::vector<T> &path, StateSpace &state_space) {
   double total_distance = 0;
-  std::cout << "path.size(): " << path.size() << std::endl;
-  std::cout << "total_distance: " << total_distance << std::endl;
   for (size_t i = 0; i < path.size() - 1; i++) {
     total_distance += state_space.distance(path[i], path[i + 1]);
-    std::cout << "total_distance: " << total_distance << std::endl;
   }
   return total_distance;
 }

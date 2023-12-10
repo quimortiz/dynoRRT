@@ -105,7 +105,7 @@ cm.reset_counters()
 viewer = meshcat.Visualizer()
 viewer_helper = pyrrt_vis.ViewerHelperRRT(viewer, urdf, srdf, start, goal)
 # Now, you can open the URL with your browser, in another tab, or use
-viewer.jupyter_cell()
+viewer.render_static()
 
 # %%
 # Create the Planner.
@@ -223,7 +223,7 @@ for i in range(len(fine_path)):
 
 viewer.set_animation(anim)
 viewer_helper.viz.viewer = __v
-viewer.jupyter_cell()
+viewer.render_static()
 
 # %%
 # Congratulations! You have finished the first tutorial of DynoRRT.
@@ -273,7 +273,7 @@ package_dirs = pyrrt.DATADIR + "models/meshes"
 viewer_helper = pyrrt_vis.ViewerHelperRRT(
     viewer, urdf, package_dirs=package_dirs, start=start, goal=goal
 )
-viewer.jupyter_cell()
+viewer.render_static()
 
 # %%
 # We have implemented the most commonly used algorithms for
@@ -390,7 +390,7 @@ for i in range(len(fine_path)):
         viz.display(fine_path[i])
 viewer.set_animation(anim)
 viewer_helper.viz.viewer = __v
-viewer.jupyter_cell()
+viewer.render_static()
 
 
 # %%
@@ -467,7 +467,7 @@ IDX_VIS = viewer_helper.robot.model.getFrameId(idx_vis_name)
 display_count = 0  # just to enumerate the number of edges
 for pp, _path in enumerate(paths[:-1]):
     transparency = (pp + 1) / (len(paths))
-    for i in range(len(path) - 1):
+    for i in range(len(_path) - 1):
         q1 = _path[i]
         q2 = _path[i + 1]
         pyrrt_vis.display_edge(
@@ -509,7 +509,7 @@ for i in range(len(fine_path)):
 # Finally, let's display the best trajectory (the last one)
 viewer.set_animation(anim)
 viewer_helper.viz.viewer = __v
-viewer.jupyter_cell()
+viewer.render_static()
 
 # %%
 # In the last example, we are going to solve a problem
@@ -577,7 +577,7 @@ IDX_VIS = robot.model.getFrameId(idx_vis_name)
 IDX_VIS2 = robot.model.getFrameId(idx_vis_name2)
 
 
-viewer.jupyter_cell()
+viewer.render_static()
 
 # %%
 # Let's solve it with LazyPRM --
@@ -715,7 +715,7 @@ for i in range(len(fine_path)):
 # Finally, let's display the best trajectory (the last one)
 viewer.set_animation(anim)
 viewer_helper.viz.viewer = __v
-viewer.jupyter_cell()
+viewer.render_static()
 
 # %%
 # Now with PRM -- but we check edges incrementally
@@ -817,7 +817,7 @@ for e in check_edges_valid:
     )
     display_count += 1
 
-viewer.jupyter_cell()
+viewer.render_static()
 
 
 # %%
