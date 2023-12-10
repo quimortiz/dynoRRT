@@ -8,7 +8,7 @@ With DynoRRT, you can define and solve a motion planning problem within 60 secon
 
 The Python package is created using pybind11, and the API is very similar to the C++ interface. Additionally, the Python package provides a couple of utilities to visualize the problems using Pinocchio and Meshcat, but you're free to use any viewer you prefer.
 
-The library is currently in its alpha state. We are aiming for a public release of version 0.1 in January. The C++ packaging is still under development. Feel free to open a GitHub issue or pull request! Special help is needed for Mac support 😊
+The library is currently in its alpha state. We are aiming for a public release of version 0.1 in January. The C++ packaging is still under development. Feel free to open a GitHub issue or pull request! Special help is needed for Mac support. 
 
 ```bash
 pip3 install pydynorrt
