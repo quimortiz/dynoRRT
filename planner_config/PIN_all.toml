@@ -42,6 +42,17 @@ backward_probability = 0.2
 max_step = 1.0
 max_num_configs = 100000
 
+
+[RRTConnect_options]
+max_it = 100000
+goal_bias = 0.2
+collision_resolution = 0.2
+backward_probability = 0.2
+max_step = 1.0
+max_num_configs = 100000
+
+
+
 [LazyPRM_options]
 connection_radius = 3.0
 num_vertices_0 = 5000

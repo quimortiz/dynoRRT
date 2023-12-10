@@ -32,6 +32,16 @@ PRM star
 # TODO's
 
 
+# Python Package
+
+Locally
+
+```
+python3  -m build
+pip3 install dist/pydynorrt-0.0.1-cp38-cp38-linux_x86_64.whl --force-reinstall
+```
+
+
 
 
 # Roadmap to Release 0.1
@@ -63,6 +73,44 @@ PRM star
 * LAZY PRM
 * RRT\*
 * COMING SOON: PRM\*
+
+# it looks like:
+
+the docker container looks like:
+
+```
+srv
+mnt
+media
+home
+sbin -> usr/sbin
+lib64 -> usr/lib64
+lib -> usr/lib
+bin -> usr/bin
+var
+anaconda-post.log
+build_scripts
+usr
+opt
+sys
+proc
+dev
+urdfdom
+urdfdom_headers
+console_bridge
+etc
+run
+octomap
+hpp-fcl
+root
+pinocchio
+wheelhouse
+tmp
+io
+```
+
+
+
 
 # Collision and Robots
 

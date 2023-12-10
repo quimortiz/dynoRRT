@@ -10,8 +10,10 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(pybind11)
 
 pybind11_add_module(pydynorrt py.cpp)
-target_link_libraries(pydynorrt PRIVATE dynorrt::dynorrt dynotree::dynotree
-                                        Eigen3::Eigen toml11::toml11)
+target_link_libraries(
+  pydynorrt
+  PRIVATE dynorrt::dynorrt dynotree::dynotree Eigen3::Eigen toml11::toml11
+          pinocchio::pinocchio dynorrt::pin_col_manager)
 
 set_target_properties(
   pydynorrt

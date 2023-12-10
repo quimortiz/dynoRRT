@@ -181,6 +181,8 @@ struct RRT_options {
   int max_num_trials_col_free = 1000;
   bool debug = false;
   bool store_all = false;
+  int k_near = -1; // if different than -1, it is used in RRT star -- TODO: RRT
+                   // star options!
 
   void print(std::ostream & = std::cout);
 };
@@ -210,8 +212,8 @@ struct PRM_options {
   double max_compute_time_ms = 1e9;
   bool xrand_collision_free = true;
   int max_num_trials_col_free = 1000;
-  int use_k_nearest = -1;
   bool incremental_collision_check = false;
+  int k_near = -1;
   void print(std::ostream & = std::cout);
 };
 
@@ -225,15 +227,15 @@ struct LazyPRM_options {
   double max_compute_time_ms = 1e9;
   bool xrand_collision_free = true;
   int max_num_trials_col_free = 1000;
+  int k_near = -1;
   void print(std::ostream & = std::cout);
 };
-
 } // namespace dynorrt
 
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
     dynorrt::RRT_options, max_it, goal_bias, collision_resolution, max_step,
     max_compute_time_ms, goal_tolerance, max_num_configs, xrand_collision_free,
-    max_num_trials_col_free, debug, store_all);
+    max_num_trials_col_free, debug, store_all, k_near);
 
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
                                           goal_bias, collision_resolution,
@@ -245,12 +247,13 @@ TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
     dynorrt::PRM_options, num_vertices_0, increase_vertices_rate,
     collision_resolution, max_it, connection_radius, max_compute_time_ms,
-    xrand_collision_free, max_num_trials_col_free, incremental_collision_check);
+    xrand_collision_free, max_num_trials_col_free, incremental_collision_check,
+    k_near);
 
 TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
     dynorrt::LazyPRM_options, num_vertices_0, increase_vertices_rate,
     collision_resolution, max_lazy_iterations, connection_radius,
-    max_compute_time_ms, xrand_collision_free, max_num_trials_col_free);
+    max_compute_time_ms, xrand_collision_free, max_num_trials_col_free, k_near);
 
 inline void dynorrt::RRT_options::print(std::ostream &out) {
   toml::value v = *this;
@@ -373,6 +376,10 @@ auto trace_back_solution(int id, std::vector<T> configs,
   return path;
 };
 
+// Note: PRM* and LazyPRM* are implemented by
+// setting the suitable options in PRM and LazyPRM respectively.
+enum class PlannerID { RRT, BiRRT, RRTConnect, RRTStar, PRM, LazyPRM, UNKNOWN };
+
 enum class TerminationCondition {
   MAX_IT,
   MAX_TIME,
@@ -461,6 +468,17 @@ public:
     tree.init_tree(runtime_dim, state_space);
   }
 
+  void set_state_space_with_string(
+      const std::vector<std::string> &state_space_vstring) {
+    if constexpr (std::is_same<StateSpace, dynotree::Combined<double>>::value) {
+      state_space = StateSpace(state_space_vstring);
+      tree = tree_t();
+      tree.init_tree(runtime_dim, state_space);
+    } else {
+      THROW_PRETTY_DYNORRT("use set_state_string only with dynotree::Combined");
+    }
+  }
+
   virtual void print_options(std::ostream &out = std::cout) {
     THROW_PRETTY_DYNORRT("Not implemented in base class!");
   }
@@ -489,26 +507,17 @@ public:
 
   std::vector<edge_t> get_invalid_edges() { return invalid_edges; }
 
-  void set_bounds_to_state(Eigen::VectorXd min, Eigen::VectorXd max) {
-    // TODO: remove from here?
+  void set_bounds_to_state(const Eigen::VectorXd &lb,
+                           const Eigen::VectorXd &ub) {
+    CHECK_PRETTY_DYNORRT__(lb.size() == ub.size());
 
-    if (min.size() != max.size()) {
-      throw std::runtime_error("min.size() != max.size()");
-    }
     if constexpr (DIM == -1) {
-      if (runtime_dim == -1) {
-        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
-      }
-      if (min.size() != runtime_dim) {
-        throw std::runtime_error("min.size() != runtime_dim");
-      }
-    } else {
-      if (min.size() != DIM) {
-        throw std::runtime_error("min.size() != DIM");
-      }
+      CHECK_PRETTY_DYNORRT__(runtime_dim != -1);
+      CHECK_PRETTY_DYNORRT__(lb.size() == runtime_dim);
+      CHECK_PRETTY_DYNORRT__(ub.size() == runtime_dim);
     }
 
-    state_space.set_bounds(min, max);
+    state_space.set_bounds(lb, ub);
   }
 
   void
@@ -551,9 +560,6 @@ public:
   virtual void init(int t_runtime_dim = -1) {
 
     runtime_dim = t_runtime_dim;
-    std::cout << "init tree" << std::endl;
-    std::cout << "DIM: " << DIM << std::endl;
-    std::cout << "runtime_dim: " << runtime_dim << std::endl;
 
     if constexpr (DIM == -1) {
       x_rand.resize(this->runtime_dim);
@@ -760,7 +766,7 @@ public:
 
     check_internal();
 
-    MESSAGE_PRETTY_DYNORRT("Options");
+    std::cout << "Options" << std::endl;
     this->print_options();
 
     // forward tree
@@ -859,7 +865,7 @@ public:
       }
       this->sample_configs.push_back(this->x_rand);
       auto nn = Tsrc.tree->search(this->x_rand);
-      std::cout << "nn.id: " << nn.id << std::endl;
+      // std::cout << "nn.id: " << nn.id << std::endl;
       this->x_near = Tsrc.configs->at(nn.id);
 
       bool full_step_attempt = nn.distance < options.max_step;
@@ -964,12 +970,16 @@ public:
 
   virtual std::string get_name() override { return "RRTConnect"; }
 
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    this->options = toml::find<BiRRT_options>(cfg, "RRTConnect_options");
+  }
+
   virtual void reset() override { *this = RRTConnect(); }
 
   virtual TerminationCondition plan() override {
     this->check_internal();
 
-    MESSAGE_PRETTY_DYNORRT("Options");
+    std::cout << "Options" << std::endl;
     this->print_options();
 
     // forward tree
@@ -1050,7 +1060,6 @@ public:
       //
       //
 
-      std::cout << "x_rand: " << this->x_rand.transpose() << std::endl;
       // Expand Ta toward x_rand
       auto nn_a = Ta.tree->search(this->x_rand);
       this->x_near = Ta.configs->at(nn_a.id);
@@ -1121,6 +1130,12 @@ public:
       std::swap(Ta, Tb);
 
     } // RRT CONNECT terminated
+    //
+    //
+    //
+    auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+                          std::chrono::steady_clock::now() - tic)
+                          .count();
 
     if (termination_condition == TerminationCondition::GOAL_REACHED) {
 
@@ -1143,13 +1158,27 @@ public:
 
       std::reverse(bwd_path.begin(), bwd_path.end());
 
-      print_path(fwd_path);
-      print_path(bwd_path);
-
       this->path.insert(this->path.end(), fwd_path.begin(), fwd_path.end());
       this->path.insert(this->path.end(), bwd_path.begin() + 1, bwd_path.end());
+      this->total_distance = get_path_length(this->path, this->state_space);
     }
     // else
+
+    // PRINT SOMETHING TO SCREEN
+
+    std::cout << "Terminate status: "
+              << magic_enum::enum_name(termination_condition) << std::endl;
+    std::cout << "num_it: " << num_it << std::endl;
+    std::cout << "configs.size(): " << this->configs.size() << std::endl;
+    std::cout << "configs_backwared.size(): " << this->configs_backward.size()
+              << std::endl;
+    std::cout << "compute time (ms): " << elapsed_ms << std::endl;
+    std::cout << "collisions time (ms): " << this->collisions_time_ms
+              << std::endl;
+    std::cout << "evaluated_edges: " << this->evaluated_edges << std::endl;
+    std::cout << "infeasible_edges: " << this->infeasible_edges << std::endl;
+    std::cout << "path.size(): " << this->path.size() << std::endl;
+    std::cout << "total_distance: " << this->total_distance << std::endl;
 
     return termination_condition;
     //
@@ -1161,6 +1190,7 @@ class PRM : public PlannerBase<StateSpace, DIM> {
 
   using AdjacencyList = std::vector<std::vector<int>>;
   using Base = PlannerBase<StateSpace, DIM>;
+  using tree_t = typename Base::tree_t;
 
 public:
   PRM() = default;
@@ -1189,7 +1219,7 @@ public:
 
     Base::check_internal();
 
-    MESSAGE_PRETTY_DYNORRT("Options");
+    std::cout << "Options:" << std::endl;
     this->print_options();
 
     auto col = [this](const auto &x) {
@@ -1240,8 +1270,14 @@ public:
     // NOTE: using a K-d Tree helps only if there are a lot of points!
     for (int i = 0; i < this->configs.size(); i++) {
 
-      auto nn =
-          this->tree.searchBall(this->configs[i], options.connection_radius);
+      std::vector<typename tree_t::DistanceId> nn;
+
+      if (options.k_near > 0) {
+        nn = this->tree.searchKnn(this->configs[i], options.k_near);
+      } else {
+        nn = this->tree.searchBall(this->configs[i], options.connection_radius);
+      }
+
       for (int j = 0; j < nn.size(); j++) {
         auto &src = this->configs[i];
         auto &tgt = this->configs[nn[j].id];
@@ -1288,7 +1324,7 @@ public:
             std::chrono::steady_clock::now() - tic2)
             .count();
 
-    MESSAGE_PRETTY_DYNORRT("graph built!");
+    // MESSAGE_PRETTY_DYNORRT("graph built!");
 
     // Search a Path between start and goal
     //
@@ -1360,6 +1396,11 @@ public:
             std::chrono::steady_clock::now() - tic3)
             .count();
 
+    double time_total = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - tic)
+                            .count();
+
+    std::cout << "total time (ms): " << time_total << std::endl;
     std::cout << "time_sample_ms: " << time_sample_ms << std::endl;
     std::cout << "time_build_graph_ms: " << time_build_graph_ms << std::endl;
     std::cout << "time build - time col:"
@@ -1534,7 +1575,7 @@ public:
   virtual TerminationCondition plan() override {
     Base::check_internal();
 
-    MESSAGE_PRETTY_DYNORRT("Options");
+    std::cout << "Options" << std::endl;
     this->print_options();
 
     this->parents.push_back(-1);
@@ -1599,8 +1640,7 @@ public:
     TerminationCondition termination_condition = should_terminate();
 
     bool informed_rrt_star = true;
-    MESSAGE_PRETTY_DYNORRT("informed RRT star " +
-                           std::to_string(informed_rrt_star));
+    std::cout << "informed_rrt_star: " << informed_rrt_star << std::endl;
     int max_attempts_informed = 1000;
     bool is_goal = false;
     while (termination_condition == TerminationCondition::RUNNING ||
@@ -1730,8 +1770,13 @@ public:
 
         // Compute all the nodes inside a ball
         double radius_search = options.max_step;
-        auto _nns = this->tree.searchBall(this->x_new, radius_search);
 
+        std::vector<typename Base::tree_t::DistanceId> _nns;
+        if (options.k_near > 0) {
+          _nns = this->tree.searchKnn(this->x_new, options.k_near);
+        } else {
+          _nns = this->tree.searchBall(this->x_new, radius_search);
+        }
         bool is_goal = distance_to_goal < options.goal_tolerance;
         int id_new;
         if (path_found && is_goal) {
@@ -1894,7 +1939,7 @@ public:
           paths.push_back(
               trace_back_solution(goal_id, Base::configs, Base::parents));
           MESSAGE_PRETTY_DYNORRT("New Path Found!"
-                                 << " Number paths" << paths.size());
+                                 << " Number paths " << paths.size());
         }
       }
       num_it++;
@@ -1922,10 +1967,9 @@ public:
 
         double distance =
             Base::state_space.distance(Base::path[i], Base::path[i + 1]);
-        CHECK_PRETTY_DYNORRT__(
-            distance <=
-            2 * options
-                    .max_step); // note, distance can be slightly bigger in non
+        CHECK_PRETTY_DYNORRT__(distance <=
+                               2 * options.max_step); // note, distance can be
+                                                      // slightly bigger in non
         // euclidean spaces
 
         Base::total_distance +=
@@ -1998,7 +2042,7 @@ public:
   virtual TerminationCondition plan() override {
     Base::check_internal();
 
-    MESSAGE_PRETTY_DYNORRT("Options");
+    std::cout << "Options " << std::endl;
     this->print_options();
 
     this->parents.push_back(-1);
@@ -2013,12 +2057,12 @@ public:
       return this->is_collision_free_fun_timed(x);
     };
 
+    this->state_space.print(std::cout);
+
     CHECK_PRETTY_DYNORRT__(col(this->start));
     CHECK_PRETTY_DYNORRT__(col(this->goal));
     CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->start));
     CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->goal));
-
-    this->state_space.print(std::cout);
 
     auto get_elapsed_ms = [&] {
       return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -2106,8 +2150,6 @@ public:
         }
       }
 
-      std::cout << "nn.id: " << nn.id << std::endl;
-
       if (nn.distance < options.max_step) {
         this->x_new = this->x_rand;
       } else {
@@ -2163,15 +2205,12 @@ public:
           this->state_space.distance(this->path.back(), this->goal) < 1e-6);
 
       this->total_distance = 0;
-      std::cout << "this->path.size(): " << this->path.size() << std::endl;
       for (size_t i = 0; i < this->path.size() - 1; i++) {
 
         double distance =
             this->state_space.distance(this->path[i], this->path[i + 1]);
-        std::cout << " i " << i << std::endl;
-        std::cout << "distance: " << distance << std::endl;
-        std::cout << "options.max_step: " << options.max_step << std::endl;
-        // CHECK_PRETTY_DYNORRT__(distance <= options.max_step + 1e-6);
+        // The distance between two points can be slightly bigger than the
+        // max_step for non euclidean spaces
         CHECK_PRETTY_DYNORRT__(distance <= 2 * options.max_step);
 
         this->total_distance +=
@@ -2221,6 +2260,7 @@ protected:
 
 template <typename StateSpace, int DIM>
 class LazyPRM : public PRM<StateSpace, DIM> {
+  using Base = PlannerBase<StateSpace, DIM>;
 
 public:
   LazyPRM() = default;
@@ -2289,20 +2329,26 @@ public:
 
     // Vertices build.
 
+    auto tic2 = std::chrono::steady_clock::now();
+
     // Now lets get the connections
     this->adjacency_list.resize(this->configs.size());
-
     for (size_t i = 0; i < this->configs.size(); i++) {
       this->tree.addPoint(this->configs[i], i, false);
     }
     this->tree.splitOutstanding();
 
-    auto tic2 = std::chrono::steady_clock::now();
     // NOTE: using a K-d Tree helps only if there are a lot of points!
     for (int i = 0; i < this->configs.size(); i++) {
 
-      auto nn =
-          this->tree.searchBall(this->configs[i], options.connection_radius);
+      std::vector<typename Base::tree_t::DistanceId> nn;
+
+      if (options.k_near > 0) {
+        nn = this->tree.searchKnn(this->configs[i], options.k_near);
+      } else {
+        nn = this->tree.searchBall(this->configs[i], options.connection_radius);
+      }
+
       for (int j = 0; j < nn.size(); j++) {
         auto &src = this->configs[i];
         auto &tgt = this->configs[nn[j].id];
@@ -2348,16 +2394,20 @@ public:
     std::unordered_map<Location, Location> came_from;
     std::unordered_map<Location, double> cost_so_far;
 
-    // Use this to avoid recomputing collisions --> save such that (i,j) with i
-    // < j
-    std::unordered_map<int, int> edges_map; // -1, 0 , 1
+    std::unordered_map<int, bool> incremental_checked_edges;
     // { -1: not checked, 0: collision, 1: no collision}
 
-    for (size_t i = 0; i < this->configs.size(); i++) {
-      for (size_t j = i + 1; j < this->configs.size(); j++) {
-        edges_map[index_2d_to_1d_symmetric(i, j, this->configs.size())] = -1;
-      }
-    }
+    auto tic_star_search = std::chrono::steady_clock::now();
+
+    // Use this to avoid recomputing collisions --> save such that (i,j) with
+    // i < j
+    // std::unordered_map<int, int> edges_map; // -1, 0 , 1
+
+    // for (size_t i = 0; i < this->configs.size(); i++) {
+    //   for (size_t j = i + 1; j < this->configs.size(); j++) {
+    //     edges_map[index_2d_to_1d_symmetric(i, j, this->configs.size())] = -1;
+    //   }
+    // }
 
     // TODO: get evaluated edges afterwards!
     auto twod_index_to_one_d_index = [](int i, int j, int n) {
@@ -2377,13 +2427,12 @@ public:
                                                          Location b) {
       //
       int index = index_2d_to_1d_symmetric(a, b, this->configs.size());
-      int status = edges_map[index];
 
-      if (status == 0) {
+      if (auto it = incremental_checked_edges.find(index);
+          it != incremental_checked_edges.end() && !it->second)
         return std::numeric_limits<double>::infinity();
-      } else {
+      else
         return this->state_space.distance(this->configs[a], this->configs[b]);
-      }
     };
 
     std::function<double(Location, Location)> heuristic = [this](Location a,
@@ -2417,8 +2466,12 @@ public:
 
           int index = index_2d_to_1d_symmetric(path_id.at(i), path_id.at(i + 1),
                                                this->configs.size());
+          auto it = incremental_checked_edges.find(index);
 
-          int status = edges_map[index];
+          int status = -1;
+          if (it != incremental_checked_edges.end()) {
+            status = it->second;
+          }
           if (status == 0) {
             THROW_PRETTY_DYNORRT("why?");
           } else if (status == 1) {
@@ -2429,7 +2482,15 @@ public:
             bool free =
                 is_edge_collision_free(src, tgt, col, this->state_space,
                                        this->options.collision_resolution);
-            edges_map[index] = static_cast<int>(free);
+            if (free) {
+              this->check_edges_valid.push_back(
+                  {path_id.at(i), path_id.at(i + 1)});
+            } else {
+              this->check_edges_invalid.push_back(
+                  {path_id.at(i), path_id.at(i + 1)});
+            }
+
+            incremental_checked_edges[index] = free;
             if (!free) {
               path_valid = false;
               break;
@@ -2447,18 +2508,22 @@ public:
           termination_condition = TerminationCondition::GOAL_REACHED;
           break;
         } else {
-
-          MESSAGE_PRETTY_DYNORRT("collision in PATH -- Running again");
+          std::cout << "Path not valid -- Running again" << std::endl;
         }
       }
     }
 
-    auto tic3 = std::chrono::steady_clock::now();
+    // auto tic3 = std::chrono::steady_clock::now();
     double time_search_ms =
         std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::steady_clock::now() - tic3)
+            std::chrono::steady_clock::now() - tic_star_search)
             .count();
 
+    double time_total = std::chrono::duration_cast<std::chrono::milliseconds>(
+                            std::chrono::steady_clock::now() - tic)
+                            .count();
+
+    std::cout << "time_total " << time_total << std::endl;
     std::cout << "time_sample_ms: " << time_sample_ms << std::endl;
     std::cout << "time_build_graph_ms: " << time_build_graph_ms << std::endl;
     std::cout << "time build - time col:"
@@ -2468,20 +2533,20 @@ public:
               << std::endl;
 
     // REFACTOR!!
-    for (auto &t : edges_map) {
-      std::pair<int, int> pair = index_1d_to_2d(t.first, this->configs.size());
-      if (pair.first > pair.second) {
-        std::swap(pair.first, pair.second);
-      }
-      if (pair.first == pair.second) {
-        THROW_PRETTY_DYNORRT("pair.first == pair.second");
-      }
-      if (t.second == 1) {
-        this->check_edges_valid.push_back(pair);
-      } else if (t.second == 0) {
-        this->check_edges_invalid.push_back(pair);
-      }
-    }
+    // for (auto &t : edges_map) {
+    //   std::pair<int, int> pair = index_1d_to_2d(t.first,
+    //   this->configs.size()); if (pair.first > pair.second) {
+    //     std::swap(pair.first, pair.second);
+    //   }
+    //   if (pair.first == pair.second) {
+    //     THROW_PRETTY_DYNORRT("pair.first == pair.second");
+    //   }
+    //   if (t.second == 1) {
+    //     this->check_edges_valid.push_back(pair);
+    //   } else if (t.second == 0) {
+    //     this->check_edges_invalid.push_back(pair);
+    //   }
+    // }
 
     return termination_condition;
 
@@ -2513,7 +2578,33 @@ protected:
   LazyPRM_options options;
 };
 
+template <typename StateSpace, int DIM>
+std::shared_ptr<PlannerBase<StateSpace, DIM>>
+get_planner(PlannerID planner_id) {
+  std::cout << "planner_id: " << magic_enum::enum_name(planner_id) << std::endl;
+  switch (planner_id) {
+  case PlannerID::RRT:
+    return std::make_shared<RRT<StateSpace, DIM>>();
+  case PlannerID::BiRRT:
+    return std::make_shared<BiRRT<StateSpace, DIM>>();
+  case PlannerID::RRTConnect:
+    return std::make_shared<RRTConnect<StateSpace, DIM>>();
+  case PlannerID::RRTStar:
+    return std::make_shared<RRTStar<StateSpace, DIM>>();
+  case PlannerID::PRM:
+    return std::make_shared<PRM<StateSpace, DIM>>();
+  case PlannerID::LazyPRM:
+    return std::make_shared<LazyPRM<StateSpace, DIM>>();
+  default:
+    THROW_PRETTY_DYNORRT("Planner not implemented");
+  }
+}
+
 } // namespace dynorrt
+//
+//
+//
+//
 //
 //
 //

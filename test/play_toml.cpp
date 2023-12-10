@@ -25,7 +25,7 @@ int main() {
   // title = "an example toml file"
   // nums  = [3, 1, 4, 1, 5]
   // ```
-  auto data = toml::parse("../data/example.toml");
+  auto data = toml::parse("../../data/example.toml");
   auto f = toml::find<foo::Foo>(data, "foo");
 
   std::cout << "parsed f is " << std::endl;
@@ -41,6 +41,9 @@ int main() {
   if (!data.contains("foo")) {
     data["foo"] = "bar";
   }
+
+  double _nums = toml::find<double>(data["RRT_options"], "radius");
+  std::cout << _nums << std::endl;
 
   // pass a fallback
   std::string name = toml::find_or<std::string>(data, "name", "not found");

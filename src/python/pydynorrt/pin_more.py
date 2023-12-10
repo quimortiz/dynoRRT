@@ -4,6 +4,19 @@ import warnings
 import meshcat
 import os
 
+from pinocchio.visualize.meshcat_visualizer import *
+
+try:
+    from pinocchio.visualize.meshcat_visualizer import loadPrimitive
+except ImportError:
+    pass
+
+import sys
+from pinocchio.visualize import MeshcatVisualizer
+from pinocchio.robot_wrapper import buildModelsFromUrdf
+import pinocchio as pin
+import meshcat
+
 
 try:
     import hppfcl
@@ -86,7 +99,12 @@ def _loadViewerGeometryObject(viz, geometry_object, geometry_type, color=None):
         if WITH_HPP_FCL_BINDINGS and isinstance(
             geometry_object.geometry, hppfcl.ShapeBase
         ):
-            obj = viz.loadPrimitive(geometry_object)
+
+            # Hack to work with different version of Pinocchio
+            try:
+                obj = viz.loadPrimitive(geometry_object)
+            except:
+                obj = loadPrimitive(geometry_object)
         elif isMesh(geometry_object):
             obj = viz.loadMesh(geometry_object)
             is_mesh = True
@@ -244,3 +262,42 @@ def display_edge(
     _addCylinder(viz, name, length, _radius, color=color)
     _applyConfiguration(viz, name, Mcyl)
     display_count += 1
+
+
+class ViewerHelperRRT:
+    def __init__(self, viewer, urdf, package_dirs, start, goal):
+        self.viewer = viewer
+        # TODO:
+        # This version already works in the notebook
+        # with 22.
+        # self.robot = pin.RobotWrapper.BuildFromURDF(
+        #     urdf,
+        #     srdf)
+        print(package_dirs)
+        self.robot = pin.RobotWrapper.BuildFromURDF(urdf, package_dirs=package_dirs)
+
+        self.viz = MeshcatVisualizer(
+            self.robot.model, self.robot.collision_model, self.robot.visual_model
+        )
+        self.viz.initViewer(self.viewer)
+        _loadViewerModel(self.viz)
+
+        self.viz_start = MeshcatVisualizer(
+            self.robot.model, self.robot.collision_model, self.robot.visual_model
+        )
+        self.viz_start.initViewer(self.viz.viewer)
+        _loadViewerModel(self.viz_start, "start", color=[0.0, 1.0, 0.0, 0.5])
+
+        self.viz_goal = MeshcatVisualizer(
+            self.robot.model, self.robot.collision_model, self.robot.visual_model
+        )
+        self.viz_goal.initViewer(self.viz.viewer)
+        _loadViewerModel(self.viz_goal, "goal", color=[1.0, 0.0, 0.0, 0.5])
+
+        self.viz.display_frames = False
+        self.viz_start.display_frames = False
+        self.viz_goal.display_frames = False
+
+        self.viz.display(np.copy(start))
+        self.viz_start.display(start)
+        self.viz_goal.display(goal)

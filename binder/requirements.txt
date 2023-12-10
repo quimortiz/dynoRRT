@@ -2,3 +2,4 @@ numpy
 meshcat
 pin
 pydynorrt
+matplotlib

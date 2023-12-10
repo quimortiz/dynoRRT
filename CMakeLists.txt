@@ -32,7 +32,8 @@ FetchContent_MakeAvailable(json)
 # pinocchio.
 find_package(
   Boost REQUIRED COMPONENTS unit_test_framework system filesystem serialization
-                            PATHS /usr/lib/x86_64-linux-gnu/)
+                            # PATHS /usr/lib/x86_64-linux-gnu/
+)
 
 find_package(Eigen3 REQUIRED)
 
@@ -41,14 +42,21 @@ find_package(pinocchio REQUIRED)
 # Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
 # EXACT)
 
+option(BUILD_EXAMPLES OFF)
+option(BUILD_PYRRT OFF)
+option(BUILD_BENCHMARK OFF)
+option(USE_ZLIBSTATIC OFF)
+message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
+message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
+message(STATUS "BUILD_EXAMPLES ${BUILD_EXAMPLES}")
+message(STATUS "USE_ZLIBSTATIC ${USE_ZLIBSTATIC}")
+
 include(GNUInstallDirs)
 add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
 
-add_executable(play_toml test/play_toml.cpp)
-add_executable(pin_col test/pin_col.cpp)
-add_executable(pin_ur5_example test/pin_ur5_example.cpp)
-add_executable(pin_ur5_with_obs test/pin_ur5_with_obs.cpp)
+add_library(pin_col_manager src/pin_col_manager.cpp)
+add_library(dynorrt::pin_col_manager ALIAS pin_col_manager)
 
 target_include_directories(
   dynorrt INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -59,56 +67,28 @@ target_link_libraries(dynorrt INTERFACE Eigen3::Eigen magic_enum::magic_enum
 
 target_compile_features(dynorrt INTERFACE cxx_std_17)
 
-# option(BUILD_PYTHON_BINDINGS OFF)
 add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-add_executable(main test/main.cpp test/test_dev.cpp src/pin_col_manager.cpp)
+target_link_libraries(pin_col_manager dynorrt::dynorrt pin_with_zlib)
 
-# target_include_directories(main PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-add_test(NAME test COMMAND main)
+# TODO: add external flag!!
 
-target_link_libraries(pin_col pinocchio::pinocchio)
+# set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
+if(USE_ZLIBSTATIC)
+  set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
+else()
+  set(LIB_MYLIB)
+endif()
 
-target_link_libraries(pin_ur5_example pinocchio::pinocchio)
+add_library(pin_with_zlib INTERFACE)
+target_link_libraries(pin_with_zlib INTERFACE pinocchio::pinocchio ${LIB_MYLIB})
 
-target_link_libraries(pin_ur5_with_obs pinocchio::pinocchio)
-
-target_link_libraries(
-  play_toml
-  PRIVATE dynorrt::dynorrt
-          dynotree::dynotree
-          Eigen3::Eigen
-          magic_enum::magic_enum
-          nlohmann_json::nlohmann_json
-          Boost::unit_test_framework
-          toml11::toml11)
-
-target_link_libraries(
-  main
-  PUBLIC Eigen3::Eigen
-  PRIVATE dynorrt::dynorrt
-          dynotree::dynotree
-          Eigen3::Eigen
-          magic_enum::magic_enum
-          nlohmann_json::nlohmann_json
-          Boost::unit_test_framework
-          toml11::toml11
-          pinocchio::pinocchio)
-
-set_target_properties(
-  main
-  PROPERTIES CXX_STANDARD 17
-             CXX_STANDARD_REQUIRED YES
-             CXX_EXTENSIONS NO)
-
-option(BUILD_PYRRT OFF)
-option(BUILD_BENCHMARK OFF)
-
-message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
-message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
+# add_library(assimp_with_zlib INTERFACE) target_link_libraries(assimp_with_zlib
+# INTERFACE /usr/local/lib64/libassimp.a ${LIB_MYLIB})
 
 if(BUILD_PYRRT)
   add_subdirectory(bindings/python)
@@ -116,6 +96,50 @@ endif()
 
 if(BUILD_BENCHMARK)
   add_subdirectory(benchmark)
+endif()
+
+if(BUILD_EXAMPLES)
+  add_executable(main test/main.cpp test/test_dev.cpp)
+
+  add_executable(pin_col test/pin_col.cpp)
+  add_executable(pin_ur5_example test/pin_ur5_example.cpp)
+  add_executable(pin_ur5_with_obs test/pin_ur5_with_obs.cpp)
+  add_executable(play_toml test/play_toml.cpp)
+
+  target_link_libraries(pin_col pin_with_zlib)
+  target_link_libraries(pin_ur5_example pin_with_zlib)
+  target_link_libraries(pin_ur5_with_obs pin_with_zlib)
+
+  target_link_libraries(
+    play_toml
+    PRIVATE dynorrt::dynorrt
+            dynotree::dynotree
+            Eigen3::Eigen
+            magic_enum::magic_enum
+            nlohmann_json::nlohmann_json
+            Boost::unit_test_framework
+            toml11::toml11)
+
+  target_link_libraries(
+    main
+    PUBLIC Eigen3::Eigen
+    PRIVATE dynorrt::dynorrt
+            dynotree::dynotree
+            Eigen3::Eigen
+            magic_enum::magic_enum
+            nlohmann_json::nlohmann_json
+            Boost::unit_test_framework
+            toml11::toml11
+            pinocchio::pinocchio
+            dynorrt::pin_col_manager)
+
+  set_target_properties(
+    main
+    PROPERTIES CXX_STANDARD 17
+               CXX_STANDARD_REQUIRED YES
+               CXX_EXTENSIONS NO)
+
+  add_test(NAME test COMMAND main)
 endif()
 
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization
