@@ -134,12 +134,12 @@ if(BUILD_EXAMPLES)
             dynorrt::pin_col_manager)
 
   set_target_properties(
-    main
+    main_test
     PROPERTIES CXX_STANDARD 17
                CXX_STANDARD_REQUIRED YES
                CXX_EXTENSIONS NO)
 
-  add_test(NAME test COMMAND main)
+  add_test(NAME test COMMAND main_test)
 endif()
 
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization
