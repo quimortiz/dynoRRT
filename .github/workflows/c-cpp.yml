@@ -26,7 +26,7 @@ jobs:
     - name: cc
       run: |
         conda create -n py38 python=3.8
-        conda activate py38
+        source /usr/share/miniconda/bin/activate py38
     - name: Install Pinocchio
       run: conda install -c conda-forge pinocchio=2.6.10
     - name: Conda info
