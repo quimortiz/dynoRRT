@@ -51,13 +51,11 @@ backward_probability = 0.2
 max_step = 1.0
 max_num_configs = 100000
 
-
-
 [LazyPRM_options]
-connection_radius = 3.0
-num_vertices_0 = 5000
+num_vertices_0 = 8000
+k_near = 10
 
 [PRM_options]
-connection_radius = 3.0
-num_vertices_0 = 5000
+num_vertices_0 = 8000
 incremental_collision_check = true
+k_near = 10

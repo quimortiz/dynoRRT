@@ -99,7 +99,7 @@ if(BUILD_BENCHMARK)
 endif()
 
 if(BUILD_EXAMPLES)
-  add_executable(main_test test/main.cpp test/test_dev.cpp)
+  add_executable(test_dynorrt test/main.cpp test/test_dev.cpp)
 
   add_executable(pin_col test/pin_col.cpp)
   add_executable(pin_ur5_example test/pin_ur5_example.cpp)
@@ -121,7 +121,7 @@ if(BUILD_EXAMPLES)
             toml11::toml11)
 
   target_link_libraries(
-    main_test
+    test_dynorrt
     PUBLIC Eigen3::Eigen
     PRIVATE dynorrt::dynorrt
             dynotree::dynotree
@@ -134,12 +134,12 @@ if(BUILD_EXAMPLES)
             dynorrt::pin_col_manager)
 
   set_target_properties(
-    main_test
+    test_dynorrt
     PROPERTIES CXX_STANDARD 17
                CXX_STANDARD_REQUIRED YES
                CXX_EXTENSIONS NO)
 
-  add_test(NAME test COMMAND main_test)
+  add_test(NAME test COMMAND test_dynorrt)
 endif()
 
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization

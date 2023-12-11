@@ -82,9 +82,17 @@ PlannerPtr get_planner_from_name(const std::string &planner_name) {
 // }
 
 BOOST_AUTO_TEST_CASE(t_pin_all) {
-  srand(0);
 
-  std::string options_cfg_all = "../../planner_config/PIN_all.toml";
+  int argc = boost::unit_test::framework::master_test_suite().argc;
+  auto argv = boost::unit_test::framework::master_test_suite().argv;
+
+  if (argc < 2) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+    BOOST_TEST(false);
+  }
+  std::string base_path(argv[1]);
+
+  std::string options_cfg_all = base_path + "planner_config/PIN_all.toml";
   std::ifstream ifs(options_cfg_all);
   if (!ifs.good()) {
     std::stringstream ss;
@@ -129,19 +137,11 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
     std::string urdf = j["urdf"];
     std::string srdf = j["srdf"];
 
-    std::string robots_model_path = j["base_path"];
+    std::string robots_model_path = base_path + std::string(j["base_path"]);
+    std::cout << "robots_model_path: " << robots_model_path << std::endl;
     // std::string robots_model_path =
     urdf = robots_model_path + urdf;
     srdf = robots_model_path + srdf;
-
-    pinocchio::Model model;
-    pinocchio::urdf::buildModel(urdf, model);
-
-    pinocchio::Data data(model);
-
-    pinocchio::GeometryModel geom_model;
-    pinocchio::urdf::buildGeom(model, urdf, pinocchio::COLLISION, geom_model,
-                               robots_model_path);
 
     Collision_manager_pinocchio coll_manager;
     coll_manager.set_urdf_filename(urdf);
@@ -162,6 +162,7 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
     state_space.set_bounds(lb, ub);
 
     for (auto &planner_name : planner_names) {
+      srand(0);
       PlannerPtr planner = get_planner_from_name(planner_name);
 
       planner->init(start.size());
@@ -169,13 +170,22 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
       planner->set_start(start);
       planner->set_goal(goal);
       planner->read_cfg_file(options_cfg_all);
-      // rrt_v0_PIN.toml");
 
       planner->set_is_collision_free_fun(
           [&](const auto &q) { return coll_manager.is_collision_free(q); });
 
       auto termination_condition = planner->plan();
 
+      std::cout << "termination condition is "
+                << magic_enum::enum_name(termination_condition) << std::endl;
+
+      std::cout << "is_termination_condition_solved: "
+                << is_termination_condition_solved(termination_condition)
+                << std::endl;
+
+      std::cout << planner->get_name() << std::endl;
+      std::cout << "planner_name " << planner_name << std::endl;
+      std::cout << "problem " << env << std::endl;
       BOOST_TEST(is_termination_condition_solved(termination_condition));
 
       std::cout << "num_collision_checks: "
@@ -213,48 +223,6 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
   o << std::setw(2) << json(results) << std::endl;
 }
 
-#if 0
-  Eigen::VectorXd w1 = Eigen::VectorXd::Zero(12);
-  w1 << 1.88495559, -1.8849556, 0.62831853, 0., 0., 0., -0.9424778, -0.9424778,
-      1.57079633, 0., 0., 0.;
-  Eigen::VectorXd w2 = Eigen::VectorXd::Zero(12);
-  w2 << 1.88495559, -1.8849556, 0.62831853, 0., 0., 0., -2.82743339, -0.9424778,
-      1.57079633, 0., 0., 0.;
-
-  using state_t = Eigen::VectorXd;
-  state_t tmp;
-  double resolution = .1;
-  auto get_fine_path = [&](std::vector<Eigen::VectorXd> path) {
-
-    int runtime_dim  = 12;
-
-      tmp.resize(runtime_dim);
-
-    std::vector<state_t> fine_path;
-    if (path.size() == 0) {
-      std::cout << "Warning: path.size() == 0" << std::endl;
-      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
-      return std::vector<state_t>{};
-    }
-
-    for (int i = 0; i < path.size() - 1; i++) {
-      state_t _start = path[i];
-      state_t _goal = path[i + 1];
-      int N = int(state_space.distance(_start, _goal) / resolution) + 1;
-      for (int j = 0; j < N; j++) {
-        state_space.interpolate(_start, _goal, double(j) / N, tmp);
-        fine_path.push_back(tmp);
-      }
-    }
-    fine_path.push_back(path[path.size() - 1]);
-    return fine_path;
-  };
-  auto _fine_path = get_fine_path({start,w1, w2, goal});
-  // auto _fine_path = get_fine_path({start, goal});
-  for (auto &s : _fine_path) {
-    std::cout << s.transpose() << std::endl;
-    BOOST_TEST(coll_manager.is_collision_free(s));
-    BOOST_TEST(state_space.check_bounds(s));
-  }
-
-#endif
+BOOST_AUTO_TEST_CASE(t_parallel_search) {
+  // test how to check points in parallel in a kdtree
+}

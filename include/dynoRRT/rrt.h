@@ -5,6 +5,7 @@
 #include "dynoRRT/toml_extra_macros.h"
 
 #include "dynotree/KDTree.h"
+#include "dynotree/linear_nn.h"
 #include "magic_enum.hpp"
 
 #include <Eigen/Core>
@@ -1259,9 +1260,9 @@ public:
     adjacency_list.resize(this->configs.size());
 
     for (size_t i = 0; i < this->configs.size(); i++) {
-      this->tree.addPoint(this->configs[i], i, false);
+      this->tree.addPoint(this->configs[i], i, true);
     }
-    this->tree.splitOutstanding();
+    // this->tree.splitOutstanding();
 
     auto tic2 = std::chrono::steady_clock::now();
     // NOTE: using a K-d Tree helps only if there are a lot of points!
@@ -1276,8 +1277,6 @@ public:
       }
 
       for (int j = 0; j < nn.size(); j++) {
-        auto &src = this->configs[i];
-        auto &tgt = this->configs[nn[j].id];
         if (i >= nn[j].id) {
           continue;
         }
@@ -1285,6 +1284,8 @@ public:
           adjacency_list[i].push_back(nn[j].id);
           adjacency_list[nn[j].id].push_back(i);
         } else {
+          auto &src = this->configs[i];
+          auto &tgt = this->configs[nn[j].id];
           bool col_free =
               is_edge_collision_free(src, tgt, col, this->state_space,
                                      this->options.collision_resolution);
@@ -2198,6 +2199,10 @@ public:
 
       CHECK_PRETTY_DYNORRT__(
           this->state_space.distance(this->path[0], this->start) < 1e-6);
+
+      std::cout << this->state_space.distance(this->path.back(), this->goal)
+                << std::endl;
+
       CHECK_PRETTY_DYNORRT__(
           this->state_space.distance(this->path.back(), this->goal) < 1e-6);
 
@@ -2330,32 +2335,55 @@ public:
 
     // Now lets get the connections
     this->adjacency_list.resize(this->configs.size());
+
+    auto __tic = std::chrono::steady_clock::now();
     for (size_t i = 0; i < this->configs.size(); i++) {
       this->tree.addPoint(this->configs[i], i, false);
     }
     this->tree.splitOutstanding();
 
-    // NOTE: using a K-d Tree helps only if there are a lot of points!
+    std::cout << "time build tree "
+              << std::chrono::duration_cast<std::chrono::milliseconds>(
+                     std::chrono::steady_clock::now() - __tic)
+                     .count()
+              << std::endl;
+    // using linear = dynotree::LinearKNN<int, -1, double, StateSpace>;
+    //
+    // auto __l = linear(this->runtime_dim, this->state_space);
+    //
+    // for (size_t i = 0; i < this->configs.size(); i++) {
+    //   __l.addPoint(this->configs[i], i, true);
+    // }
+    //
+    double time_nn = 0;
+    using DistanceId = typename Base::tree_t::DistanceId;
     for (int i = 0; i < this->configs.size(); i++) {
 
       std::vector<typename Base::tree_t::DistanceId> nn;
+      // std::vector<typename linear::DistanceId> nn;
 
+      auto __tic = std::chrono::steady_clock::now();
       if (options.k_near > 0) {
+        // nn = __l.searchKnn(this->configs[i], options.k_near);
         nn = this->tree.searchKnn(this->configs[i], options.k_near);
       } else {
+        // nn = __l.searchBall(this->configs[i], options.connection_radius);
         nn = this->tree.searchBall(this->configs[i], options.connection_radius);
       }
+      time_nn += std::chrono::duration_cast<std::chrono::microseconds>(
+                     std::chrono::steady_clock::now() - __tic)
+                     .count();
 
       for (int j = 0; j < nn.size(); j++) {
-        auto &src = this->configs[i];
-        auto &tgt = this->configs[nn[j].id];
         if (i >= nn[j].id) {
           continue;
         }
+        // note: this assumes that the distance is symmetric!
         this->adjacency_list[i].push_back(nn[j].id);
         this->adjacency_list[nn[j].id].push_back(i);
       }
     }
+    std::cout << "time_nn: " << time_nn / 1000. << std::endl;
 
     // for (int j = i + 1; j < this->configs.size(); j++) {
     //   auto &src = this->configs[i];

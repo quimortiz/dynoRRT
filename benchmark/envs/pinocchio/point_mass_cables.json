@@ -36,12 +36,11 @@
     0.0,
     -0.9424778
   ],
-  "urdf": "/home/quim/stg/dynoRRT/benchmark/models/point_payload_two_robots.urdf",
-  "meshes": "robots/ur_description/meshes/",
-  "srdf": "/home/quim/stg/dynoRRT/benchmark/models/point_payload_two_robots.srdf",
+  "urdf": "models/point_payload_two_robots.urdf",
+  "srdf": "models/point_payload_two_robots.srdf",
   "state_space": [
     "Rn:7"
   ],
-  "base_path": "",
+  "base_path": "src/python/pydynorrt/data/",
   "idx_vis_name": "point_mass"
 }

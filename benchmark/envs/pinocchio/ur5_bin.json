@@ -31,12 +31,11 @@
     -0.5,
     0
   ],
-  "urdf": "robots/ur_description/urdf/ur5_robot_with_box.urdf",
-  "meshes": "robots/ur_description/meshes/",
-  "srdf": "robots/ur_description/srdf/ur5_with_box.srdf",
+  "urdf": "models/ur5_robot_with_box.urdf",
+  "srdf": "models/ur5_with_box.srdf",
   "state_space": [
     "Rn:6"
   ],
-  "base_path": "/home/quim/stg/quim-example-robot-data/example-robot-data/",
+  "base_path": "src/python/pydynorrt/data/",
   "idx_vis_name": "tool0"
 }

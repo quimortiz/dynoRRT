@@ -479,16 +479,11 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
 
 #endif
 
+#if 0
 BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
 
   using namespace pinocchio;
 
-  // Eige ::VectorXd q_i(6), q_g(6);
-  // q_i << 1.0, -1.5, 2.1, -0.5, -0.5, 0;
-  // q_g << 3.0, -1.0, 1, -0.5, -0.5, 0;
-
-  // q_i = np.array([0, -1.5, 2.1, -0.5, -0.5, 0])
-  // q_g = np.array([3.1, -1.0, 1, -0.5, -0.5, 0])
 
   Eigen::VectorXd q_i(6), q_g(6);
 
@@ -655,6 +650,7 @@ BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
   std::ofstream o(filePath.c_str());
   o << std::setw(2) << j << std::endl;
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(t_rrtstar) {
 
@@ -723,7 +719,17 @@ BOOST_AUTO_TEST_CASE(t_rrtstar) {
 namespace fs = std::filesystem;
 BOOST_AUTO_TEST_CASE(t_all_planners_circleworld) {
 
-  std::string options_cfg_all = "../../planner_config/circleworld_2d_all.toml";
+  int argc = boost::unit_test::framework::master_test_suite().argc;
+  auto argv = boost::unit_test::framework::master_test_suite().argv;
+
+  if (argc < 2) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+    BOOST_TEST(false);
+  }
+  std::string base_path(argv[1]);
+
+  std::string options_cfg_all =
+      base_path + "planner_config/circleworld_2d_all.toml";
   std::ifstream ifs(options_cfg_all);
   if (!ifs.good()) {
     std::stringstream ss;

@@ -35,13 +35,12 @@
     0,
     1
   ],
-  "urdf": "/home/quim/stg/dynoRRT/benchmark/models/se3_window.urdf",
-  "meshes": "robots/ur_description/meshes/",
-  "srdf": "/home/quim/stg/dynoRRT/benchmark/models/se3_window.srdf",
+  "urdf": "models/se3_window.urdf",
+  "srdf": "models/se3_window.srdf",
   "state_space": [
     "Rn:3",
     "SO3"
   ],
-  "base_path": "",
+  "base_path": "src/python/pydynorrt/data/",
   "idx_vis_name": "base_link"
 }
