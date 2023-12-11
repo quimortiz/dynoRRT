@@ -38,7 +38,7 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake -DBUILD_EXAMPLES=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=ON -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
+          cmake -DBUILD_EXAMPLES=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
 
     - name: Make
       run: |
