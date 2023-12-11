@@ -38,7 +38,7 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake -DBUILD_PYTHON_BINDINGS_RRT=1    ..
+          cmake -DBUILD_PYTHON_BINDINGS_RRT=1 -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
 
     - name: Make
       run: |
