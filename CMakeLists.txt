@@ -99,7 +99,7 @@ if(BUILD_BENCHMARK)
 endif()
 
 if(BUILD_EXAMPLES)
-  add_executable(main test/main.cpp test/test_dev.cpp)
+  add_executable(main_test test/main.cpp test/test_dev.cpp)
 
   add_executable(pin_col test/pin_col.cpp)
   add_executable(pin_ur5_example test/pin_ur5_example.cpp)
@@ -121,7 +121,7 @@ if(BUILD_EXAMPLES)
             toml11::toml11)
 
   target_link_libraries(
-    main
+    main_test
     PUBLIC Eigen3::Eigen
     PRIVATE dynorrt::dynorrt
             dynotree::dynotree
