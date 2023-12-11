@@ -26,11 +26,6 @@ jobs:
     - uses: s-weigand/setup-conda@v1
     - run: conda --version
     - run: which python
-    - name: cc
-      run: |
-        source /usr/share/miniconda/bin/deactivate
-        conda create -n py38 python=3.8
-        source /usr/share/miniconda/bin/activate py38
     - name: Install Pinocchio
       run: conda install -c conda-forge pinocchio=2.6.10
     - name: Conda info
