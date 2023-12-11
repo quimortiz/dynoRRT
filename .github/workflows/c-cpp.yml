@@ -23,7 +23,6 @@ jobs:
            sudo apt-get update
            sudo apt update
            sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev
-    - name: Install Conda
     - name: Install Pinocchio
       run: conda install -c conda-forge pinocchio=2.6.10
     - name: Conda info
