@@ -44,14 +44,20 @@ jobs:
       run: |
            cd build
            make
-    - name: Check C++
+    - name: C++ tests
       run: |
-           cd build
-           ./main
+           make && ./test_dynorrt
+
     - name: Check 1 Python Bindings
       run: |
            cd build/bindings/python
            python3 -c 'import pydynorrt'
+    - name: Build and Install Python Package
+      run: |
+           pip3 install .
+           python3 -c 'import pydynorrt'
+
+
     - name: Python Install Dependencies
       run: |
            pip3 install numpy
