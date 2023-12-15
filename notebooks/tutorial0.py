@@ -31,7 +31,7 @@
 # #!pip3 install pydynorrt
 # #!pip3 install numpy
 # #!pip3 install matplotlib # For visualization of 2D problems
-# #!pip3 install pinocchio # Only if you want to use Pinocchio for visualization
+# #!pip3 install pin # Only if you want to use Pinocchio for visualization
 # #!pip3 install meshcat # Only if you want to use Pinocchio for visualization
 
 # %%
