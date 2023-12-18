@@ -49,7 +49,6 @@ print("envs: ", envs)
 print("planners: ", planners)
 
 for d in D["results"]:
-
     env = ballworld_2d.BallWorldEnv()
     env.load_env(cwd + d["env"])
     sample_configs = d["sample_configs"]

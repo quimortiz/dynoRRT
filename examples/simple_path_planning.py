@@ -28,6 +28,7 @@ target = Target(viz, position=np.array([0.5, 0.5]))
 ################################################################################
 ################################################################################
 
+
 # %jupyter_snippet endef
 def endef(q):
     """Return the 2d position of the end effector."""
@@ -37,6 +38,7 @@ def endef(q):
 
 # %end_jupyter_snippet
 
+
 # %jupyter_snippet  dist
 def dist(q):
     """Return the distance between the end effector end the target (2d)."""
@@ -44,6 +46,7 @@ def dist(q):
 
 
 # %end_jupyter_snippet
+
 
 # %jupyter_snippet coll
 def coll(q):
@@ -55,6 +58,7 @@ def coll(q):
 
 
 # %end_jupyter_snippet
+
 
 # %jupyter_snippet qrand
 def qrand(check=False):
@@ -69,6 +73,7 @@ def qrand(check=False):
 
 
 # %end_jupyter_snippet
+
 
 # %jupyter_snippet colldist
 def collisionDistance(q):
@@ -86,6 +91,7 @@ def collisionDistance(q):
 ################################################################################
 ################################################################################
 ################################################################################
+
 
 # %jupyter_snippet qrand_target
 # Sample a random free configuration where dist is small enough.
@@ -105,6 +111,7 @@ viz.display(qrandTarget())
 ################################################################################
 ################################################################################
 ################################################################################
+
 
 # %jupyter_snippet random_descent
 # Random descent: crawling from one free configuration to the target with random
@@ -130,6 +137,7 @@ def randomDescent(q0=None):
 ################################################################################
 ################################################################################
 ################################################################################
+
 
 # %jupyter_snippet sample
 def sampleSpace(nbSamples=500):
@@ -194,6 +202,7 @@ plt.plot(traj[:, 0], traj[:, 1], "r", lw=5)
 ################################################################################
 ################################################################################
 ################################################################################
+
 
 # %jupyter_snippet optim
 def cost(q):
