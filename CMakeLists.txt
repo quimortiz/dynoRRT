@@ -38,6 +38,17 @@ find_package(
 find_package(Eigen3 REQUIRED)
 
 find_package(pinocchio REQUIRED)
+find_package(OpenMP REQUIRED)
+
+if(OPENMP_FOUND)
+  # If found, add OpenMP flags to the compiler
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+  set(CMAKE_EXE_LINKER_FLAGS
+      "${CMAKE_EXE_LINKER_FLAGS} ${OpenMP_EXE_LINKER_FLAGS}")
+else()
+  message(FATAL_ERROR "OpenMP not found")
+endif()
 
 # Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
 # EXACT)
@@ -71,7 +82,8 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-target_link_libraries(pin_col_manager dynorrt::dynorrt pin_with_zlib)
+target_link_libraries(pin_col_manager dynorrt::dynorrt pin_with_zlib
+                      OpenMP::OpenMP_CXX)
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 

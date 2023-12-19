@@ -34,10 +34,13 @@ public:
   void add_external_obstacle(const PinExternalObstacle &obs) {
     obstacles.push_back(obs);
   }
+  void set_edge_parallel(int num_threads) { num_threads_edges = num_threads; }
 
   void build();
 
   bool is_collision_free(const Eigen::VectorXd &q);
+
+  bool is_collision_free_parallel(const Eigen::VectorXd &q, int num_threads);
 
   void reset_counters() {
     time_ms = 0;
@@ -46,7 +49,12 @@ public:
   int get_num_collision_checks() { return num_collision_checks; }
   double get_time_ms() { return time_ms; }
 
+  bool is_collision_free_set(const std::vector<Eigen::VectorXd> &q_set,
+                             bool stop_at_first_collision,
+                             int *counter_infeas_out, int *counter_feas_out);
+
 private:
+  int num_threads_edges = -1;
   std::string urdf_filename;
   std::string srdf_filename;
   std::string env_urdf;
@@ -56,6 +64,10 @@ private:
   pinocchio::Model model;
   pinocchio::Data data;
   pinocchio::GeometryData geom_data;
+
+  std::vector<pinocchio::Data> data_parallel;
+  std::vector<pinocchio::GeometryData> geom_data_parallel;
+
   bool build_done = false;
   pinocchio::GeometryModel geom_model;
   double time_ms = 0;

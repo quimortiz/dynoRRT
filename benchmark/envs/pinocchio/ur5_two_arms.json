@@ -58,7 +58,7 @@
   "urdf": "models/ur5_two_robots.urdf",
   "srdf": "models/ur5_two_robots.srdf",
   "state_space": [
-    "Rn:10"
+    "Rn:12"
   ],
   "base_path": "src/python/pydynorrt/data/",
   "idx_vis_name": "tool0",

@@ -223,6 +223,172 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
   o << std::setw(2) << json(results) << std::endl;
 }
 
-BOOST_AUTO_TEST_CASE(t_parallel_search) {
-  // test how to check points in parallel in a kdtree
+BOOST_AUTO_TEST_CASE(t_col_manager) {
+
+  int argc = boost::unit_test::framework::master_test_suite().argc;
+  auto argv = boost::unit_test::framework::master_test_suite().argv;
+
+  if (argc < 2) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+    BOOST_TEST(false);
+    return;
+  }
+  std::string base_path(argv[1]);
+
+  std::string options_cfg_all = base_path + "planner_config/PIN_all.toml";
+  std::ifstream ifs(options_cfg_all);
+  if (!ifs.good()) {
+    std::stringstream ss;
+    ss << "File " << options_cfg_all << " does not exist" << std::endl;
+    THROW_PRETTY_DYNORRT(ss.str());
+  }
+
+  auto cfg = toml::parse(ifs);
+  std::cout << cfg << std::endl;
+
+  std::vector<std::string> envs = {
+      "benchmark/envs/pinocchio/ur5_bin.json",
+      "benchmark/envs/pinocchio/se3_window.json",
+      "benchmark/envs/pinocchio/ur5_two_arms.json",
+      "benchmark/envs/pinocchio/point_mass_cables.json"};
+
+  // std::vector<std::string> planner_names = {"RRT", "RRTConnect", "BiRRT"};
+
+  std::vector<json> results;
+
+  for (auto &env : envs) {
+    std::ifstream i(base_path + env);
+    if (!i.is_open()) {
+      std::cout << "Error opening file: " << env << std::endl;
+      return;
+    }
+
+    std::cout << "env is " << env << std::endl;
+
+    nlohmann::json j;
+    i >> j;
+
+    Eigen::VectorXd start = j["start"];
+    Eigen::VectorXd goal = j["goal"];
+    Eigen::VectorXd lb = j["lb"];
+    std::vector<std::string> state_space_vstr = j["state_space"];
+    Eigen::VectorXd ub = j["ub"];
+
+    std::string urdf = j["urdf"];
+    std::string srdf = j["srdf"];
+
+    std::string robots_model_path = base_path + std::string(j["base_path"]);
+    std::cout << "robots_model_path: " << robots_model_path << std::endl;
+    // std::string robots_model_path =
+    urdf = robots_model_path + urdf;
+    srdf = robots_model_path + srdf;
+
+    Collision_manager_pinocchio coll_manager;
+    coll_manager.set_urdf_filename(urdf);
+    coll_manager.set_srdf_filename(srdf);
+    coll_manager.set_robots_model_path(robots_model_path);
+    int edge_num_threads = 4;
+    coll_manager.set_edge_parallel(edge_num_threads);
+    coll_manager.build();
+
+    // check a line between start and goal
+    state_space_t state_space(state_space_vstr);
+
+    int num_points = 100;
+    {
+      if (!coll_manager.is_collision_free(start)) {
+        THROW_PRETTY_DYNORRT("start is in collision");
+      }
+
+      if (!coll_manager.is_collision_free(goal)) {
+        THROW_PRETTY_DYNORRT("goal  is in collision");
+      }
+
+      int free = 0;
+      Eigen::VectorXd out(state_space.get_runtime_dim());
+
+      auto tic = std::chrono::high_resolution_clock::now();
+      for (size_t i = 0; i < num_points; i++) {
+        double alpha = (double)i / (double)(num_points - 1);
+        state_space.interpolate(start, goal, alpha, out);
+        free += coll_manager.is_collision_free(out);
+      }
+      auto toc = std::chrono::high_resolution_clock::now();
+      std::cout << "elapsed time [ms]"
+                << std::chrono::duration_cast<std::chrono::microseconds>(toc -
+                                                                         tic)
+                           .count() /
+                       1000.0
+                << std::endl;
+    }
+    {
+      std::cout << "test parallel" << std::endl;
+      int num_threads = 4;
+
+      if (!coll_manager.is_collision_free_parallel(start, num_threads)) {
+        THROW_PRETTY_DYNORRT("start is in collision");
+      }
+
+      if (!coll_manager.is_collision_free_parallel(goal, num_threads)) {
+        THROW_PRETTY_DYNORRT("goal  is in collision");
+      }
+
+      int free = 0;
+      Eigen::VectorXd out(state_space.get_runtime_dim());
+
+      auto tic = std::chrono::high_resolution_clock::now();
+      for (size_t i = 0; i < num_points; i++) {
+        double alpha = (double)i / (double)(num_points - 1);
+        state_space.interpolate(start, goal, alpha, out);
+        free += coll_manager.is_collision_free_parallel(out, num_threads);
+      }
+
+      auto toc = std::chrono::high_resolution_clock::now();
+      double time_ms =
+          std::chrono::duration_cast<std::chrono::microseconds>(toc - tic)
+              .count() /
+          1000.0;
+      std::cout << "elapsed time [ms]" << time_ms << std::endl;
+      std::cout << "elapesed time * num_threads [ms] " << time_ms * num_threads
+                << std::endl;
+      std::cout << "free/total " << free << "/" << num_points << " = "
+                << double(free) / num_points << std::endl;
+    }
+
+    {
+
+      std::vector<Eigen::VectorXd> q_set(
+          num_points, Eigen::VectorXd::Zero(state_space.get_runtime_dim()));
+
+      for (size_t i = 0; i < num_points; i++) {
+        double alpha = (double)i / (double)(num_points - 1);
+        state_space.interpolate(start, goal, alpha, q_set.at(i));
+      }
+
+      int counter_infeas = 0;
+      int counter_feas = 0;
+      auto tic = std::chrono::high_resolution_clock::now();
+      bool edge_free = coll_manager.is_collision_free_set(
+          q_set, false, &counter_infeas, &counter_feas);
+
+      auto toc = std::chrono::high_resolution_clock::now();
+      double time_ms =
+          std::chrono::duration_cast<std::chrono::microseconds>(toc - tic)
+              .count() /
+          1000.0;
+      BOOST_TEST(counter_feas + counter_infeas == num_points);
+      std::cout << "time [ms] " << time_ms << std::endl;
+      std::cout << "time * num_threads [ms] " << time_ms * edge_num_threads
+                << std::endl;
+      std::cout << "infeas / total " << counter_infeas << "/" << num_points
+                << " = " << double(counter_infeas) / num_points << std::endl;
+    }
+
+    // test how to check points in parallel in a kdtree
+    //
+    // Lets try a broad phase collision check!!
+    // TODO:continue here
+
+    // TODO: try to compile with pinocchio from conda-forge? Will it be faster?
+  }
 }

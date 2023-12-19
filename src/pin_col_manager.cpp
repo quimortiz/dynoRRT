@@ -6,6 +6,8 @@
 
 #include "dynoRRT/dynorrt_macros.h"
 #include "pinocchio/algorithm/geometry.hpp"
+#include "pinocchio/algorithm/parallel/geometry.hpp"
+#include <thread>
 
 namespace dynorrt {
 
@@ -24,6 +26,7 @@ void Collision_manager_pinocchio::build() {
 
   std::string obstacle_base_name = "external_obs_";
   int i = 0;
+
   for (auto &obs : obstacles) {
 
     boost::shared_ptr<fcl::CollisionGeometry> geometry;
@@ -58,6 +61,14 @@ void Collision_manager_pinocchio::build() {
   pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
   geom_data = GeometryData(geom_model);
   build_done = true;
+
+  if (num_threads_edges > 0) {
+
+    for (size_t i = 0; i < num_threads_edges; i++) {
+      data_parallel.push_back(pinocchio::Data(model));
+      geom_data_parallel.push_back(pinocchio::GeometryData(geom_model));
+    }
+  }
 }
 
 bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
@@ -68,6 +79,76 @@ bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
     THROW_PRETTY_DYNORRT("build not done");
   }
   bool out = !computeCollisions(model, data, geom_model, geom_data, q, true);
+
+  time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
+                 std::chrono::high_resolution_clock::now() - tic)
+                 .count() /
+             1000.0;
+  return out;
+};
+
+bool Collision_manager_pinocchio::is_collision_free_set(
+    const std::vector<Eigen::VectorXd> &q_set, bool stop_at_first_collision,
+    int *counter_infeas_out, int *counter_feas_out) {
+
+  num_collision_checks++;
+  if (!build_done) {
+    THROW_PRETTY_DYNORRT("build not done");
+  }
+
+  int checks_per_thread = int(q_set.size() / num_threads_edges) + 1;
+
+  if (num_threads_edges > q_set.size()) {
+    checks_per_thread = 1;
+  }
+
+  std::vector<std::thread> threads;
+  std::atomic_bool infeasible_found = false;
+  std::atomic_int counter_infeas = 0;
+  std::atomic_int counter_feas = 0;
+
+  for (size_t j = 0; j < num_threads_edges; j++) {
+
+    auto fun = [&](int thread_id) {
+      for (int i = thread_id; i < q_set.size(); i += num_threads_edges) {
+
+        if (stop_at_first_collision && infeasible_found) {
+          return;
+        } else {
+          if (computeCollisions(model, data_parallel[thread_id], geom_model,
+                                geom_data_parallel[thread_id], q_set[i],
+                                true)) {
+            counter_infeas++;
+            infeasible_found = true;
+          } else {
+            counter_feas++;
+          }
+        }
+      }
+    };
+    threads.push_back(std::thread(fun, j));
+  };
+
+  for (auto &t : threads) {
+    t.join();
+  }
+  *counter_infeas_out = counter_infeas.load();
+  *counter_feas_out = counter_feas.load();
+
+  return !infeasible_found;
+}
+
+bool Collision_manager_pinocchio::is_collision_free_parallel(
+    const Eigen::VectorXd &q, int num_threads) {
+
+  num_collision_checks++;
+  auto tic = std::chrono::high_resolution_clock::now();
+  if (!build_done) {
+    THROW_PRETTY_DYNORRT("build not done");
+  }
+  bool out = !computeCollisions(num_threads, model, data, geom_model, geom_data,
+                                q, true);
+
   time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
                  std::chrono::high_resolution_clock::now() - tic)
                  .count() /
