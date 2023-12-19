@@ -1,8 +1,6 @@
 # DynoRRT
 
-Try it out!
-
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/quimortiz/dynoRRT/1083e97?labpath=notebooks%2Ftutorial0.ipynb)
+Try it out online! [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/quimortiz/dynorrt/main?labpath=notebooks%2Ftutorial0.ipynb)
 
 
 DynoRRT is a C++/Python library for sampling-based motion planning, such as Rapidly Exploring Random Trees (RRT) and Probabilistic Roadmaps (PRM).
