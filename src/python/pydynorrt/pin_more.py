@@ -99,7 +99,6 @@ def _loadViewerGeometryObject(viz, geometry_object, geometry_type, color=None):
         if WITH_HPP_FCL_BINDINGS and isinstance(
             geometry_object.geometry, hppfcl.ShapeBase
         ):
-
             # Hack to work with different version of Pinocchio
             try:
                 obj = viz.loadPrimitive(geometry_object)
