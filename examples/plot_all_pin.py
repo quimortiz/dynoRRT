@@ -170,7 +170,6 @@ for D in DD:
     # sys.exit()
 
     if os.environ.get("INTERACTIVE") is not None:
-
         input("Press Enter to continue...")
 
     path = [np.array(x) for x in D["path"]]
