@@ -9,7 +9,7 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
 
     steps:
 
@@ -23,36 +23,37 @@ jobs:
            sudo apt-get update
            sudo apt update
            sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev
-    - uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        python-version: "3.11"
-    - run: conda --version
-    - run: which python
-    - name: Install Pinocchio
-      run: conda install -c conda-forge pinocchio=2.6.10
-    - name: Conda info
-      shell: bash -el {0}
-      run: conda info
-    - name: Conda list
-      shell: pwsh
-      run: conda list
+
+    # - uses: conda-incubator/setup-miniconda@v3
+    #   with:
+    #     auto-update-conda: true
+    #     python-version: "3.11"
+    # - run: conda --version
+    # - run: which python
+    # - name: Install Pinocchio
+    #   run: conda install -c conda-forge pinocchio=2.6.10
+    # - name: Conda info
+    #   shell: bash -el {0}
+    #   run: conda info
+    # - name: Conda list
+    #   shell: pwsh
+    #   run: conda list
 
 
 
 
 
+    - name: Install Pinocchio and FCL
+      run: |
+           sudo apt install -qqy lsb-release curl
+           sudo mkdir -p /etc/apt/keyrings
+           curl http://robotpkg.openrobots.org/packages/debian/robotpkg.asc \
+               | sudo tee /etc/apt/keyrings/robotpkg.asc
+           echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" \
+                 | sudo tee /etc/apt/sources.list.d/robotpkg.list
 
-      # run: |
-      #      sudo apt install -qqy lsb-release curl
-      #      sudo mkdir -p /etc/apt/keyrings
-      #      curl http://robotpkg.openrobots.org/packages/debian/robotpkg.asc \
-      #          | sudo tee /etc/apt/keyrings/robotpkg.asc
-      #      echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" \
-      #            | sudo tee /etc/apt/sources.list.d/robotpkg.list
-      #
-      #      sudo apt update
-      #      sudo apt install -qqy robotpkg-py38-pinocchio=2.6.10
+           sudo apt update
+           sudo apt install -qqy robotpkg-py310-pinocchio
 
     - name: Checkout submodules
       run: git submodule update --init --recursive
