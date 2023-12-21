@@ -7,9 +7,21 @@
 #include "dynoRRT/dynorrt_macros.h"
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/algorithm/parallel/geometry.hpp"
+#include "pinocchio/multibody/fcl.hpp"
+
+// #include <hpp/fcl/broadphase/broadphase.h>
 #include <thread>
 
 namespace dynorrt {
+
+template <typename T>
+// using shared_ptr = boost::shared_ptr<T>;
+using shared_ptr = std::shared_ptr<T>;
+
+template <typename T, typename... Args> auto make_shared_ptr(Args &&...args) {
+  // return boost::make_shared<T>(std::forward<Args>(args)...);
+  return std::make_shared<T>(std::forward<Args>(args)...);
+}
 
 void Collision_manager_pinocchio::build() {
 
@@ -29,13 +41,13 @@ void Collision_manager_pinocchio::build() {
 
   for (auto &obs : obstacles) {
 
-    boost::shared_ptr<fcl::CollisionGeometry> geometry;
+    shared_ptr<fcl::CollisionGeometry> geometry;
 
     if (obs.name == "cylinder") {
       CHECK_PRETTY_DYNORRT(obs.data.size() == 2, "cylinder needs 2 parameters");
       double radius = obs.data[0];
       double length = obs.data[1];
-      geometry = boost::make_shared<fcl::Cylinder>(radius, length);
+      geometry = make_shared_ptr<fcl::Cylinder>(radius, length);
     } else {
       THROW_PRETTY_DYNORRT("only cylinder are supported");
     }
@@ -59,6 +71,16 @@ void Collision_manager_pinocchio::build() {
 
   geom_model.addAllCollisionPairs();
   pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
+  for (auto &go : geom_model.geometryObjects) {
+    go.geometry->computeLocalAABB();
+  }
+
+  collision_objects.reserve(geom_model.geometryObjects.size());
+  for (size_t i = 0; i < geom_model.geometryObjects.size(); i++) {
+    collision_objects.emplace_back(
+        hpp::fcl::CollisionObject(geom_model.geometryObjects[i].geometry));
+  }
+
   geom_data = GeometryData(geom_model);
   build_done = true;
 
@@ -73,18 +95,61 @@ void Collision_manager_pinocchio::build() {
 
 bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
 
-  num_collision_checks++;
-  auto tic = std::chrono::high_resolution_clock::now();
-  if (!build_done) {
-    THROW_PRETTY_DYNORRT("build not done");
-  }
-  bool out = !computeCollisions(model, data, geom_model, geom_data, q, true);
+  const bool use_aabb = true;
+  if (use_aabb) {
+    // continue here!!
 
-  time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::high_resolution_clock::now() - tic)
-                 .count() /
-             1000.0;
-  return out;
+    updateGeometryPlacements(model, data, geom_model, geom_data, q);
+    bool isColliding = false;
+    bool stopAtFirstCollision = true;
+
+    for (size_t i = 0; i < geom_model.geometryObjects.size(); i++) {
+      if (!geom_model.geometryObjects[i].disableCollision) {
+        collision_objects.at(i).setTransform(
+            toFclTransform3f(geom_data.oMg[i]));
+        collision_objects.at(i).computeAABB();
+      }
+    }
+
+    for (std::size_t cp_index = 0; cp_index < geom_model.collisionPairs.size();
+         ++cp_index) {
+      const pinocchio::CollisionPair &cp = geom_model.collisionPairs[cp_index];
+
+      if (geom_data.activeCollisionPairs[cp_index] &&
+          !(geom_model.geometryObjects[cp.first].disableCollision ||
+            geom_model.geometryObjects[cp.second].disableCollision)) {
+
+        if (collision_objects[cp.first].getAABB().overlap(
+                collision_objects[cp.second].getAABB())) {
+
+          bool res = computeCollision(geom_model, geom_data, cp_index);
+          if (!isColliding && res) {
+            isColliding = true;
+            geom_data.collisionPairIndex = cp_index; // first pair to be in
+                                                     // collision
+            if (stopAtFirstCollision)
+              return false;
+          }
+        }
+      }
+    }
+    return true;
+
+  } else {
+    num_collision_checks++;
+    // auto tic = std::chrono::high_resolution_clock::now();
+    if (!build_done) {
+      THROW_PRETTY_DYNORRT("build not done");
+    }
+    bool out = !computeCollisions(model, data, geom_model, geom_data, q, true);
+
+    // time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
+    //                std::chrono::high_resolution_clock::now() - tic)
+    //                .count() /
+    //            1000.0;
+
+    return out;
+  }
 };
 
 bool Collision_manager_pinocchio::is_collision_free_set(

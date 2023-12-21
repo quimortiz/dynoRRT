@@ -19,14 +19,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED On)
 set(CMAKE_CXX_EXTENSIONS Off)
 
 FetchContent_Declare(toml11 GIT_REPOSITORY https://github.com/ToruNiina/toml11)
-
 FetchContent_MakeAvailable(toml11)
 
 # FetchContent_Declare(json GIT_REPOSITORY https://github.com/nlohmann/json)
-FetchContent_Declare(
-  json
-  URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
-FetchContent_MakeAvailable(json)
 
 # NOTE: still linking error when I try to compile in the conda env from
 # pinocchio.
@@ -39,6 +34,22 @@ find_package(Eigen3 REQUIRED)
 
 find_package(pinocchio REQUIRED)
 find_package(OpenMP REQUIRED)
+include(FindThreads)
+
+# FetchContent_Declare(dynobench GIT_REPOSITORY
+# https://github.com/quimortiz/dynobench GIT_TAG
+# 70f52b03199cdcae44e4bd49863ec57533138d7e )
+#
+# FetchContent_MakeAvailable(dynobench)
+
+add_subdirectory(dynobench)
+
+if(NOT TARGET nlohmann_json)
+  FetchContent_Declare(
+    json
+    URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+  FetchContent_MakeAvailable(json)
+endif()
 
 if(OPENMP_FOUND)
   # If found, add OpenMP flags to the compiler
@@ -113,14 +124,14 @@ endif()
 if(BUILD_EXAMPLES)
   add_executable(test_dynorrt test/main.cpp test/test_dev.cpp)
 
-  add_executable(pin_col test/pin_col.cpp)
-  add_executable(pin_ur5_example test/pin_ur5_example.cpp)
-  add_executable(pin_ur5_with_obs test/pin_ur5_with_obs.cpp)
+  # add_executable(pin_col test/pin_col.cpp) add_executable(pin_ur5_example
+  # test/pin_ur5_example.cpp) add_executable(pin_ur5_with_obs
+  # test/pin_ur5_with_obs.cpp)
   add_executable(play_toml test/play_toml.cpp)
 
-  target_link_libraries(pin_col pin_with_zlib)
-  target_link_libraries(pin_ur5_example pin_with_zlib)
-  target_link_libraries(pin_ur5_with_obs pin_with_zlib)
+  # target_link_libraries(pin_col pin_with_zlib)
+  # target_link_libraries(pin_ur5_example pin_with_zlib)
+  # target_link_libraries(pin_ur5_with_obs pin_with_zlib)
 
   target_link_libraries(
     play_toml
@@ -143,7 +154,8 @@ if(BUILD_EXAMPLES)
             Boost::unit_test_framework
             toml11::toml11
             pinocchio::pinocchio
-            dynorrt::pin_col_manager)
+            dynorrt::pin_col_manager
+            dynobench::dynobench)
 
   set_target_properties(
     test_dynorrt

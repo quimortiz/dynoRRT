@@ -1,13 +1,13 @@
 #pragma once
 
-#include "dynoRRT/dynorrt_macros.h"
+#include <fstream>
+
+#include "nlohmann/json.hpp"
 #include <Eigen/Core>
 #include <Eigen/Dense>
 
-#include "nlohmann/json.hpp"
-
+#include "dynorrt_macros.h"
 #include "eigen_conversions.hpp"
-#include <fstream>
 
 namespace dynorrt {
 

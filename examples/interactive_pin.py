@@ -4,6 +4,7 @@ import sys  # noqa
 sys.path.append(".")  # noqa
 sys.path.append("utils/python")  # noqa
 
+sys.path.append("src/python/pydynorrt")  # noqa
 import pin_more
 
 
@@ -44,13 +45,18 @@ import warnings
 
 from pinocchio.shortcuts import createDatas
 
-base_path = "/home/quim/stg/quim-example-robot-data/example-robot-data/"
-robot = "robots/ur_description/urdf/ur5_two_robots.urdf"
+# base_path = "/home/quim/stg/quim-example-robot-data/example-robot-data/"
+# robot = "robots/ur_description/urdf/ur5_two_robots.urdf"
+
+
+robots = "/home/quim/stg/dynoRRT/src/python/pydynorrt/data/models/unicycle_parallel_park.urdf"
+
 
 # robot = "/home/quim/stg/dynoRRT/benchmark/models/se3_window.urdf"
 
 robot = pin.RobotWrapper.BuildFromURDF(
-    "benchmark/models/point_payload_two_robots.urdf"
+    robots
+    # "benchmark/models/point_payload_two_robots.urdf"
     # base_path + robot,
     # robot
     # base_path + "/
@@ -67,17 +73,18 @@ viz = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
 viz.initViewer()
 pin_more._loadViewerModel(viz)
 
+start = np.array([0.7, 0.8, 0])  # x,y,theta
+goal = np.array([1.9, 0.3, 0])  # x,y,theta
 
-# q_i = np.array([0, 0, 0, 0, 0, 0, 1])
-# q_g = np.array([2, 0, 0, 0, 0, 0, 1])
+q_i = start
+# np.zeros(robot.nq)
 
-q_i = np.zeros(robot.nq)
+q_g = goal
 
-
-q_i = np.array([-0.62831853, 0.0, 0.0, 0.0, 0.9424778, 0.0, -0.9424778])
-
-
-q_g = np.array([0.62831853, 0.2, 0.3, 0.0, 0.9424778, 0.0, -0.9424778])
+# q_i = np.array([-0.62831853, 0.0, 0.0, 0.0, 0.9424778, 0.0, -0.9424778])
+#
+#
+# q_g = np.array([0.62831853, 0.2, 0.3, 0.0, 0.9424778, 0.0, -0.9424778])
 
 
 # q_g = np.zeros(robot.nq)

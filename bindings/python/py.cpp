@@ -230,6 +230,7 @@ PYBIND11_MODULE(pydynorrt, m) {
 
   add_planners_to_module<Combined, -1>(m, "Combined");
   add_planners_to_module<dynotree::Rn<double, -1>, -1>(m, "Rn");
+  add_planners_to_module<dynotree::Rn<double, 12>, 12>(m, "R12");
   // add_planner_to_module<dynotree::Rn<double, -1>, -1>(m, "Rn");
   // add_planner_to_module<dynotree::Rn<double, 2>, 2>(m, "R2");
   // add_planner_to_module<dynotree::Rn<double, 3>, 3>(m, "R3");

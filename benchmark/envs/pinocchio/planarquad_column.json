@@ -1,0 +1,41 @@
+{
+  "lb": [
+    0,
+    0,
+    -4,
+    -4,
+    -4
+  ],
+  "ub": [
+    6,
+    5,
+    4,
+    4,
+    4
+  ],
+  "start": [
+    2.0,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "goal": [
+    2.0,
+    2.0,
+    0.0,
+    0.0,
+    0.0,
+    0
+  ],
+  "urdf": "/models/planar_quadrotor_column.urdf",
+  "srdf": "/models/planar_quadrotor_column.srdf",
+  "state_space": [
+    "Rn:2",
+    "SO2",
+    "Rn:3"
+  ],
+  "base_path": "src/python/pydynorrt/data/",
+  "idx_vis_name": "base_link"
+}

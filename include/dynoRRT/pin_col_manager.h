@@ -72,5 +72,7 @@ private:
   pinocchio::GeometryModel geom_model;
   double time_ms = 0;
   int num_collision_checks = 0;
+  bool aabb_compute_done = false;
+  std::vector<hpp::fcl::CollisionObject> collision_objects;
 };
 } // namespace dynorrt

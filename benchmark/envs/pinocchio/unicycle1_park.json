@@ -1,0 +1,28 @@
+{
+  "lb": [
+    0,
+    0
+  ],
+  "ub": [
+    3.0,
+    1.2
+  ],
+  "start": [
+    0.7,
+    0.8,
+    0.0
+  ],
+  "goal": [
+    1.9,
+    0.3,
+    0
+  ],
+  "urdf": "/models/unicycle_parallel_park.urdf",
+  "srdf": "/models/unicycle_parallel_park.srdf",
+  "state_space": [
+    "Rn:2",
+    "SO2"
+  ],
+  "base_path": "src/python/pydynorrt/data/",
+  "idx_vis_name": "base_link"
+}

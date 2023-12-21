@@ -1,686 +1,31 @@
 #pragma once
-
-#include "collision_manager.h"
-#include "dynoRRT/dynorrt_macros.h"
-#include "dynoRRT/toml_extra_macros.h"
-
-#include "dynotree/KDTree.h"
-#include "dynotree/linear_nn.h"
-#include "magic_enum.hpp"
-
-#include <Eigen/Core>
-#include <Eigen/Dense>
-
-#include <boost/fusion/functional/invocation/invoke.hpp>
-#include <boost/test/tools/detail/fwd.hpp>
+#include <algorithm>
 #include <chrono>
-#include <fstream>
-#include <nlohmann/json.hpp>
-
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-
-#include <algorithm>
-#include <cstdlib>
-#include <queue>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-using json = nlohmann::json;
+#include "magic_enum.hpp"
+#include "nlohmann/json_fwd.hpp"
+#include <Eigen/Core>
+#include <Eigen/Dense>
+#include <boost/fusion/functional/invocation/invoke.hpp>
+#include <boost/test/tools/detail/fwd.hpp>
+#include <nlohmann/json.hpp>
 
-using namespace dynorrt;
+#include "dynorrt_macros.h"
+#include "options.h"
+#include "rrt_base.h"
+#include "utils.h"
 
 // NOTE: possible bug in TOML? connection_radius = 3 is not parsed correctly as
 // a doube?
 
-inline auto index_2d_to_1d_symmetric(int i, int j, int n) {
-  if (i > j) {
-    std::swap(i, j);
-  }
-  return i * n + j;
-};
-inline auto index_1d_to_2d(int index, int n) {
-  int i = index / n;
-  int j = index % n;
-  return std::make_pair(i, j);
-};
-
-struct pair_hash {
-  template <class T, class U>
-  std::size_t operator()(std::pair<T, U> const &pair) const {
-    return std::hash<T>()(pair.first) ^ std::hash<U>()(pair.second);
-  }
-};
-
-template <typename T, typename priority_t> struct PriorityQueue {
-  typedef std::pair<priority_t, T> PQElement;
-  std::priority_queue<PQElement, std::vector<PQElement>,
-                      std::greater<PQElement>>
-      elements;
-
-  inline bool empty() const { return elements.empty(); }
-
-  inline void put(T item, priority_t priority) {
-    elements.emplace(priority, item);
-  }
-
-  T get() {
-    T best_item = elements.top().second;
-    elements.pop();
-    return best_item;
-  }
-};
-
-template <typename T, typename StateSpace>
-double get_path_length(const std::vector<T> &path, StateSpace &state_space) {
-  double total_distance = 0;
-  for (size_t i = 0; i < path.size() - 1; i++) {
-    total_distance += state_space.distance(path[i], path[i + 1]);
-  }
-  return total_distance;
-}
-
-template <typename Location, typename Graph>
-void dijkstra_search(Graph graph, Location start, Location goal,
-                     std::unordered_map<Location, Location> &came_from,
-                     std::unordered_map<Location, double> &cost_so_far) {
-  PriorityQueue<Location, double> frontier;
-  frontier.put(start, 0);
-
-  came_from[start] = start;
-  cost_so_far[start] = 0;
-
-  while (!frontier.empty()) {
-    Location current = frontier.get();
-
-    if (current == goal) {
-      break;
-    }
-
-    for (Location next : graph.neighbors(current)) {
-      double new_cost = cost_so_far[current] + graph.cost(current, next);
-      if (cost_so_far.find(next) == cost_so_far.end() ||
-          new_cost < cost_so_far[next]) {
-        cost_so_far[next] = new_cost;
-        came_from[next] = current;
-        frontier.put(next, new_cost);
-      }
-    }
-  }
-}
-
-template <typename Location>
-std::vector<Location>
-reconstruct_path(Location start, Location goal,
-                 std::unordered_map<Location, Location> came_from) {
-  std::vector<Location> path;
-  Location current = goal;
-  if (came_from.find(goal) == came_from.end()) {
-    return path; // no path can be found
-  }
-  while (current != start) {
-    path.push_back(current);
-    current = came_from[current];
-  }
-  path.push_back(start); // optional
-  std::reverse(path.begin(), path.end());
-  return path;
-}
-
-template <typename Location, typename Graph>
-void a_star_search(Graph graph, Location start, Location goal,
-                   std::unordered_map<Location, Location> &came_from,
-                   std::unordered_map<Location, double> &cost_so_far,
-                   std::function<double(Location, Location)> cost,
-                   std::function<double(Location, Location)> heuristic) {
-  PriorityQueue<Location, double> frontier;
-  frontier.put(start, 0);
-
-  came_from[start] = start;
-  cost_so_far[start] = 0;
-
-  while (!frontier.empty()) {
-    Location current = frontier.get();
-
-    if (current == goal) {
-      break;
-    }
-
-    for (Location next : graph[current]) {
-      double edge_cost = cost(current, next);
-      if (edge_cost == std::numeric_limits<double>::infinity()) {
-        continue;
-      }
-      double new_cost = cost_so_far[current] + edge_cost;
-      if (cost_so_far.find(next) == cost_so_far.end() ||
-          new_cost < cost_so_far[next]) {
-        cost_so_far[next] = new_cost;
-        double priority = new_cost + heuristic(next, goal);
-        frontier.put(next, priority);
-        came_from[next] = current;
-      }
-    }
-  }
-}
-
 namespace dynorrt {
-
-struct RRT_options {
-  int max_it = 10000;
-  double goal_bias = 0.05;
-  double collision_resolution = 0.01;
-  double max_step = 1.;
-  double max_compute_time_ms = 1e9;
-  double goal_tolerance = 0.001;
-  int max_num_configs = 10000;
-  bool xrand_collision_free = true;
-  int max_num_trials_col_free = 1000;
-  bool debug = false;
-  bool store_all = false;
-  int k_near = -1; // if different than -1, it is used in RRT star -- TODO: RRT
-                   // star options!
-
-  void print(std::ostream & = std::cout);
-};
-
-struct BiRRT_options {
-  int max_it = 10000;
-  double goal_bias = 0.05;
-  double collision_resolution = 0.01;
-  double backward_probability = 0.5;
-  double max_step = 0.1;
-  double max_compute_time_ms = 1e9;
-  double goal_tolerance = 0.001;
-  int max_num_configs = 10000;
-  bool xrand_collision_free = true;
-  int max_num_trials_col_free = 1000;
-
-  void print(std::ostream & = std::cout);
-};
-
-struct PRM_options {
-  // TODO: incrementally + option for PRM star;
-  int num_vertices_0 = 200;
-  double increase_vertices_rate = 2.;
-  double collision_resolution = 0.01;
-  int max_it = 10;
-  double connection_radius = 1.;
-  double max_compute_time_ms = 1e9;
-  bool xrand_collision_free = true;
-  int max_num_trials_col_free = 1000;
-  bool incremental_collision_check = false;
-  int k_near = -1;
-  void print(std::ostream & = std::cout);
-};
-
-struct LazyPRM_options {
-  // TODO: incrementally + option for PRM star;
-  int num_vertices_0 = 200;
-  double increase_vertices_rate = 2.;
-  double collision_resolution = 0.01;
-  int max_lazy_iterations = 1000;
-  double connection_radius = .5;
-  double max_compute_time_ms = 1e9;
-  bool xrand_collision_free = true;
-  int max_num_trials_col_free = 1000;
-  int k_near = -1;
-  void print(std::ostream & = std::cout);
-};
-} // namespace dynorrt
-
-TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
-    dynorrt::RRT_options, max_it, goal_bias, collision_resolution, max_step,
-    max_compute_time_ms, goal_tolerance, max_num_configs, xrand_collision_free,
-    max_num_trials_col_free, debug, store_all, k_near);
-
-TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(dynorrt::BiRRT_options, max_it,
-                                          goal_bias, collision_resolution,
-                                          backward_probability, max_step,
-                                          max_compute_time_ms, goal_tolerance,
-                                          max_num_configs, xrand_collision_free,
-                                          max_num_trials_col_free);
-
-TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
-    dynorrt::PRM_options, num_vertices_0, increase_vertices_rate,
-    collision_resolution, max_it, connection_radius, max_compute_time_ms,
-    xrand_collision_free, max_num_trials_col_free, incremental_collision_check,
-    k_near);
-
-TOML11_DEFINE_CONVERSION_NON_INTRUSIVE_OR(
-    dynorrt::LazyPRM_options, num_vertices_0, increase_vertices_rate,
-    collision_resolution, max_lazy_iterations, connection_radius,
-    max_compute_time_ms, xrand_collision_free, max_num_trials_col_free, k_near);
-
-inline void dynorrt::RRT_options::print(std::ostream &out) {
-  toml::value v = *this;
-  out << v << std::endl;
-}
-
-inline void dynorrt::BiRRT_options::print(std::ostream &out) {
-  toml::value v = *this;
-  out << v << std::endl;
-}
-
-inline void dynorrt::PRM_options::print(std::ostream &out) {
-  toml::value v = *this;
-  out << v << std::endl;
-}
-
-inline void dynorrt::LazyPRM_options::print(std::ostream &out) {
-  toml::value v = *this;
-  out << v << std::endl;
-}
-
-namespace dynorrt {
-
-template <typename T> void print_path(const std::vector<T> &path) {
-
-  std::cout << "PATH" << std::endl;
-  std::cout << "path.size(): " << path.size() << std::endl;
-  for (size_t i = 0; i < path.size(); i++) {
-    std::cout << path[i].transpose() << std::endl;
-  }
-}
-
-/**
- * @brief      Check if a path is collision free.
- * @tparam     T     The type of the state
- * @tparam     StateSpace  The type of the state space
- * @tparam     Fun   The type of the is collision free function
- * @param[in]  path  The path we want to shortcut
- * @param[in]  is_collision_free_fun  The is collision free function
- * @param[in]  state_space  The state
- * @param[in]  resolution  The resolution
- * @return     True if collision free, False otherwise.
- */
-template <typename T, typename StateSpace, typename Fun>
-bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
-                            StateSpace state_space, double resolution) {
-
-  T tmp = x_start;
-  if (is_collision_free_fun(x_end)) {
-    int N = int(state_space.distance(x_start, x_end) / resolution) + 1;
-    for (int j = 0; j < N; j++) {
-      state_space.interpolate(x_start, x_end, double(j) / N, tmp);
-      if (!is_collision_free_fun(tmp)) {
-        return false;
-      }
-    }
-  } else {
-    return false;
-  }
-  return true;
-}
-
-template <typename T, typename StateSpace, typename Fun>
-std::vector<T> path_shortcut_v1(const std::vector<T> path,
-                                Fun &is_collision_free_fun,
-                                StateSpace state_space, double resolution) {
-
-  CHECK_PRETTY_DYNORRT__(path.size() >= 2);
-
-  if (path.size() == 2) {
-    // [ start, goal ]
-    return path;
-  }
-
-  std::vector<T> path_out;
-  int start_index = 0;
-  path_out.push_back(path[start_index]);
-  while (true) {
-    int target_index = start_index + 2;
-    // We know that +1 is always feasible!
-    while (target_index < path.size() &&
-           is_edge_collision_free(path[start_index], path[target_index],
-                                  is_collision_free_fun, state_space,
-                                  resolution)) {
-      target_index++;
-    }
-    target_index--; // Reduce one, to get the last collision free edge.
-
-    CHECK_PRETTY_DYNORRT__(target_index >= start_index + 1);
-    CHECK_PRETTY_DYNORRT__(target_index < path.size());
-
-    path_out.push_back(path[target_index]);
-
-    if (target_index == path.size() - 1) {
-      break;
-    }
-
-    start_index = target_index;
-  }
-
-  CHECK_PRETTY_DYNORRT__(path_out.size() >= 2);
-  CHECK_PRETTY_DYNORRT__(path_out.size() <= path.size());
-
-  MESSAGE_PRETTY_DYNORRT("\nPath_shortcut_v1: From "
-                         << path.size() << " to " << path_out.size() << "\n");
-
-  return path_out;
-}
-
-template <typename T>
-auto trace_back_solution(int id, std::vector<T> configs,
-                         const std::vector<int> &parents) {
-  std::vector<T> path;
-  path.push_back(configs[id]);
-  while (parents[id] != -1) {
-    id = parents[id];
-    path.push_back(configs[id]);
-  }
-  std::reverse(path.begin(), path.end());
-  return path;
-};
-
-// Note: PRM* and LazyPRM* are implemented by
-// setting the suitable options in PRM and LazyPRM respectively.
-enum class PlannerID { RRT, BiRRT, RRTConnect, RRTStar, PRM, LazyPRM, UNKNOWN };
-
-enum class TerminationCondition {
-  MAX_IT,
-  MAX_TIME,
-  GOAL_REACHED,
-  MAX_NUM_CONFIGS,
-  RUNNING,
-  USER_DEFINED,
-  // The following are for Anytime Assymp optimal planners
-  MAX_IT_GOAL_REACHED,
-  MAX_TIME_GOAL_REACHED,
-  MAX_NUM_CONFIGS_GOAL_REACHED,
-  RUNNING_GOAL_REACHED,
-  USER_DEFINED_GOAL_REACHED,
-  EXTERNAL_TRIGGER_GOAL_REACHED,
-  UNKNOWN
-};
-
-inline void ensure_connected_tree_with_no_cycles(
-    const std::vector<std::set<int>> &childrens) {
-
-  int num_configs = childrens.size();
-  std::vector<bool> visited(num_configs, false);
-
-  int start = 0;
-
-  std::queue<int> q;
-  q.push(start);
-
-  // Check that I visit all nodes once
-  while (!q.empty()) {
-    int current = q.front();
-    q.pop();
-    CHECK_PRETTY_DYNORRT__(visited[current] == false);
-    visited[current] = true;
-    for (auto child : childrens[current]) {
-      q.push(child);
-    }
-  }
-
-  // check that all nodes are visited
-  for (int i = 0; i < num_configs; i++) {
-    if (!visited[i]) {
-      std::cout << "i: " << i << std::endl;
-      std::cout << "num_configs: " << num_configs << std::endl;
-      std::cout << "visited[i]: " << visited[i] << std::endl;
-      CHECK_PRETTY_DYNORRT__(visited[i]);
-    }
-  }
-}
-
-inline bool is_termination_condition_solved(
-    const TerminationCondition &termination_condition) {
-  return termination_condition == TerminationCondition::GOAL_REACHED ||
-         termination_condition == TerminationCondition::MAX_IT_GOAL_REACHED ||
-         termination_condition == TerminationCondition::MAX_TIME_GOAL_REACHED ||
-         termination_condition ==
-             TerminationCondition::MAX_NUM_CONFIGS_GOAL_REACHED ||
-         termination_condition ==
-             TerminationCondition::EXTERNAL_TRIGGER_GOAL_REACHED ||
-         termination_condition ==
-             TerminationCondition::USER_DEFINED_GOAL_REACHED;
-}
-
-template <typename StateSpace, int DIM> class PlannerBase {
-
-public:
-  using state_t = Eigen::Matrix<double, DIM, 1>;
-  using state_cref_t = const Eigen::Ref<const state_t> &;
-  using tree_t = dynotree::KDTree<int, DIM, 32, double, StateSpace>;
-  using is_collision_free_fun_t = std::function<bool(state_t)>;
-  using edge_t = std::pair<state_t, state_t>;
-
-  virtual ~PlannerBase() = default;
-
-  virtual void reset() {
-    THROW_PRETTY_DYNORRT("Not implemented in base class!");
-  }
-
-  virtual std::string get_name() {
-    THROW_PRETTY_DYNORRT("Not implemented in base class!");
-  }
-
-  void set_state_space(StateSpace t_state_space) {
-    state_space = t_state_space;
-    tree = tree_t();
-    tree.init_tree(runtime_dim, state_space);
-  }
-
-  void set_state_space_with_string(
-      const std::vector<std::string> &state_space_vstring) {
-    if constexpr (std::is_same<StateSpace, dynotree::Combined<double>>::value) {
-      state_space = StateSpace(state_space_vstring);
-      tree = tree_t();
-      tree.init_tree(runtime_dim, state_space);
-    } else {
-      THROW_PRETTY_DYNORRT("use set_state_string only with dynotree::Combined");
-    }
-  }
-
-  virtual void print_options(std::ostream &out = std::cout) {
-    THROW_PRETTY_DYNORRT("Not implemented in base class!");
-  }
-
-  void virtual set_options_from_toml(toml::value &cfg) {
-    THROW_PRETTY_DYNORRT("Not implemented in base class!");
-  }
-
-  virtual void read_cfg_file(const std::string &cfg_file) {
-
-    std::ifstream ifs(cfg_file);
-    if (!ifs) {
-      THROW_PRETTY_DYNORRT("Cannot open cfg_file: " + cfg_file);
-    }
-    auto cfg = toml::parse(ifs);
-    set_options_from_toml(cfg);
-  }
-
-  void virtual read_cfg_string(const std::string &cfg_string) {
-    std::stringstream ss(cfg_string);
-    auto cfg = toml::parse(ss);
-    set_options_from_toml(cfg);
-  }
-
-  std::vector<edge_t> get_valid_edges() { return valid_edges; }
-
-  std::vector<edge_t> get_invalid_edges() { return invalid_edges; }
-
-  void set_bounds_to_state(const Eigen::VectorXd &lb,
-                           const Eigen::VectorXd &ub) {
-    CHECK_PRETTY_DYNORRT__(lb.size() == ub.size());
-
-    if constexpr (DIM == -1) {
-      CHECK_PRETTY_DYNORRT__(runtime_dim != -1);
-      CHECK_PRETTY_DYNORRT__(lb.size() == runtime_dim);
-      CHECK_PRETTY_DYNORRT__(ub.size() == runtime_dim);
-    }
-
-    state_space.set_bounds(lb, ub);
-  }
-
-  void
-  set_is_collision_free_fun(is_collision_free_fun_t t_is_collision_free_fun) {
-    is_collision_free_fun = t_is_collision_free_fun;
-  }
-
-  void
-  set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
-    is_collision_free_fun = [collision_manager](state_t x) {
-      return !collision_manager->is_collision(x);
-    };
-  }
-
-  bool is_collision_free_fun_timed(state_cref_t x) {
-    auto tic = std::chrono::steady_clock::now();
-    bool is_collision_free = is_collision_free_fun(x);
-    double elapsed_mcs = std::chrono::duration_cast<std::chrono::microseconds>(
-                             std::chrono::steady_clock::now() - tic)
-                             .count();
-    collisions_time_ms += elapsed_mcs / 1000.;
-    return is_collision_free;
-  }
-
-  StateSpace &get_state_space() { return state_space; }
-
-  void set_start(state_cref_t t_start) { start = t_start; }
-  void set_goal(state_cref_t t_goal) { goal = t_goal; }
-
-  std::vector<state_t> get_path() {
-
-    if (path.size() == 0) {
-      std::cout << "Warning: path.size() == 0" << std::endl;
-      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
-      return {};
-    }
-    return path;
-  }
-
-  virtual void init(int t_runtime_dim = -1) {
-
-    runtime_dim = t_runtime_dim;
-
-    if constexpr (DIM == -1) {
-      x_rand.resize(this->runtime_dim);
-      x_new.resize(this->runtime_dim);
-      x_near.resize(this->runtime_dim);
-      if (runtime_dim == -1) {
-        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
-      }
-    }
-    tree = tree_t();
-    tree.init_tree(runtime_dim, state_space);
-  }
-  std::vector<state_t> get_configs() { return configs; }
-
-  std::vector<state_t> get_sample_configs() { return sample_configs; }
-
-  std::vector<int> get_parents() { return parents; }
-
-  std::vector<state_t> get_fine_path(double resolution) {
-
-    state_t tmp;
-
-    if constexpr (DIM == -1) {
-      if (runtime_dim == -1) {
-        throw std::runtime_error("DIM == -1 and runtime_dim == -1");
-      }
-      tmp.resize(runtime_dim);
-    }
-
-    std::vector<state_t> fine_path;
-    if (path.size() == 0) {
-      std::cout << "Warning: path.size() == 0" << std::endl;
-      std::cout << __FILE__ << ":" << __LINE__ << std::endl;
-      return {};
-    }
-
-    for (int i = 0; i < path.size() - 1; i++) {
-      state_t _start = path[i];
-      state_t _goal = path[i + 1];
-      int N = int(state_space.distance(_start, _goal) / resolution) + 1;
-      for (int j = 0; j < N; j++) {
-        state_space.interpolate(_start, _goal, double(j) / N, tmp);
-        fine_path.push_back(tmp);
-      }
-    }
-    fine_path.push_back(path[path.size() - 1]);
-    return fine_path;
-  }
-
-  virtual void get_planner_data(json &j) {
-    j["planner_name"] = this->get_name();
-    j["path"] = path;
-    j["fine_path"] = get_fine_path(0.01);
-    j["configs"] = configs;
-    j["sample_configs"] = sample_configs;
-    j["parents"] = parents;
-    j["evaluated_edges"] = evaluated_edges;
-    j["infeasible_edges"] = infeasible_edges;
-    j["total_distance"] = total_distance;
-    j["collisions_time_ms"] = collisions_time_ms;
-    j["valid_edges"] = valid_edges;
-    j["invalid_edges"] = invalid_edges;
-
-    // THROW_PRETTY_DYNORRT("Not implemented in base class!");
-  }
-
-  virtual void check_internal() const {
-
-    CHECK_PRETTY_DYNORRT__(tree.size() == 0);
-    CHECK_PRETTY_DYNORRT__(parents.size() == 0);
-    CHECK_PRETTY_DYNORRT__(configs.size() == 0);
-    CHECK_PRETTY_DYNORRT__(sample_configs.size() == 0);
-    CHECK_PRETTY_DYNORRT__(path.size() == 0);
-    CHECK_PRETTY_DYNORRT__(evaluated_edges == 0);
-    CHECK_PRETTY_DYNORRT__(infeasible_edges == 0);
-    CHECK_PRETTY_DYNORRT__(total_distance == -1);
-    CHECK_PRETTY_DYNORRT__(collisions_time_ms == 0);
-    CHECK_PRETTY_DYNORRT__(is_collision_free_fun(start));
-    CHECK_PRETTY_DYNORRT__(is_collision_free_fun(goal));
-  }
-
-  virtual void reset_internal() {
-    parents.clear();
-    configs.clear();
-    sample_configs.clear();
-    path.clear();
-    evaluated_edges = 0;
-    infeasible_edges = 0;
-    total_distance = -1;
-    collisions_time_ms = 0;
-    init();
-  }
-
-  virtual TerminationCondition plan() {
-    THROW_PRETTY_DYNORRT("Not implemented in base class!");
-  }
-
-protected:
-  StateSpace state_space;
-  state_t start;
-  state_t goal;
-  tree_t tree;
-  is_collision_free_fun_t is_collision_free_fun = [](const auto &) {
-    THROW_PRETTY_DYNORRT("define a collision free fun!");
-    return false;
-  };
-
-  std::vector<state_t> path;
-  std::vector<state_t> configs;
-  std::vector<state_t> sample_configs; // TODO: only with  flag
-  std::vector<int> parents;
-  int runtime_dim = DIM;
-  double total_distance = -1;
-  double collisions_time_ms = 0.;
-  int evaluated_edges = 0;
-  int infeasible_edges = 0;
-  std::vector<std::pair<state_t, state_t>>
-      valid_edges; // TODO: only with a flag
-  std::vector<std::pair<state_t, state_t>>
-      invalid_edges; // TODO: only with a flag
-
-  state_t x_rand, x_new, x_near;
-};
+// using json = nlohmann::json;
 
 // Continue here!
 // template <typename StateSpace, int DIM>
@@ -1453,7 +798,7 @@ public:
     return check_edges_invalid;
   }
 
-  virtual void get_planner_data(json &j) override {
+  virtual void get_planner_data(nlohmann::json &j) override {
     Base::get_planner_data(j);
     j["adjacency_list"] = adjacency_list;
     j["check_edges_valid"] = check_edges_valid;
@@ -1958,7 +1303,8 @@ public:
       CHECK_PRETTY_DYNORRT__(
           Base::state_space.distance(Base::path[0], Base::start) < 1e-6);
       CHECK_PRETTY_DYNORRT__(
-          Base::state_space.distance(Base::path.back(), Base::goal) < 1e-6);
+          Base::state_space.distance(Base::path.back(), Base::goal) <
+          options.goal_tolerance);
 
       Base::total_distance = 0;
       for (size_t i = 0; i < Base::path.size() - 1; i++) {
@@ -1999,7 +1345,7 @@ public:
     return termination_condition;
   };
 
-  virtual void get_planner_data(json &j) override {
+  virtual void get_planner_data(nlohmann::json &j) override {
     Base::get_planner_data(j);
     j["cost_to_come"] = cost_to_come;
     j["children"] = children;
@@ -2093,27 +1439,6 @@ public:
       } else {
         is_goal = false;
 
-#if 0
-        Eigen::VectorXd w1 = Eigen::VectorXd::Zero(12);
-
-        w1 << 1.88495559, -1.8849556, 0.62831853, 0., 0., 0., -0.9424778,
-            -0.9424778, 1.57079633, 0., 0., 0.;
-        Eigen::VectorXd w2 = Eigen::VectorXd::Zero(12);
-        w2 << 1.88495559, -1.8849556, 0.62831853, 0., 0., 0., -2.82743339,
-            -0.9424778, 1.57079633, 0., 0., 0.;
-
-        CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(w1));
-        CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(w2));
-
-        if (static_cast<double>(std::rand()) / RAND_MAX < 0.5) {
-          this->x_rand = w1;
-        } else {
-          this->x_rand = w2;
-        }
-        // add a little bit of noise
-        this->x_rand += 0.01 * Eigen::VectorXd::Random(12);
-
-#else
         if (options.xrand_collision_free) {
           bool is_collision_free = false;
           int num_tries = 0;
@@ -2128,7 +1453,6 @@ public:
         } else {
           this->state_space.sample_uniform(this->x_rand);
         }
-#endif
       }
       if (options.debug) {
         this->sample_configs.push_back(this->x_rand);
@@ -2204,7 +1528,8 @@ public:
                 << std::endl;
 
       CHECK_PRETTY_DYNORRT__(
-          this->state_space.distance(this->path.back(), this->goal) < 1e-6);
+          this->state_space.distance(this->path.back(), this->goal) <
+          options.goal_tolerance);
 
       this->total_distance = 0;
       for (size_t i = 0; i < this->path.size() - 1; i++) {
@@ -2254,7 +1579,9 @@ public:
     return termination_condition;
   };
 
-  virtual void get_planner_data(json &j) override { Base::get_planner_data(j); }
+  virtual void get_planner_data(nlohmann::json &j) override {
+    Base::get_planner_data(j);
+  }
 
 protected:
   RRT_options options;
@@ -2625,13 +1952,386 @@ get_planner(PlannerID planner_id) {
   }
 }
 
-} // namespace dynorrt
-//
-//
-//
-//
-//
-//
-//
+struct Small_trajectory {
 
-//
+  std::vector<Eigen::VectorXd> states;
+  std::vector<Eigen::VectorXd> controls;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Small_trajectory, states, controls);
+
+// json auto serialization with macro
+
+template <typename StateSpace, int DIM>
+class KinoRRT : public PlannerBase<StateSpace, DIM> {
+
+  using Base = PlannerBase<StateSpace, DIM>;
+  using state_t = typename Base::state_t;
+  using control_t = Eigen::VectorXd; // TODO: allow to fix this at compile time!
+
+public:
+  KinoRRT() = default;
+
+  virtual ~KinoRRT() = default;
+
+  virtual void print_options(std::ostream &out = std::cout) override {
+    std::cout << "Options in " << this->get_name() << std::endl;
+    options.print(out);
+  }
+
+  virtual void reset() override { *this = KinoRRT(); }
+
+  virtual std::string get_name() override { return "kinoRRT"; }
+
+  virtual void set_options_from_toml(toml::value &cfg) override {
+    options = toml::find<KinoRRT_options>(cfg, "KinoRRT_options");
+  }
+
+  void set_options(KinoRRT_options t_options) { options = t_options; }
+
+  KinoRRT_options get_options() const { return options; }
+
+  // this->x_near, this->x_new, path, control);
+
+  virtual TerminationCondition plan() override {
+    Base::check_internal();
+    this->print_options();
+
+    this->parents.push_back(-1);
+    this->configs.push_back(this->start);
+    this->tree.addPoint(this->start, 0);
+    this->small_trajectories.push_back(
+        Small_trajectory()); // empty samll trajectory to reach
+    // the start
+
+    int num_it = 0;
+    auto tic = std::chrono::steady_clock::now();
+    bool path_found = false;
+    int num_collisions = 0;
+
+    auto col = [&, this](const auto &x) {
+      // return this->is_collision_free_fun_timed(x);
+      num_collisions++;
+      return this->is_collision_free_fun(x);
+    };
+
+    this->state_space.print(std::cout);
+
+    CHECK_PRETTY_DYNORRT__(col(this->start));
+    CHECK_PRETTY_DYNORRT__(col(this->goal));
+    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->start));
+    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->goal));
+
+    auto get_elapsed_ms = [&] {
+      return std::chrono::duration_cast<std::chrono::milliseconds>(
+                 std::chrono::steady_clock::now() - tic)
+          .count();
+    };
+
+    auto should_terminate = [&] {
+      if (this->configs.size() > options.max_num_configs) {
+        return TerminationCondition::MAX_NUM_CONFIGS;
+      } else if (num_it > options.max_it) {
+        return TerminationCondition::MAX_IT;
+      } else if (get_elapsed_ms() > options.max_compute_time_ms) {
+        return TerminationCondition::MAX_TIME;
+      } else if (path_found) {
+        return TerminationCondition::GOAL_REACHED;
+      } else {
+        return TerminationCondition::RUNNING;
+      }
+    };
+
+    TerminationCondition termination_condition = should_terminate();
+    bool is_goal = false;
+    double nn_search_time = 0;
+    double time_expand_fun = 0;
+    double time_store_info = 0;
+
+    auto timed_tree_search = [&](const state_t &x) {
+      auto tic = std::chrono::steady_clock::now();
+      auto nn = this->tree.search(x);
+      nn_search_time += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - tic)
+                            .count() /
+                        double(10e6);
+
+      return nn;
+    };
+
+    // auto nn = this->tree.search(this->x_rand);
+
+    while (termination_condition == TerminationCondition::RUNNING) {
+
+      if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
+        this->x_rand = this->goal;
+        is_goal = true;
+      } else {
+        is_goal = false;
+
+        if (options.xrand_collision_free) {
+          bool is_collision_free = false;
+          int num_tries = 0;
+          while (!is_collision_free &&
+                 num_tries < options.max_num_trials_col_free) {
+            this->state_space.sample_uniform(this->x_rand);
+            is_collision_free = col(this->x_rand);
+            num_tries++;
+          }
+          CHECK_PRETTY_DYNORRT(is_collision_free,
+                               "cannot generate a valid xrand");
+        } else {
+          this->state_space.sample_uniform(this->x_rand);
+        }
+      }
+      if (options.debug) {
+        this->sample_configs.push_back(this->x_rand);
+      }
+
+      // auto nn = this->tree.search(this->x_rand);
+
+      auto nn = timed_tree_search(this->x_rand);
+
+      this->x_near = this->configs.at(nn.id);
+
+      if (is_goal) {
+        // If the goal is sampled, then I will try to connect
+        // a random state with half probability, not only the closest one!
+        // This is to avoid getting stuck in a local minima
+        if (static_cast<double>(std::rand()) / RAND_MAX < 0.5) {
+          int rand_id = std::rand() % this->configs.size();
+          this->x_near = this->configs.at(rand_id);
+          nn.id = rand_id;
+          nn.distance = this->state_space.distance(this->x_rand, this->x_near);
+        }
+      }
+
+      if (nn.distance < options.max_step) {
+        this->x_new = this->x_rand;
+      } else {
+        this->state_space.interpolate(this->x_near, this->x_rand,
+                                      options.max_step / nn.distance,
+                                      this->x_new);
+      }
+
+      // expand! note that I cannot do straight lines now.
+
+      // std::vector<state_t> path;
+      // std::vector<state_t> control;
+
+      Small_trajectory small_trajectory;
+
+      // this->expand_towards(this->x_near, this->x_new, path, control);
+
+      auto _tic = std::chrono::steady_clock::now();
+      this->expand_fun(this->x_near, this->x_new, small_trajectory);
+      time_expand_fun += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::steady_clock::now() - _tic)
+                             .count() /
+                         double(10e6);
+
+      this->evaluated_edges += 1;
+
+      // check that Small_small_trajectory is collision free.
+
+      bool is_collision_free = true;
+      for (size_t i = 0; i < small_trajectory.states.size() - 1; i++) {
+
+        if (!this->state_space.check_bounds(small_trajectory.states[i])) {
+          is_collision_free = false;
+          break;
+        }
+
+        if (!col(small_trajectory.states[i])) {
+          is_collision_free = false;
+          break;
+        }
+        // check the edge at a resolution
+        if (!is_edge_collision_free(
+                small_trajectory.states.at(i),
+                small_trajectory.states.at(i + 1), col, this->state_space,
+                this->options.collision_resolution, false)) {
+          is_collision_free = false;
+          break;
+        }
+      }
+      // check the last state
+      if (!col(small_trajectory.states.back())) {
+        is_collision_free = false;
+      }
+      this->x_new = small_trajectory.states.back();
+
+      this->infeasible_edges += !is_collision_free;
+
+      if (options.store_all) {
+        if (is_collision_free) {
+          this->valid_edges.push_back({this->x_near, this->x_new});
+        } else if (!is_collision_free) {
+          this->invalid_edges.push_back({this->x_near, this->x_new});
+        }
+      }
+
+      if (is_collision_free) {
+
+        auto _tic = std::chrono::steady_clock::now();
+
+        this->tree.addPoint(this->x_new, this->configs.size());
+        this->configs.push_back(this->x_new);
+        this->parents.push_back(nn.id);
+        this->small_trajectories.push_back(small_trajectory);
+
+        if (this->state_space.distance(this->x_new, Base::goal) <
+            options.goal_tolerance) {
+          path_found = true;
+          MESSAGE_PRETTY_DYNORRT("path found");
+        }
+
+        time_store_info += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                               std::chrono::steady_clock::now() - _tic)
+                               .count() /
+                           double(10e6);
+      }
+
+      num_it++;
+      termination_condition = should_terminate();
+
+    } // RRT terminated
+
+    double time = std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now() - tic)
+                      .count();
+
+    if (termination_condition == TerminationCondition::GOAL_REACHED) {
+
+      int i = this->configs.size() - 1;
+
+      CHECK_PRETTY_DYNORRT__(
+          this->state_space.distance(this->configs[i], this->goal) <
+          options.goal_tolerance);
+
+      this->path = trace_back_solution(i, this->configs, this->parents);
+
+      // get the kino solution
+
+      // full_trajectory.states.clear();
+      // full_trajectory.controls.clear();
+
+      int id = i;
+      std::vector<int> path_id;
+      path_id.push_back(id);
+      while (this->parents[id] != -1) {
+        id = this->parents[id];
+        path_id.push_back(id);
+      }
+
+      std::reverse(path_id.begin(), path_id.end());
+
+      std::cout << "path_id is " << std::endl;
+      for (auto &x : path_id) {
+        std::cout << x << " ";
+      }
+      std::cout << std::endl;
+
+      for (size_t j = 1; j < path_id.size(); j++) {
+        int id = path_id.at(j);
+        full_trajectory.controls.insert(full_trajectory.controls.end(),
+                                        small_trajectories[id].controls.begin(),
+                                        small_trajectories[id].controls.end());
+        full_trajectory.states.insert(full_trajectory.states.end(),
+                                      small_trajectories[id].states.begin(),
+                                      small_trajectories[id].states.end() - 1);
+      }
+      // add the last state
+      full_trajectory.states.push_back(this->configs.back());
+      std::cout << this->configs.back().transpose() << std::endl;
+      std::cout << this->goal.transpose() << std::endl;
+      std::cout << this->path.back().transpose() << std::endl;
+
+      CHECK_PRETTY_DYNORRT__(
+          this->state_space.distance(this->full_trajectory.states.front(),
+                                     this->start) < 1e-6);
+
+      CHECK_PRETTY_DYNORRT__(full_trajectory.states.size() ==
+                             full_trajectory.controls.size() + 1);
+
+      CHECK_PRETTY_DYNORRT__(
+          this->state_space.distance(this->full_trajectory.states.back(),
+                                     this->goal) < options.goal_tolerance)
+
+      CHECK_PRETTY_DYNORRT__(
+          this->state_space.distance(this->path[0], this->start) < 1e-6);
+
+      std::cout << this->state_space.distance(this->path.back(), this->goal)
+                << std::endl;
+
+      CHECK_PRETTY_DYNORRT__(
+          this->state_space.distance(this->path.back(), this->goal) <
+          options.goal_tolerance)
+
+      this->total_distance = 0;
+      for (size_t i = 0; i < this->path.size() - 1; i++) {
+        this->total_distance +=
+            this->state_space.distance(this->path[i], this->path[i + 1]);
+      }
+    } else {
+      MESSAGE_PRETTY_DYNORRT("failed to find a solution!");
+      double min_distance = std::numeric_limits<double>::infinity();
+      int min_id = -1;
+      for (size_t i = 0; i < this->configs.size(); i++) {
+        double distance =
+            this->state_space.distance(this->configs[i], this->goal);
+        if (distance < min_distance) {
+          min_distance = distance;
+          min_id = i;
+        }
+      }
+      MESSAGE_PRETTY_DYNORRT("min_distance: " << min_distance);
+      MESSAGE_PRETTY_DYNORRT("min_id: " << min_id);
+    }
+
+    MESSAGE_PRETTY_DYNORRT("Output from RRT PLANNER");
+    std::cout << "Terminate status: "
+              << magic_enum::enum_name(termination_condition) << std::endl;
+    std::cout << "num_it: " << num_it << std::endl;
+    std::cout << "compute time (ms): " << time << std::endl;
+    std::cout << "configs.size(): " << this->configs.size() << std::endl;
+    std::cout << "collisions time (ms): " << this->collisions_time_ms
+              << std::endl;
+    std::cout << "evaluated_edges: " << this->evaluated_edges << std::endl;
+    std::cout << "infeasible_edges: " << this->infeasible_edges << std::endl;
+    std::cout << "path.size(): " << this->path.size() << std::endl;
+    std::cout << "full_trajectory.states.size(): "
+              << full_trajectory.states.size() << std::endl;
+    std::cout << "total_distance: " << this->total_distance << std::endl;
+    std::cout << "number collision checks when timed: "
+              << this->number_collision_checks << std::endl;
+    std::cout << "number collision checks always: " << num_collisions
+              << std::endl;
+    std::cout << "nn search [ms] " << nn_search_time << std::endl;
+    std::cout << "time expand [ms] " << time_expand_fun << std::endl;
+    std::cout << "time store info [ms] " << time_store_info << std::endl;
+
+    return termination_condition;
+  };
+
+  virtual void get_planner_data(nlohmann::json &j) override {
+    Base::get_planner_data(j);
+    j["small_trajectories"] = small_trajectories;
+    j["full_trajectory"] = full_trajectory;
+  }
+
+  void set_expand_fun(
+      std::function<void(state_t &, const state_t &, Small_trajectory &)>
+          t_expand_fun) {
+    expand_fun = t_expand_fun;
+  }
+
+protected:
+  KinoRRT_options options;
+  std::vector<Small_trajectory> small_trajectories;
+  Small_trajectory full_trajectory;
+  std::function<void(state_t &, const state_t &, Small_trajectory &)>
+      expand_fun;
+};
+
+} // namespace dynorrt
