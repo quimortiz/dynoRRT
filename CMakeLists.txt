@@ -34,6 +34,7 @@ find_package(Eigen3 REQUIRED)
 
 find_package(pinocchio REQUIRED)
 find_package(OpenMP REQUIRED)
+find_package(octomap REQUIRED)
 include(FindThreads)
 
 # FetchContent_Declare(dynobench GIT_REPOSITORY
@@ -41,8 +42,6 @@ include(FindThreads)
 # 70f52b03199cdcae44e4bd49863ec57533138d7e )
 #
 # FetchContent_MakeAvailable(dynobench)
-
-add_subdirectory(dynobench)
 
 if(NOT TARGET nlohmann_json)
   FetchContent_Declare(
@@ -64,10 +63,10 @@ endif()
 # Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
 # EXACT)
 
-option(BUILD_EXAMPLES OFF)
-option(BUILD_PYRRT OFF)
-option(BUILD_BENCHMARK OFF)
-option(USE_ZLIBSTATIC OFF)
+option(BUILD_EXAMPLES "" OFF)
+option(BUILD_PYRRT "" OFF)
+option(BUILD_BENCHMARK "" OFF)
+option(USE_ZLIBSTATIC "" OFF)
 message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
 message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
 message(STATUS "BUILD_EXAMPLES ${BUILD_EXAMPLES}")
@@ -122,7 +121,10 @@ if(BUILD_BENCHMARK)
 endif()
 
 if(BUILD_EXAMPLES)
-  add_executable(test_dynorrt test/main.cpp test/test_dev.cpp)
+
+  add_subdirectory(dynobench)
+
+  add_executable(test_dynorrt test/main.cpp test/test_dev.cpp test/test_ddp.cpp)
 
   # add_executable(pin_col test/pin_col.cpp) add_executable(pin_ur5_example
   # test/pin_ur5_example.cpp) add_executable(pin_ur5_with_obs
@@ -155,7 +157,8 @@ if(BUILD_EXAMPLES)
             toml11::toml11
             pinocchio::pinocchio
             dynorrt::pin_col_manager
-            dynobench::dynobench)
+            dynobench::dynobench
+            octomap::octomap)
 
   set_target_properties(
     test_dynorrt
