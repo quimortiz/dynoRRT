@@ -130,9 +130,7 @@ class RobotHand:
 
         cm = 1e-2
         trans = lambda x, y, z: pin.SE3(np.eye(3), np.array([x, y, z]))
-        inertia = lambda m, c: pin.Inertia(
-            m, np.array(c, np.double), np.eye(3) * m**2
-        )
+        inertia = lambda m, c: pin.Inertia(m, np.array(c, np.double), np.eye(3) * m**2)
 
         name = "wrist"
         jointName, bodyName = [name + "_joint", name + "_body"]
