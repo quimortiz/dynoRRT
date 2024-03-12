@@ -1281,8 +1281,8 @@ public:
           best_cost = goal_cost_tentative;
           paths.push_back(
               trace_back_solution(goal_id, Base::configs, Base::parents));
-          MESSAGE_PRETTY_DYNORRT("New Path Found!"
-                                 << " Number paths " << paths.size());
+          MESSAGE_PRETTY_DYNORRT("New Path Found!" << " Number paths "
+                                                   << paths.size());
         }
       }
       num_it++;
