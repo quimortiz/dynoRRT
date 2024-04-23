@@ -1,16 +1,16 @@
 envs = [
-"../../benchmark/envs/ballworld2/one_obs.json",
-"../../benchmark/envs/ballworld2/empty.json",
-"../../benchmark/envs/ballworld2/bugtrap.json",
-"../../benchmark/envs/ballworld2/random1.json"
+"../benchmark/envs/ballworld2/one_obs.json",
+"../benchmark/envs/ballworld2/empty.json",
+"../benchmark/envs/ballworld2/bugtrap.json",
+"../benchmark/envs/ballworld2/random1.json"
 ]
 
 planners = [
-# "RRTStar",
-# "RRT",
+"RRTStar",
+"RRT",
 # "RRTConnect",
 # "BiRRT",
-# "PRM",
+"PRM",
 "LazyPRM"
 ]
 

@@ -1,4 +1,5 @@
 // clang-format off
+#include "pinocchio/parsers/urdf.hpp"
 #include "dynobench/motions.hpp"
 #include "pinocchio/parsers/urdf.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
@@ -411,8 +412,8 @@ BOOST_AUTO_TEST_CASE(t_hello_world_dynobench) {
   int argc = boost::unit_test::framework::master_test_suite().argc;
   auto argv = boost::unit_test::framework::master_test_suite().argv;
 
-  if (argc < 2) {
-    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+  if (argc < 3) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir> <path_to_dynobench>" << std::endl;
     BOOST_TEST(false);
     return;
   }
@@ -435,7 +436,7 @@ BOOST_AUTO_TEST_CASE(t_hello_world_dynobench) {
 
   {
     auto env =
-        std ::string("../dynobench/") + "envs/unicycle1_v0/parallelpark_0.yaml";
+        std ::string(argv[2]) + "/envs/unicycle1_v0/parallelpark_0.yaml";
 
     dynobench::Problem problem;
     problem.read_from_yaml(env.c_str());
@@ -468,8 +469,9 @@ BOOST_AUTO_TEST_CASE(t_hello_world_dynobench) {
   // load model from urdf
   std::string base_path(argv[1]);
 
-  std::string urdf = base_path + "/models/unicycle_parallel_park.urdf";
-  std::string srdf = base_path + "/models/unicycle_parallel_park.srdf";
+  std::string urdf = base_path + "src/python/pydynorrt/data/models/unicycle_parallel_park.urdf";
+  std::string srdf = base_path + "src/python/pydynorrt/data/models/unicycle_parallel_park.srdf";
+
   Collision_manager_pinocchio coll_manager;
   coll_manager.set_urdf_filename(urdf);
   coll_manager.set_srdf_filename(srdf);
@@ -491,16 +493,17 @@ BOOST_AUTO_TEST_CASE(t_kinorrt) {
   int argc = boost::unit_test::framework::master_test_suite().argc;
   auto argv = boost::unit_test::framework::master_test_suite().argv;
 
-  if (argc < 2) {
-    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+  if (argc < 3) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir> <path_to_dynobench>" << std::endl;
     BOOST_TEST(false);
     return;
   }
 
   std::string base_path(argv[1]);
 
-  std::string urdf = base_path + "/models/unicycle_parallel_park.urdf";
-  std::string srdf = base_path + "/models/unicycle_parallel_park.srdf";
+  std::string urdf = base_path + "src/python/pydynorrt/data/models/unicycle_parallel_park.urdf";
+  std::string srdf = base_path + "src/python/pydynorrt/data/models/unicycle_parallel_park.srdf";
+   
   Collision_manager_pinocchio coll_manager;
   coll_manager.set_urdf_filename(urdf);
   coll_manager.set_srdf_filename(srdf);
@@ -519,7 +522,7 @@ BOOST_AUTO_TEST_CASE(t_kinorrt) {
 
   dynobench::Problem problem;
   auto env =
-      std ::string("../dynobench/") + "envs/unicycle1_v0/parallelpark_0.yaml";
+    std::string(argv[2]) + "/envs/unicycle1_v0/parallelpark_0.yaml";
 
   problem.read_from_yaml(env.c_str());
 

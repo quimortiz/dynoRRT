@@ -25,8 +25,12 @@ pip3 install pydynorrt
 
 You can try it online! Run the `tutorial0` notebook in Binder.
 
+## Run tests in C++
 
-
+```bash
+cd build
+./test_dynorrt --log_sink=z.log  -- ../ _deps/dynobench-src/
+```
 
 # Planners
 

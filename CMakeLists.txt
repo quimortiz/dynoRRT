@@ -36,13 +36,10 @@ find_package(pinocchio REQUIRED)
 find_package(OpenMP REQUIRED)
 include(FindThreads)
 
-# FetchContent_Declare(dynobench GIT_REPOSITORY
-# https://github.com/quimortiz/dynobench GIT_TAG
-# 70f52b03199cdcae44e4bd49863ec57533138d7e )
-#
-# FetchContent_MakeAvailable(dynobench)
+FetchContent_Declare(dynobench GIT_REPOSITORY https://github.com/quimortiz/dynobench GIT_TAG 70f52b03199cdcae44e4bd49863ec57533138d7e )
+FetchContent_MakeAvailable(dynobench)
 
-add_subdirectory(dynobench)
+# add_subdirectory(dynobench)
 
 if(NOT TARGET nlohmann_json)
   FetchContent_Declare(

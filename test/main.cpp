@@ -759,6 +759,7 @@ BOOST_AUTO_TEST_CASE(t_all_planners_circleworld) {
 
   for (auto &env : envs) {
 
+    std::cout << "opening file " << env << std::endl;
     std::ifstream f(env);
 
     if (!f.good()) {
