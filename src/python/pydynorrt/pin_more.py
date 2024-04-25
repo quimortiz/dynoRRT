@@ -293,9 +293,9 @@ class ViewerHelperRRT:
         self.viz_goal.initViewer(self.viz.viewer)
         _loadViewerModel(self.viz_goal, "goal", color=[1.0, 0.0, 0.0, 0.5])
 
-        self.viz.display_frames = False
+        # self.viz.display_frames = False
         self.viz_start.display_frames = False
-        self.viz_goal.display_frames = False
+        # self.viz_goal.display_frames = False
 
         self.viz.display(np.copy(start))
         self.viz_start.display(start)

@@ -32,6 +32,25 @@ cd build
 ./test_dynorrt --log_sink=z.log  -- ../ _deps/dynobench-src/
 ```
 
+## Local Build
+
+```bash
+CMAKE_PREFIX_PATH=/opt/openrobots/ python3 -m build
+cd dist
+pip install pydynorrt-0.0.9-cp310-cp310-linux_x86_64.whl --force-reinstall              ```
+
+## Dirty fast dev
+
+After changing c++, build pybindings and copy by hand
+```
+cp bindings/python/pydynorrt.cpython-310-x86_64-linux-gnu.so /home/quim/envs/mim/lib/python3.10/site-packages/pydynorrt
+```
+
+
+```Create a PIP Package
+
+```
+
 # Planners
 
 **Geometric Planners:**

@@ -15,12 +15,13 @@ import os
 # sys.path.append(f"./{cwd}/bindings/python")
 # sys.path.append("bindings/python")
 
-cwd = os.environ.get("CWD", "build")
-# cwd = "buildRelease"
-build_cmd = ["make", "-j4"]
-out = subprocess.run(build_cmd, cwd=cwd)
-assert out.returncode == 0
+# cwd = os.environ.get("CWD", "build")
+# # cwd = "buildRelease"
+# build_cmd = ["make", "-j4"]
+# out = subprocess.run(build_cmd, cwd=cwd)
+# assert out.returncode == 0
 
+import pydynorrt as pyrrt
 import pydynorrt
 
 pydynorrt.srand(2)
@@ -35,7 +36,8 @@ class Obstacle:
     radius: float
 
 
-obstacles = [Obstacle(np.array([1, 0.4]), 0.5), Obstacle(np.array([1, 2]), 0.5)]
+obstacles = [Obstacle(np.array([1, 0.4]), 0.5), Obstacle(np.array([1, 2]), 0.5),
+ Obstacle(np.array([2.5, 2]), 0.5) ]
 
 obs1 = pydynorrt.BallObsX([1, 0.4], 0.5)
 obs2 = pydynorrt.BallObsX([1, 2], 0.5)
@@ -89,21 +91,23 @@ options_prm_str = "planner_config/prm_v0.toml"
 options_lazyprm_str = "planner_config/lazyprm_v0.toml"
 
 planners = [
+    pyrrt.PlannerRRT_Rn
     # pydynorrt.RRT_X,
     # pydynorrt.BiRRT_X,
     # pydynorrt.RRTConnect_X,
-    pydynorrt.PRM_X,
+    # pydynorrt.PRM_X,
     # pydynorrt.LazyPRM_X
 ]
 options = [
-    # options_rrt_str, None, None,
-    options_prm_str
+    options_rrt_str, None, None,
+    # options_prm_str
     # options_lazyprm_str
 ]
 
 names = [
-    # "RRT", "BiRRT", "RRT_Connect",
-    "PRM",
+    "RRT", 
+    # "BiRRT", "RRT_Connect",
+    # "PRM",
     # "LazyPRM",
 ]
 
@@ -134,7 +138,14 @@ for name, planner, options in zip(names, planners, options):
 
     rrt = planner()
     rrt.set_start(start)
-    rrt.set_goal(goal)
+
+    goal2 = np.array([3., 2.8])
+    # goal3 = np.array([2.0, 0.2])
+
+    goal_list = [goal, goal2]
+
+    # rrt.set_goal(goal)
+    rrt.set_goal_list(goal_list)
     rrt.init(2)
     rrt.set_is_collision_free_fun(is_collision_free)
     # rrt.set_collision_manager(cm2)
@@ -216,7 +227,12 @@ for name, planner, options in zip(names, planners, options):
             )
 
     plot_robot(ax, start, "green")
-    plot_robot(ax, goal, "red")
+    # plot_robot(ax, goal, "red")
+
+    for goal in goal_list:
+        plot_robot(ax, goal, "red")
+
+
     plt.title(name)
 
     plt.show()

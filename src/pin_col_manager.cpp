@@ -8,6 +8,7 @@
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/algorithm/parallel/geometry.hpp"
 #include "pinocchio/multibody/fcl.hpp"
+#include "pinocchio/algorithm/frames.hpp"
 
 // #include <hpp/fcl/broadphase/broadphase.h>
 #include <thread>
@@ -93,11 +94,34 @@ void Collision_manager_pinocchio::build() {
   }
 }
 
+bool Collision_manager_pinocchio::is_inside_frame_bounds(
+    const Eigen::VectorXd &q) {
+
+  // TODO: Check if this is the most efficient way to do this
+  pinocchio::forwardKinematics(model, data, q, Eigen::VectorXd::Zero(model.nv));
+  pinocchio::updateFramePlacements(model, data);
+  Eigen::Vector3d frame_pos;
+  for (const auto &frame_bound : frame_bounds) {
+    frame_pos = data.oMf[frame_bound.frame_id].translation();
+    for (int i = 0; i < 3; i++) {
+      if (frame_pos(i) < frame_bound.lower(i) ||
+          frame_pos(i) > frame_bound.upper(i)) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
 
+  if (!is_inside_frame_bounds(q)) {
+    return false;
+  }
+
+  num_collision_checks++;
   const bool use_aabb = true;
   if (use_aabb) {
-    // continue here!!
 
     updateGeometryPlacements(model, data, geom_model, geom_data, q);
     bool isColliding = false;
@@ -136,7 +160,6 @@ bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
     return true;
 
   } else {
-    num_collision_checks++;
     // auto tic = std::chrono::high_resolution_clock::now();
     if (!build_done) {
       THROW_PRETTY_DYNORRT("build not done");
@@ -156,7 +179,7 @@ bool Collision_manager_pinocchio::is_collision_free_set(
     const std::vector<Eigen::VectorXd> &q_set, bool stop_at_first_collision,
     int *counter_infeas_out, int *counter_feas_out) {
 
-  num_collision_checks++;
+  // num_collision_checks++;
   if (!build_done) {
     THROW_PRETTY_DYNORRT("build not done");
   }
@@ -180,6 +203,7 @@ bool Collision_manager_pinocchio::is_collision_free_set(
         if (stop_at_first_collision && infeasible_found) {
           return;
         } else {
+          num_collision_checks++;
           if (computeCollisions(model, data_parallel[thread_id], geom_model,
                                 geom_data_parallel[thread_id], q_set[i],
                                 true)) {

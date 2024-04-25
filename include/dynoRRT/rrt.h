@@ -1363,6 +1363,7 @@ template <typename StateSpace, int DIM>
 class RRT : public PlannerBase<StateSpace, DIM> {
 
   using Base = PlannerBase<StateSpace, DIM>;
+  using state_t = typename Base::state_t;
 
 public:
   RRT() = default;
@@ -1404,9 +1405,17 @@ public:
     this->state_space.print(std::cout);
 
     CHECK_PRETTY_DYNORRT__(col(this->start));
-    CHECK_PRETTY_DYNORRT__(col(this->goal));
+
+    if (this->goal_list.size()) {
+      for (auto &goal : this->goal_list) {
+        CHECK_PRETTY_DYNORRT__(col(goal));
+        CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(goal));
+      }
+    } else {
+      CHECK_PRETTY_DYNORRT__(col(this->goal));
+      CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->goal));
+    }
     CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->start));
-    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->goal));
 
     auto get_elapsed_ms = [&] {
       return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -1431,11 +1440,21 @@ public:
     TerminationCondition termination_condition = should_terminate();
     bool is_goal = false;
 
+    int goal_id = -1; // only used when user defines a list of goals
+
     while (termination_condition == TerminationCondition::RUNNING) {
 
       if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
-        this->x_rand = this->goal;
-        is_goal = true;
+        if (this->goal_list.size()) {
+          // get a goal at random
+          int rand_goal_id = std::rand() % this->goal_list.size();
+          this->x_rand = this->goal_list[rand_goal_id];
+          is_goal = true;
+        } else {
+          this->x_rand = this->goal;
+          is_goal = true;
+        }
+
       } else {
         is_goal = false;
 
@@ -1444,13 +1463,19 @@ public:
           int num_tries = 0;
           while (!is_collision_free &&
                  num_tries < options.max_num_trials_col_free) {
-            this->state_space.sample_uniform(this->x_rand);
+
+            if (this->custom_sample_fun) {
+                this->sample_fun(this->x_rand);
+            } else {
+              this->state_space.sample_uniform(this->x_rand);
+            }
             is_collision_free = col(this->x_rand);
             num_tries++;
           }
           CHECK_PRETTY_DYNORRT(is_collision_free,
                                "cannot generate a valid xrand");
         } else {
+          THROW_PRETTY_DYNORRT("not implemented");
           this->state_space.sample_uniform(this->x_rand);
         }
       }
@@ -1499,10 +1524,27 @@ public:
         this->configs.push_back(this->x_new);
         this->parents.push_back(nn.id);
 
-        if (this->state_space.distance(this->x_new, Base::goal) <
-            options.goal_tolerance) {
-          path_found = true;
-          MESSAGE_PRETTY_DYNORRT("path found");
+        if (this->goal_list.size()) {
+          // check againts all the goal
+
+          for (size_t i = 0; i < this->goal_list.size(); i++) {
+            if (this->state_space.distance(this->x_new, this->goal_list[i]) <
+                options.goal_tolerance) {
+              path_found = true;
+              goal_id = i;
+              MESSAGE_PRETTY_DYNORRT("path found -- goal " + std::to_string(i));
+              break;
+            }
+          }
+
+        }
+
+        else {
+          if (this->state_space.distance(this->x_new, Base::goal) <
+              options.goal_tolerance) {
+            path_found = true;
+            MESSAGE_PRETTY_DYNORRT("path found");
+          }
         }
       }
 
@@ -1515,8 +1557,16 @@ public:
 
       int i = this->configs.size() - 1;
 
+      state_t goal;
+
+      if (this->goal_list.size()) {
+        goal = this->goal_list[goal_id];
+      } else {
+        goal = this->goal;
+      }
+
       CHECK_PRETTY_DYNORRT__(
-          this->state_space.distance(this->configs[i], this->goal) <
+          this->state_space.distance(this->configs[i], goal) <
           options.goal_tolerance);
 
       this->path = trace_back_solution(i, this->configs, this->parents);
@@ -1524,11 +1574,11 @@ public:
       CHECK_PRETTY_DYNORRT__(
           this->state_space.distance(this->path[0], this->start) < 1e-6);
 
-      std::cout << this->state_space.distance(this->path.back(), this->goal)
+      std::cout << this->state_space.distance(this->path.back(), goal)
                 << std::endl;
 
       CHECK_PRETTY_DYNORRT__(
-          this->state_space.distance(this->path.back(), this->goal) <
+          this->state_space.distance(this->path.back(), goal) <
           options.goal_tolerance);
 
       this->total_distance = 0;
@@ -1548,11 +1598,22 @@ public:
       double min_distance = std::numeric_limits<double>::infinity();
       int min_id = -1;
       for (size_t i = 0; i < this->configs.size(); i++) {
-        double distance =
-            this->state_space.distance(this->configs[i], this->goal);
-        if (distance < min_distance) {
-          min_distance = distance;
-          min_id = i;
+        if (this->goal_list.size()) {
+          for (size_t j = 0; j < this->goal_list.size(); j++) {
+            double distance = this->state_space.distance(this->configs[i],
+                                                         this->goal_list[j]);
+            if (distance < min_distance) {
+              min_distance = distance;
+              min_id = i;
+            }
+          }
+        } else {
+          double distance =
+              this->state_space.distance(this->configs[i], this->goal);
+          if (distance < min_distance) {
+            min_distance = distance;
+            min_id = i;
+          }
         }
       }
       MESSAGE_PRETTY_DYNORRT("min_distance: " << min_distance);
