@@ -22,7 +22,7 @@ jobs:
       run: |
            sudo apt-get update
            sudo apt update
-           sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev libfcl-dev
+           sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev libfcl-dev libyaml-cpp-dev
 
     # - uses: conda-incubator/setup-miniconda@v3
     #   with:
@@ -43,7 +43,7 @@ jobs:
 
 
 
-    - name: Install Pinocchio and FCL
+    - name: Install Pinocchio 
       run: |
            sudo apt install -qqy lsb-release curl
            sudo mkdir -p /etc/apt/keyrings
