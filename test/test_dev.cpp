@@ -4,9 +4,8 @@
 #include "pinocchio/parsers/urdf.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/parsers/srdf.hpp"
+#include "dynobench/motions.hpp"
 #include "dynoRRT/pin_col_manager.h"
-#include <memory>
-
 // clang-format on
 #define BOOST_TEST_DYN_LINK
 
@@ -36,7 +35,6 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 
-#include "dynoRRT/collision_manager.h"
 #include "dynoRRT/eigen_conversions.hpp"
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
@@ -74,6 +72,10 @@ PlannerPtr get_planner_from_name(const std::string &planner_name) {
     return std::make_shared<LazyPRM<state_space_t, -1>>();
   } else if (planner_name == "PRM") {
     return std::make_shared<PRM<state_space_t, -1>>();
+  } else if (planner_name == "KinoRRT") {
+    return std::make_shared<KinoRRT<state_space_t, -1, -1>>();
+  } else if (planner_name == "SSTstar") {
+    return std::make_shared<SSTstar<state_space_t, -1, -1>>();
   } else {
     THROW_PRETTY_DYNORRT("Planner not found:" + planner_name);
   }
@@ -538,7 +540,9 @@ BOOST_AUTO_TEST_CASE(t_kinorrt) {
 
   // Work on this! we should be able to give the state space at compile time!
   // Then, i can compare timings!
-  KinoRRT<state_space_t, -1> rrt;
+  using planner_t = KinoRRT<state_space_t, -1, -1>;
+  using trajectory_t = planner_t::trajectory_t;
+  planner_t rrt;
   rrt.init(3);
   rrt.set_state_space(state_space);
   rrt.set_options(options);
@@ -562,16 +566,16 @@ BOOST_AUTO_TEST_CASE(t_kinorrt) {
   BOOST_TEST(is_collision_free_fun(problem.goal));
 
   using expand_fun_t =
-      std::function<void(state_t &, const state_t &, Small_trajectory &)>;
+      std::function<void(state_t &, const state_t &, trajectory_t &)>;
 
   double dt = .1;
 
   expand_fun_t expand_fun = [&](const state_t &x_start, const state_t &x_goal,
-                                Small_trajectory &traj) {
+                                trajectory_t &traj) {
     double best_distance_to_goal = std::numeric_limits<double>::max();
     state_t x(x_start.size());
     state_t xnext(x_start.size());
-    Small_trajectory traj_tmp;
+    trajectory_t traj_tmp;
     for (size_t i = 0; i < options.num_expansions; i++) {
 
       // sample time
@@ -700,7 +704,9 @@ BOOST_AUTO_TEST_CASE(t_kinorrt2) {
   // i check all points in the trajectory, or only if they are above the
   // collision resolution?
 
-  KinoRRT<state_space_t, -1> rrt;
+  using planner_t = KinoRRT<state_space_t, -1, -1>;
+  using trajectory_t = planner_t::trajectory_t;
+  planner_t rrt;
   rrt.init(state_space.get_runtime_dim());
   rrt.set_state_space(state_space);
   rrt.set_options(options);
@@ -723,19 +729,19 @@ BOOST_AUTO_TEST_CASE(t_kinorrt2) {
   BOOST_TEST(is_collision_free_fun(goal));
 
   using expand_fun_t =
-      std::function<void(state_t &, const state_t &, Small_trajectory &)>;
+      std::function<void(state_t &, const state_t &, trajectory_t &)>;
 
   double dt = .01;
 
   using V6d = Eigen::Matrix<double, 6, 1>;
   expand_fun_t expand_fun = [&](const state_t &x_start, const state_t &x_goal,
-                                Small_trajectory &traj) {
+                                trajectory_t &traj) {
     // my model expects [x,y,theta,xdot,ydot,thetadot]
 
     double best_distance_to_goal = std::numeric_limits<double>::max();
     state_t x(x_start.size());
     state_t xnext(x_start.size());
-    Small_trajectory traj_tmp;
+    trajectory_t traj_tmp;
     for (size_t i = 0; i < options.num_expansions; i++) {
 
       // sample time
@@ -790,4 +796,154 @@ BOOST_AUTO_TEST_CASE(t_kinorrt2) {
   // create RRT
 
   // TODO: SST*
+}
+
+BOOST_AUTO_TEST_CASE(t_sst) {
+
+  int argc = boost::unit_test::framework::master_test_suite().argc;
+  auto argv = boost::unit_test::framework::master_test_suite().argv;
+
+  if (argc < 2) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+    BOOST_TEST(false);
+    return;
+  }
+
+  std::srand(0);
+
+  std::string base_path(argv[1]);
+
+  // std::string urdf = base_path + "/models/unicycle_parallel_park.urdf";
+  // std::string srdf = base_path + "/models/unicycle_parallel_park.srdf";
+
+  std::string urdf = base_path + "/models/unicycle_bugtrap.urdf";
+  std::string srdf = base_path + "/models/unicycle_bugtrap.srdf";
+
+  Collision_manager_pinocchio coll_manager;
+  coll_manager.set_urdf_filename(urdf);
+  coll_manager.set_srdf_filename(srdf);
+  // coll_manager.set_robots_model_path("");
+  coll_manager.build();
+
+  {
+    auto unicycle = dynobench::Model_unicycle1();
+    Eigen::VectorXd x0 = Eigen::VectorXd::Zero(3);
+    Eigen::VectorXd u = Eigen::VectorXd::Ones(2);
+    Eigen::VectorXd xnext(3);
+    double dt = 0.1;
+    unicycle.step(xnext, x0, u, dt);
+    std::cout << "xnext: " << xnext.transpose() << std::endl;
+  }
+
+  dynobench::Problem problem;
+  // auto env =
+  //     std ::string("../dynobench/") +
+  //     "envs/unicycle1_v0/parallelpark_0.yaml";
+
+  auto env = std ::string("../dynobench/") + "envs/unicycle1_v0/bugtrap_0.yaml";
+
+  problem.read_from_yaml(env.c_str());
+  // using state_space_t = dynotree::Combined<double>;
+  // state_space_t state_space({"Rn:2", "SO2"});
+  using state_space_t = dynotree::R2SO2<double>;
+  state_space_t state_space;
+
+  state_space.set_bounds(problem.p_lb, problem.p_ub);
+
+  SSTstar_options options;
+  options.max_it = 1e8;
+  options.max_num_configs = 1e8;
+  options.max_compute_time_ms = 2e3;
+
+  options.max_num_kino_steps = 10; // in each expansion,
+  options.goal_tolerance = .2;
+  options.collision_resolution = .1; // 10 cm
+  options.delta_s = .2;
+
+  // Work on this! we should be able to give the state space at compile time!
+  // Then, i can compare timings!
+  using planner_t = SSTstar<state_space_t, 3, 2>;
+  using trajectory_t = planner_t::trajectory_t;
+  using state_t = planner_t::state_t;
+  using control_t = planner_t::control_t;
+  planner_t rrt;
+  rrt.init(3);
+  rrt.set_state_space(state_space);
+  rrt.set_options(options);
+
+  auto unicycle = dynobench::Model_unicycle1();
+  dynobench::load_env(unicycle, problem);
+
+  rrt.set_start(problem.start);
+  rrt.set_goal(problem.goal);
+
+  using is_collision_free_fun_t = std::function<bool(state_t)>;
+
+  is_collision_free_fun_t is_collision_free_fun = [&](const state_t &x) {
+    return coll_manager.is_collision_free(x);
+    // return unicycle.collision_check(x);
+  };
+
+  BOOST_TEST(is_collision_free_fun(problem.start));
+  BOOST_TEST(is_collision_free_fun(problem.goal));
+
+  using expand_fun_t =
+      std::function<void(state_t &, const state_t &, trajectory_t &)>;
+
+  double dt = .1;
+
+  expand_fun_t expand_fun = [&](const state_t &x_start, const state_t &x_goal,
+                                trajectory_t &traj) {
+    double best_distance_to_goal = std::numeric_limits<double>::max();
+    state_t x(x_start.size());
+    state_t xnext(x_start.size());
+    trajectory_t traj_tmp;
+    for (size_t i = 0; i < options.num_expansions; i++) {
+
+      // sample time
+      int min_steps = options.min_num_kino_steps;
+      int max_steps = options.max_num_kino_steps;
+      int num_steps = min_steps + rand() % (max_steps - min_steps + 1);
+      x = x_start;
+      traj_tmp.states.push_back(x);
+
+      Eigen::VectorXd u_delta = (unicycle.u_ub - unicycle.u_lb);
+
+      Eigen::VectorXd u =
+          (unicycle.u_lb - u_delta) +
+          (unicycle.u_ub - unicycle.u_lb + 2 * u_delta)
+              .cwiseProduct(
+                  (Eigen::VectorXd::Random(2) + Eigen::VectorXd::Ones(2)) / 2.);
+
+      u = u.cwiseMax(unicycle.u_lb);
+      u = u.cwiseMin(unicycle.u_ub);
+
+      for (size_t t = 0; t < num_steps; t++) {
+
+        unicycle.step(xnext, x, u, dt);
+        traj_tmp.controls.push_back(u);
+        traj_tmp.states.push_back(xnext);
+        x = xnext;
+      }
+      double distance_to_goal = state_space.distance(xnext, x_goal);
+      if (distance_to_goal < best_distance_to_goal) {
+        best_distance_to_goal = distance_to_goal;
+        traj = traj_tmp;
+      }
+    }
+  };
+
+  rrt.set_is_collision_free_fun(is_collision_free_fun);
+  rrt.set_expand_fun(expand_fun);
+
+  auto out = rrt.plan();
+
+  std::cout << "out: " << magic_enum::enum_name(out) << std::endl;
+
+  std::ofstream file_out("/tmp/kino.json");
+  nlohmann::json j;
+  rrt.get_planner_data(j);
+  file_out << j;
+
+  // how much time spent in nearest neighbour?
 }

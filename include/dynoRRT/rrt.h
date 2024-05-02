@@ -24,7 +24,7 @@
 // NOTE: possible bug in TOML? connection_radius = 3 is not parsed correctly as
 // a doube?
 namespace dynorrt {
-// using json = nlohmann::json;
+using json = nlohmann::json;
 
 // Continue here!
 // template <typename StateSpace, int DIM>
@@ -1988,19 +1988,35 @@ get_planner(PlannerID planner_id) {
 }
 
 // TODO: template on the DIM of state and control.
-struct Trajectory {
-  std::vector<Eigen::VectorXd> states;
-  std::vector<Eigen::VectorXd> controls;
+
+template <int DIM_state = -1, int DIM_control = -1> struct Trajectory {
+  using state_t = Eigen::Matrix<double, DIM_state, 1>;
+  using control_t = Eigen::Matrix<double, DIM_control, 1>;
+  std::vector<state_t> states;
+  std::vector<control_t> controls;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Trajectory, states, controls);
+template <int DIM_state = -1, int DIM_control = -1>
+void to_json(json &j, const Trajectory<DIM_state, DIM_control> &p) {
+  j = json{{"states", p.states}, {"controls", p.controls}};
+}
+
+template <int DIM_state = -1, int DIM_control = -1>
+void from_json(const json &j, Trajectory<DIM_state, DIM_control> &p) {
+  j.at("states").get_to(p.states);
+  j.at("controls").get_to(p.controls);
+}
+
+// NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Trajectory<-1,-1>, states, controls);
 
 // json auto serialization with macro
 
-inline Trajectory
-trace_back_full_traj(std::vector<int> parents, int i,
-                     std::vector<Trajectory> small_trajectories) {
-  Trajectory full_trajectory;
+template <int DIM_state = -1, int DIM_control = -1>
+inline Trajectory<DIM_state, DIM_control> trace_back_full_traj(
+    std::vector<int> parents, int i,
+    std::vector<Trajectory<DIM_state, DIM_control>> small_trajectories) {
+
+  Trajectory<DIM_state, DIM_control> full_trajectory;
   int id = i;
   std::vector<int> path_id;
   path_id.push_back(id);
@@ -2029,14 +2045,14 @@ trace_back_full_traj(std::vector<int> parents, int i,
   return full_trajectory;
 };
 
-template <typename StateSpace, int DIM>
+template <typename StateSpace, int DIM, int DIM_control>
 class KinoRRT : public PlannerBase<StateSpace, DIM> {
 
+public:
   using Base = PlannerBase<StateSpace, DIM>;
   using state_t = typename Base::state_t;
-  using control_t = Eigen::VectorXd; // TODO: allow to fix this at compile time!
-
-public:
+  using control_t = Eigen::Matrix<double, DIM_control, 1>;
+  using trajectory_t = Trajectory<DIM, DIM_control>;
   KinoRRT() = default;
 
   virtual ~KinoRRT() = default;
@@ -2066,7 +2082,7 @@ public:
     this->configs.push_back(this->start);
     this->tree.addPoint(this->start, 0);
     this->small_trajectories.push_back(
-        Trajectory()); // empty samll trajectory to reach
+        trajectory_t()); // empty samll trajectory to reach
     // the start
 
     int num_it = 0;
@@ -2170,7 +2186,7 @@ public:
                                       this->x_new);
       }
 
-      Trajectory small_trajectory;
+      trajectory_t small_trajectory;
 
       auto _tic = std::chrono::steady_clock::now();
       this->expand_fun(this->x_near, this->x_new, small_trajectory);
@@ -2341,31 +2357,33 @@ public:
   }
 
   void
-  set_expand_fun(std::function<void(state_t &, const state_t &, Trajectory &)>
+  set_expand_fun(std::function<void(state_t &, const state_t &, trajectory_t &)>
                      t_expand_fun) {
     expand_fun = t_expand_fun;
   }
 
 protected:
   KinoRRT_options options;
-  std::vector<Trajectory> small_trajectories;
-  Trajectory full_trajectory;
-  std::function<void(state_t &, const state_t &, Trajectory &)> expand_fun;
+  std::vector<trajectory_t> small_trajectories;
+  trajectory_t full_trajectory;
+  std::function<void(state_t &, const state_t &, trajectory_t &)> expand_fun;
 };
 
 // Reference:
 // Asymptotically Optimal Sampling-based Kinodynamic Planning
 // Yanbo Li, Zakary Littlefield, Kostas E. Bekris
 // https://arxiv.org/pdf/1407.2896.pdf
-template <typename StateSpace, int DIM>
+template <typename StateSpace, int DIM, int DIM_CONTROL>
 class SSTstar : public PlannerBase<StateSpace, DIM> {
 
+public:
   using Base = PlannerBase<StateSpace, DIM>;
   using state_t = typename Base::state_t;
-  using control_t = Eigen::VectorXd; // TODO: allow to fix this at compile time!
+  using tree_t = typename Base::tree_t;
+  using control_t = Eigen::Matrix<double, DIM_CONTROL, 1>;
+  using trajectory_t = Trajectory<DIM, DIM_CONTROL>;
   using DistanceId_t = typename Base::tree_t::DistanceId;
 
-public:
   SSTstar() = default;
 
   virtual ~SSTstar() = default;
@@ -2389,12 +2407,14 @@ public:
 
   virtual TerminationCondition plan() override {
     Base::check_internal();
+    int num_inactive_states_in_tree = 0;
+    double max_rate_inactive_in_tree = 0.6;
 
     int num_collisions = 0;
     auto col = [&, this](const auto &x) {
       num_collisions++;
-      return this->is_collision_free_fun_timed(x);
-      // return this->is_collision_free_fun(x);
+      // return this->is_collision_free_fun_timed(x);
+      return this->is_collision_free_fun(x);
     };
 
     CHECK_PRETTY_DYNORRT__(col(this->start));
@@ -2411,9 +2431,9 @@ public:
     this->configs.push_back(this->start);
     this->costs.push_back(0);
     this->tree.addPoint(this->start, 0);
-    this->small_trajectories.push_back(Trajectory());
+    this->small_trajectories.push_back(trajectory_t());
     v_active.insert(0);
-    witnesses.push_back(0);
+    // witnesses.push_back(0);
 
     double nn_search_time = 0;
     // TODO: change by a kd-tree!!
@@ -2429,8 +2449,6 @@ public:
       //     best_id = i;
       //   }
       // }
-
-
       auto nn = this->tree.search(x);
       double elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
                               std::chrono::high_resolution_clock::now() - tic)
@@ -2438,30 +2456,9 @@ public:
                           double(10e6);
       CHECK_PRETTY_DYNORRT__(elapsed_ms > 0.);
       nn_search_time += elapsed_ms;
+
+      // return DistanceId_t{nn_distance, nn_id};
       return nn;
-      // DistanceId_t{nn.distance, nn.best_id};
-    };
-
-    auto timed_tree_search = [&](const state_t &x) {
-      auto tic = std::chrono::high_resolution_clock::now();
-      // int nn_id = -1;
-      // double nn_distance = std::numeric_limits<double>::infinity();
-      // for (auto &id : this->v_active) {
-      //   double distance = this->state_space.distance(x, this->configs[id]);
-      //   if (distance < nn_distance) {
-      //     nn_distance = distance;
-      //     nn_id = id;
-      //   }
-      // }
-      auto nn = this->tree.search(x);
-      double elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                              std::chrono::high_resolution_clock::now() - tic)
-                              .count() /
-                          double(10e6);
-      CHECK_PRETTY_DYNORRT__(elapsed_ms > 0.);
-      nn_search_time += elapsed_ms;
-
-      return DistanceId_t{nn_distance, nn_id};
     };
 
     int num_it = 0;
@@ -2519,6 +2516,19 @@ public:
     bool debug = false;
     double best_goal_cost = std::numeric_limits<double>::infinity();
 
+
+    auto timed_tree_search = [&](const state_t &x) {
+      auto tic = std::chrono::steady_clock::now();
+      auto nn = this->tree.search(x);
+      nn_search_time += std::chrono::duration_cast<std::chrono::nanoseconds>(
+                            std::chrono::steady_clock::now() - tic)
+                            .count() /
+                        double(10e6);
+
+      return nn;
+    };
+
+
     while (termination_condition == TerminationCondition::RUNNING ||
            termination_condition ==
                TerminationCondition::RUNNING_GOAL_REACHED) {
@@ -2535,9 +2545,9 @@ public:
         CHECK_PRETTY_DYNORRT__(costs.size() == this->configs.size());
         CHECK_PRETTY_DYNORRT__(this->parents.size() == this->configs.size());
         CHECK_PRETTY_DYNORRT__(this->parents.size() == this->childrens.size());
-        std::cout << "witnesses.size(): " << witnesses.size() << std::endl;
-        std::cout << "v_active.size(): " << v_active.size() << std::endl;
-        CHECK_PRETTY_DYNORRT__(witnesses.size() == v_active.size());
+        // std::cout << "witnesses.size(): " << witnesses.size() << std::endl;
+        // std::cout << "v_active.size(): " << v_active.size() << std::endl;
+        // CHECK_PRETTY_DYNORRT__(witnesses.size() == v_active.size());
 
         // check consistency between parents and childrens
         for (size_t i = 0; i < this->parents.size(); i++) {
@@ -2622,7 +2632,7 @@ public:
                                       this->x_new);
       }
 
-      Trajectory small_trajectory;
+      trajectory_t small_trajectory;
 
       auto _tic = std::chrono::steady_clock::now();
       this->expand_fun(this->x_near, this->x_new, small_trajectory);
@@ -2749,22 +2759,24 @@ public:
               goal_trajectories.push_back(trace_back_full_traj(
                   this->parents, next_id, this->small_trajectories));
               path_found = true;
-              witnesses.push_back(next_id);
+              solution_callback(goal_trajectories.back());
+              time_stamp_ms.push_back(get_elapsed_ms());
             }
           } else if (status == STATUS::NOVEL) {
-            witnesses.push_back(next_id);
+            // witnesses.push_back(next_id);
           }
 
           else if (status == STATUS::BEST) {
             // I set the config pointed by the previous wintess to inactive
             int previous_representative = nn_s.id;
-            witnesses.at(nn_s.id) = next_id;
+            // witnesses.at(nn_s.id) = next_id;
             v_active.erase(previous_representative);
 
             // set the node of the tree to inactive
 
             v_inactive.insert(previous_representative);
             this->tree.set_inactive(this->configs.at(previous_representative));
+            num_inactive_states_in_tree++;
 
             int node = previous_representative;
             while (node != -1 && !childrens.at(node).size() &&
@@ -2796,6 +2808,21 @@ public:
 
       num_it++;
       termination_condition = should_terminate();
+
+      if (num_inactive_states_in_tree >
+          max_rate_inactive_in_tree * this->tree.size()) {
+        std::cout << num_inactive_states_in_tree << " " << this->tree.size()
+                  << std::endl;
+        // lets rebuild the tree.
+        this->tree = tree_t();
+        this->tree.init_tree(this->runtime_dim, this->state_space);
+        std::cout << "Too many inactive states in the tree, rebuilding it"
+                  << std::endl;
+        for (auto &id : v_active) {
+          this->tree.addPoint(this->configs[id], id);
+        }
+        num_inactive_states_in_tree = 0;
+      }
 
     } // RRT terminated
 
@@ -2870,30 +2897,41 @@ public:
     j["v_active"] = v_active;
     j["v_inactive"] = v_inactive;
     j["v_dead"] = v_dead;
-    j["witnesses"] = witnesses;
+    // j["witnesses"] = witnesses;
     j["goal_paths"] = goal_paths;
     j["goal_trajectories"] = goal_trajectories;
+    j["time_stamp_ms"] = time_stamp_ms;
   }
 
   void
-  set_expand_fun(std::function<void(state_t &, const state_t &, Trajectory &)>
+  set_expand_fun(std::function<void(state_t &, const state_t &, trajectory_t &)>
                      t_expand_fun) {
     expand_fun = t_expand_fun;
   }
 
+  void set_solution_callback(
+      std::function<void(const trajectory_t &traj)> t_solution_callback) {
+    solution_callback = t_solution_callback;
+  }
+
 protected:
   SSTstar_options options;
-  std::vector<Trajectory> small_trajectories;
+
+  std::function<void(const trajectory_t &traj)> solution_callback =
+      [](const trajectory_t &traj) {};
+
+  std::vector<trajectory_t> small_trajectories;
   std::vector<std::vector<state_t>> goal_paths;
-  std::vector<Trajectory> goal_trajectories;
-  Trajectory full_trajectory;
-  std::function<void(state_t &, const state_t &, Trajectory &)> expand_fun;
+  std::vector<trajectory_t> goal_trajectories;
+  trajectory_t full_trajectory;
+  std::function<void(state_t &, const state_t &, trajectory_t &)> expand_fun;
 
   std::vector<std::set<int>> childrens;
   std::vector<double> costs;
   std::set<int> v_active;   // index in this->configs
   std::set<int> v_inactive; // index in this->configs
   std::set<int> v_dead;
+  std::vector<double> time_stamp_ms;
   std::vector<int>
       witnesses; // index in this->configs
                  // this is a map: witness[i] is the id of the witness i.

@@ -173,6 +173,73 @@ bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
   return true;
 }
 
+// NOTE: it is recommended to call this function with a "fine path",
+// TODO: test this function!!
+template <typename T, typename StateSpace, typename Fun>
+std::vector<T> path_shortcut_v2(const std::vector<T> path,
+                                Fun &is_collision_free_fun,
+                                StateSpace state_space, double resolution,
+                                double path_resolution) {
+
+  CHECK_PRETTY_DYNORRT__(path.size() >= 2);
+
+  std::vector<T> path_local = path;
+  if (path.size() == 2) {
+    // [ start, goal ]
+    return path;
+  }
+  int max_shortcut_attempts = 100;
+  int shortcut_it = 0;
+
+  bool finished = false;
+  int max_index_diff_rate = .5;
+
+  while (!finished) {
+    // choose two indexes at random
+    int start_i = rand() % path_local.size();
+    int start_f = rand() % path_local.size();
+
+    if (start_i > start_f) {
+      std::swap(start_i, start_f);
+    } else if (start_i == start_f) {
+      continue;
+    }
+
+    start_f =
+        std::min(start_f, start_i + max_index_diff_rate * path_local.size());
+
+    if (is_edge_collision_free(path_local[start_i], path_local[start_f],
+                               is_collision_free_fun, state_space,
+                               resolution)) {
+      // change the path
+
+      std::vector<T> path_local_new;
+      path_local_new.insert(path_local_new.end(), path_local.begin(),
+                            path_local.begin() + start_i);
+      // additionally, i could sample at a given resolution
+
+      std::vector<T> fine_path{};
+      int N =
+          int(state_space.distance(path_local[start_i], path_local[start_f]) /
+              path_resolution) +
+          1;
+      T tmp;
+      for (int j = 0; j < N; j++) {
+        state_space.interpolate(path_local[start_i], path_local[start_f],
+                                double(j) / N, tmp);
+        fine_path.push_back(tmp);
+      }
+      // fine_path does not contain the start_f
+
+      // we add start_f here
+      path_local_new.insert(path_local_new.end(), path_local.begin() + start_f,
+                            path_local.end());
+    }
+
+    shortcut_it++;
+  }
+}
+
 template <typename T, typename StateSpace, typename Fun>
 std::vector<T> path_shortcut_v1(const std::vector<T> path,
                                 Fun is_collision_free_fun,

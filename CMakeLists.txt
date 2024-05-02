@@ -34,7 +34,7 @@ find_package(Eigen3 REQUIRED)
 
 find_package(pinocchio REQUIRED)
 find_package(OpenMP REQUIRED)
-find_package(octomap REQUIRED)
+# find_package(octomap REQUIRED)
 include(FindThreads)
 
 

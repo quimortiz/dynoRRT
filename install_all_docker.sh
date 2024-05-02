@@ -20,6 +20,7 @@ mv squashfs-root /
 ln -s /squashfs-root/AppRun /usr/bin/nvim
 
 git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
+
 # nvim --headless "+Lazy! sync" +qa
 
 

@@ -323,7 +323,6 @@ BOOST_AUTO_TEST_CASE(test_birrt) {
                         .max_compute_time_ms = 1e9,
                         .goal_tolerance = 0.001,
                         .max_num_configs = 10000,
-                        .xrand_collision_free = true,
                         .max_num_trials_col_free = 1000};
 
   birrt.set_options(options);
@@ -411,7 +410,6 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
                         .max_compute_time_ms = 1e9,
                         .goal_tolerance = 0.001,
                         .max_num_configs = 10000,
-                        .xrand_collision_free = true,
                         .max_num_trials_col_free = 1000};
 
   birrt.set_options(options);
