@@ -5,6 +5,7 @@
 #include "collision_manager.h"
 #include "dynorrt_macros.h"
 #include "options.h"
+#include <chrono>
 
 namespace dynorrt {
 template <typename StateSpace, int DIM> class PlannerBase {
@@ -99,12 +100,12 @@ public:
   // TODO: timing collisions take a lot of overhead, specially for
   // very simple envs where collisions are very fast.
   bool is_collision_free_fun_timed(state_cref_t x) {
-    auto tic = std::chrono::steady_clock::now();
+    auto tic = std::chrono::high_resolution_clock::now();
     bool is_collision_free = is_collision_free_fun(x);
     double elapsed_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                            std::chrono::steady_clock::now() - tic)
+                            std::chrono::high_resolution_clock::now() - tic)
                             .count();
-    collisions_time_ms += elapsed_ns / 1e6;
+    collisions_time_ms += elapsed_ns / double(1e6);
     number_collision_checks++;
     return is_collision_free;
   }

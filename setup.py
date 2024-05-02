@@ -173,7 +173,7 @@ class CMakeBuild(build_ext):
 # long_description = (this_directory / "README.md").read_text()
 setup(
     name="pydynorrt",
-    version="0.0.9",
+    version="0.0.10",
     author="Joaquim Ortiz-Haro",
     author_email="quimortiz21@gmail.com",
     description="C++/Python Sample Based Motion Planning for Robotics",

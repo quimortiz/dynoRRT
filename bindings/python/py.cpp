@@ -1,5 +1,6 @@
 // #include "dynotree/KDTree.h"
 #include "dynoRRT/rrt.h"
+#include "dynoRRT/rrt_base.h"
 
 #include <pybind11/functional.h>
 
@@ -14,6 +15,7 @@
 #include <pybind11/stl_bind.h>
 
 namespace py = pybind11;
+using namespace dynorrt;
 
 // template <typename T>
 // void declare_tree(py::module &m, const std::string &name) {
@@ -154,6 +156,14 @@ void add_planners_to_module(py::module &m, const std::string &name) {
 
   py::class_<LazyPRM, PlannerBase_RX>(m, ("PlannerLazyPRM_" + name).c_str())
       .def(py::init<>());
+
+  // For now, I only expose with control dim = -1.
+  using KinoRRT_RX = KinoRRT<StateSpace, dim, -1>;
+
+  py::class_<KinoRRT_RX, PlannerBase_RX>(m, ("PlannerKinoRRT_" + name).c_str())
+      .def(py::init<>())
+      .def("set_expand_fun", &KinoRRT_RX::set_expand_fun);
+
   // .def("set_options", &LazyPRM_X::set_options)
   // .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
   // .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)

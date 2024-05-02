@@ -70,7 +70,10 @@ void Collision_manager_pinocchio::build() {
   }
 
   geom_model.addAllCollisionPairs();
-  pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
+  if (srdf_filename != "") {
+    pinocchio::srdf::removeCollisionPairs(model, geom_model, srdf_filename);
+  }
+
   for (auto &go : geom_model.geometryObjects) {
     go.geometry->computeLocalAABB();
   }

@@ -34,7 +34,7 @@ find_package(Eigen3 REQUIRED)
 
 find_package(pinocchio REQUIRED)
 find_package(OpenMP REQUIRED)
-find_package(octomap REQUIRED)
+# find_package(octomap REQUIRED)
 include(FindThreads)
 
 # FetchContent_Declare(dynobench GIT_REPOSITORY
@@ -158,7 +158,8 @@ if(BUILD_EXAMPLES)
             pinocchio::pinocchio
             dynorrt::pin_col_manager
             dynobench::dynobench
-            octomap::octomap)
+            # octomap::octomap
+  )
 
   set_target_properties(
     test_dynorrt

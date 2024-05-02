@@ -49,7 +49,8 @@ from pinocchio.shortcuts import createDatas
 # robot = "robots/ur_description/urdf/ur5_two_robots.urdf"
 
 
-robots = "/home/quim/stg/dynoRRT/src/python/pydynorrt/data/models/unicycle_parallel_park.urdf"
+# robots = "/home/quim/stg/dynoRRT/src/python/pydynorrt/data/models/unicycle_parallel_park.urdf"
+robots = "/home/quim/stg/dynoRRT/src/python/pydynorrt/data/models/unicycle_bugtrap.urdf"
 
 
 # robot = "/home/quim/stg/dynoRRT/benchmark/models/se3_window.urdf"
