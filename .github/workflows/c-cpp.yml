@@ -70,7 +70,7 @@ jobs:
            make
     - name: C++ tests
       run: |
-           make && ./test_dynorrt
+           make && ./test_dynorrt  -- ../ _deps/dynobench-src/
 
     - name: Check 1 Python Bindings
       run: |
