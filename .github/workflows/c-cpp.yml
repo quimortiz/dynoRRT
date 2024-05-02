@@ -78,7 +78,7 @@ jobs:
            python3 -c 'import pydynorrt'
     - name: Build and Install Python Package
       run: |
-           pip3 install .
+           CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
            python3 -c 'import pydynorrt'
 
 
