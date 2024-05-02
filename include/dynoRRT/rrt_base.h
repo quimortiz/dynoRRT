@@ -92,13 +92,10 @@ public:
     is_collision_free_fun = t_is_collision_free_fun;
   }
 
-  void
-  set_sample_fun(sample_fun_t t_sample_fun) {
+  void set_sample_fun(sample_fun_t t_sample_fun) {
     sample_fun = t_sample_fun;
     custom_sample_fun = true;
   }
-
-
 
   void
   set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
@@ -261,7 +258,7 @@ protected:
     THROW_PRETTY_DYNORRT("You have to define a collision free fun!");
     return false;
   };
-  sample_fun_t sample_fun; 
+  sample_fun_t sample_fun;
   bool custom_sample_fun = false;
   std::vector<state_t> path;
   std::vector<state_t> configs;

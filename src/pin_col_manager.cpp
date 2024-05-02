@@ -5,10 +5,10 @@
 #include "pinocchio/parsers/urdf.hpp"
 
 #include "dynoRRT/dynorrt_macros.h"
+#include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/algorithm/parallel/geometry.hpp"
 #include "pinocchio/multibody/fcl.hpp"
-#include "pinocchio/algorithm/frames.hpp"
 
 // #include <hpp/fcl/broadphase/broadphase.h>
 #include <thread>

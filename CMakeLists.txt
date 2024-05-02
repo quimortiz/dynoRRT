@@ -37,20 +37,18 @@ find_package(OpenMP REQUIRED)
 # find_package(octomap REQUIRED)
 include(FindThreads)
 
-
 option(BUILD_DYNOBENCH "" OFF)
 message(STATUS "BUILD_DYNOBENCH ${BUILD_DYNOBENCH}")
 
-if (BUILD_DYNOBENCH)
-FetchContent_Declare(dynobench GIT_REPOSITORY https://github.com/quimortiz/dynobench GIT_TAG 70f52b03199cdcae44e4bd49863ec57533138d7e )
-FetchContent_MakeAvailable(dynobench)
+if(BUILD_DYNOBENCH)
+  FetchContent_Declare(
+    dynobench
+    GIT_REPOSITORY https://github.com/quimortiz/dynobench
+    GIT_TAG 70f52b03199cdcae44e4bd49863ec57533138d7e)
+  FetchContent_MakeAvailable(dynobench)
 endif()
 
-
-
-# if (BUILD_DYNOBENCH)
-# add_subdirectory(dynobench)
-# endif()
+# if (BUILD_DYNOBENCH) add_subdirectory(dynobench) endif()
 
 if(NOT TARGET nlohmann_json)
   FetchContent_Declare(
@@ -133,7 +131,7 @@ if(BUILD_EXAMPLES)
 
   # add_subdirectory(dynobench)
 
-  add_executable(test_dynorrt test/main.cpp test/test_dev.cpp )
+  add_executable(test_dynorrt test/main.cpp test/test_dev.cpp)
   # test/test_ddp.cpp)
 
   # add_executable(pin_col test/pin_col.cpp) add_executable(pin_ur5_example

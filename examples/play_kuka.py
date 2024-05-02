@@ -14,6 +14,7 @@ import scipy
 import pickle
 from pinocchio.visualize import MeshcatVisualizer
 
+
 def solve_ik_with_scipy(x0):
     """ """
 
@@ -56,6 +57,7 @@ def solve_ik_with_scipy(x0):
     res = scipy.optimize.minimize(cost, x0, method="trust-constr")
     return res
 
+
 base_path = "/home/quim/code/dynoRRT/src/python/pydynorrt/data/"
 urdf = base_path + "models/iiwa.urdf"
 srdf = base_path + "models/kuka.srdf"
@@ -75,7 +77,6 @@ except ImportError as err:
     sys.exit(0)
 
 viz.loadViewerModel()
-
 
 
 TARGET = np.array([0.4, 0.0, 0.1])
@@ -103,7 +104,6 @@ cm.reset_counters()
 
 genertate_valid_goals = True
 num_goals = 20
-
 
 
 if genertate_valid_goals:
@@ -149,7 +149,6 @@ if genertate_valid_goals:
 else:
     with open("valid_goals.pkl", "rb") as f:
         valid_goals = pickle.load(f)
-
 
 
 # how many iterations
@@ -247,7 +246,7 @@ for i in range(num_starts):
     parents = rrt.get_parents()
     configs = rrt.get_configs()
     path = rrt.get_path()
-    fine_path = rrt.get_fine_path(.1)
+    fine_path = rrt.get_fine_path(0.1)
 
     # lets try to shortcut the path
     resolution = 0.05
@@ -274,18 +273,16 @@ for i in range(num_starts):
 
     # NOTE: we display only one of the possible goals
 
-
     #     viewer, urdf, base_path + "models", start, goal
     # )
-    
 
     if display:
 
         viewer = meshcat.Visualizer()
         goal = valid_goals[0]
-        viewer_helper = pyrrt_vis.ViewerHelperRRT(viewer, urdf,
-                                                 package_dirs= base_path + "models",
-                                                   start=start, goal=goal)
+        viewer_helper = pyrrt_vis.ViewerHelperRRT(
+            viewer, urdf, package_dirs=base_path + "models", start=start, goal=goal
+        )
 
         robot = viewer_helper.robot
         viz = viewer_helper.viz
@@ -343,7 +340,6 @@ for i in range(num_starts):
             )
             display_count += 1
 
-
         anim = Animation()
         __v = viewer_helper.viz.viewer
         for i in range(len(fine_path)):
@@ -363,12 +359,10 @@ for traj in valid_trajs:
     input("press enter")
     for state in traj:
         viz.display(state)
-        time.sleep(.05)
-        
-                    # viz.display(q)
-                    # input("press enter")
+        time.sleep(0.05)
 
-
+        # viz.display(q)
+        # input("press enter")
 
 
 # save in a file
