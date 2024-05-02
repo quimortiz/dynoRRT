@@ -2430,14 +2430,16 @@ public:
       //   }
       // }
 
-      this->tree.search(x);
+
+      auto nn = this->tree.search(x);
       double elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
                               std::chrono::high_resolution_clock::now() - tic)
                               .count() /
                           double(10e6);
       CHECK_PRETTY_DYNORRT__(elapsed_ms > 0.);
       nn_search_time += elapsed_ms;
-      return DistanceId_t{distance, best_id};
+      return nn;
+      // DistanceId_t{nn.distance, nn.best_id};
     };
 
     auto timed_tree_search = [&](const state_t &x) {
