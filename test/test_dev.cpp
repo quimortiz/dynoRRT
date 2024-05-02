@@ -803,8 +803,8 @@ BOOST_AUTO_TEST_CASE(t_sst) {
   int argc = boost::unit_test::framework::master_test_suite().argc;
   auto argv = boost::unit_test::framework::master_test_suite().argv;
 
-  if (argc < 2) {
-    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+  if (argc < 3) {
+    std::cout << "Usage: ./test_dynorrt <path_to_base_dir> <path_to_dynobench>" << std::endl;
     BOOST_TEST(false);
     return;
   }
@@ -816,8 +816,8 @@ BOOST_AUTO_TEST_CASE(t_sst) {
   // std::string urdf = base_path + "/models/unicycle_parallel_park.urdf";
   // std::string srdf = base_path + "/models/unicycle_parallel_park.srdf";
 
-  std::string urdf = base_path + "/models/unicycle_bugtrap.urdf";
-  std::string srdf = base_path + "/models/unicycle_bugtrap.srdf";
+  std::string urdf = base_path + "src/python/pydynorrt/data/models/unicycle_bugtrap.urdf";
+  std::string srdf = base_path + "src/python/pydynorrt/data/models/unicycle_bugtrap.srdf";
 
   Collision_manager_pinocchio coll_manager;
   coll_manager.set_urdf_filename(urdf);
@@ -840,7 +840,7 @@ BOOST_AUTO_TEST_CASE(t_sst) {
   //     std ::string("../dynobench/") +
   //     "envs/unicycle1_v0/parallelpark_0.yaml";
 
-  auto env = std ::string("../dynobench/") + "envs/unicycle1_v0/bugtrap_0.yaml";
+  auto env = std::string(argv[2]) + "envs/unicycle1_v0/bugtrap_0.yaml";
 
   problem.read_from_yaml(env.c_str());
   // using state_space_t = dynotree::Combined<double>;

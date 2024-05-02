@@ -2449,6 +2449,29 @@ public:
       //     best_id = i;
       //   }
       // }
+     
+      auto nn = this->tree.search(x);
+      double elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                              std::chrono::high_resolution_clock::now() - tic)
+                              .count() /
+                          double(10e6);
+      CHECK_PRETTY_DYNORRT__(elapsed_ms > 0.);
+      nn_search_time += elapsed_ms;
+      return nn;
+      // return DistanceId_t{nn_distance, nn_id};
+    };
+
+    auto timed_tree_search = [&](const state_t &x) {
+      auto tic = std::chrono::high_resolution_clock::now();
+      // int nn_id = -1;
+      // double nn_distance = std::numeric_limits<double>::infinity();
+      // for (auto &id : this->v_active) {
+      //   double distance = this->state_space.distance(x, this->configs[id]);
+      //   if (distance < nn_distance) {
+      //     nn_distance = distance;
+      //     nn_id = id;
+      //   }
+      // }
       auto nn = this->tree.search(x);
       double elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
                               std::chrono::high_resolution_clock::now() - tic)
@@ -2457,8 +2480,8 @@ public:
       CHECK_PRETTY_DYNORRT__(elapsed_ms > 0.);
       nn_search_time += elapsed_ms;
 
-      // return DistanceId_t{nn_distance, nn_id};
       return nn;
+      // return DistanceId_t{nn_distance, nn_id};
     };
 
     int num_it = 0;
@@ -2515,19 +2538,6 @@ public:
     std::set<int> goal_ids;
     bool debug = false;
     double best_goal_cost = std::numeric_limits<double>::infinity();
-
-
-    auto timed_tree_search = [&](const state_t &x) {
-      auto tic = std::chrono::steady_clock::now();
-      auto nn = this->tree.search(x);
-      nn_search_time += std::chrono::duration_cast<std::chrono::nanoseconds>(
-                            std::chrono::steady_clock::now() - tic)
-                            .count() /
-                        double(10e6);
-
-      return nn;
-    };
-
 
     while (termination_condition == TerminationCondition::RUNNING ||
            termination_condition ==
@@ -2874,7 +2884,7 @@ public:
     std::cout << "v_active.size(): " << v_active.size() << std::endl;
     std::cout << "v_inactive.size(): " << v_inactive.size() << std::endl;
     std::cout << "v_dead.size(): " << v_dead.size() << std::endl;
-    std::cout << "witnesses.size(): " << witnesses.size() << std::endl;
+    // std::cout << "witnesses.size(): " << witnesses.size() << std::endl;
     std::cout << "paths.size(): " << goal_paths.size() << std::endl;
     std::cout << "goal_ids.size(): " << goal_ids.size() << std::endl;
     std::cout << "goal_trajectory.size(): " << goal_trajectories.size()
@@ -2932,9 +2942,6 @@ protected:
   std::set<int> v_inactive; // index in this->configs
   std::set<int> v_dead;
   std::vector<double> time_stamp_ms;
-  std::vector<int>
-      witnesses; // index in this->configs
-                 // this is a map: witness[i] is the id of the witness i.
 };
 
 } // namespace dynorrt
