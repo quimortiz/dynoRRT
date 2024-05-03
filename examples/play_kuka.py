@@ -16,6 +16,7 @@ from pinocchio.visualize import MeshcatVisualizer
 
 
 import os
+
 interactive = False
 if os.environ.get("DYNORRT_I") == "1":
     interactive = True
@@ -367,7 +368,6 @@ for traj in valid_trajs:
             time.sleep(0.05)
     else:
         pass
-
 
         # viz.display(q)
         # input("press enter")
