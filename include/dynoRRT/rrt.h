@@ -2449,7 +2449,7 @@ public:
       //     best_id = i;
       //   }
       // }
-     
+
       auto nn = this->tree.search(x);
       double elapsed_ms = std::chrono::duration_cast<std::chrono::nanoseconds>(
                               std::chrono::high_resolution_clock::now() - tic)

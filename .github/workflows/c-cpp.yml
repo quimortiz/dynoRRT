@@ -43,7 +43,7 @@ jobs:
 
 
 
-    - name: Install Pinocchio 
+    - name: Install Pinocchio
       run: |
            sudo apt install -qqy lsb-release curl
            sudo mkdir -p /etc/apt/keyrings
@@ -70,7 +70,7 @@ jobs:
            make
     - name: C++ tests
       run: |
-           make && ./test_dynorrt  -- ../ _deps/dynobench-src/
+           cd build && make && ./test_dynorrt  -- ../ _deps/dynobench-src/
 
     - name: Check 1 Python Bindings
       run: |
@@ -78,7 +78,7 @@ jobs:
            python3 -c 'import pydynorrt'
     - name: Build and Install Python Package
       run: |
-           pip3 install .
+           CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
            python3 -c 'import pydynorrt'
 
 

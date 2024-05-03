@@ -88,10 +88,6 @@ using namespace dynorrt;
 //   //
 // }
 
-
-
-
-
 template <typename StateSpace, int dim>
 void add_planners_to_module(py::module &m, const std::string &name) {
 
@@ -320,11 +316,11 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_radius_robot", &CollisionManagerBallWorld<-1>::set_radius_robot)
       .def("set_obstacles", &CollisionManagerBallWorld<-1>::set_obstacles);
 
-    py::class_<FrameBounds>(m, "FrameBounds")
-        .def(py::init<>())
-        .def_readwrite("frame_name", &FrameBounds::frame_name)
-        .def_readwrite("lower", &FrameBounds::lower)
-        .def_readwrite("upper", &FrameBounds::upper);
+  py::class_<FrameBounds>(m, "FrameBounds")
+      .def(py::init<>())
+      .def_readwrite("frame_name", &FrameBounds::frame_name)
+      .def_readwrite("lower", &FrameBounds::lower)
+      .def_readwrite("upper", &FrameBounds::upper);
 
   py::class_<Collision_manager_pinocchio>(m, "Collision_manager_pinocchio")
       .def(py::init<>())
@@ -334,7 +330,7 @@ PYBIND11_MODULE(pydynorrt, m) {
            &Collision_manager_pinocchio::set_robots_model_path)
       .def("build", &Collision_manager_pinocchio::build)
       .def("is_collision_free", &Collision_manager_pinocchio::is_collision_free)
-      .def("set_frame_bounds",&Collision_manager_pinocchio::set_frame_bounds)
+      .def("set_frame_bounds", &Collision_manager_pinocchio::set_frame_bounds)
       .def("set_edge_parallel", &Collision_manager_pinocchio::set_edge_parallel)
       .def("is_collision_free_set",
            [](Collision_manager_pinocchio &this_object,
@@ -352,43 +348,42 @@ PYBIND11_MODULE(pydynorrt, m) {
            &Collision_manager_pinocchio::get_num_collision_checks)
       .def("get_time_ms", &Collision_manager_pinocchio::get_time_ms);
 
-
-using PathShortCut_RX = PathShortCut<RX, -1>;
-
+  using PathShortCut_RX = PathShortCut<RX, -1>;
 
   py::class_<PathShortCut_RX>(m, "PathShortCut_RX")
-        .def(py::init<>())
-        .def("set_bounds_to_state", &PathShortCut_RX::set_bounds_to_state)
-        .def("set_is_collision_free_fun", &PathShortCut_RX::set_is_collision_free_fun)
-        .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
-         .def("set_is_collision_free_fun_from_manager",
-               [](PathShortCut_RX &planner,
-                  Collision_manager_pinocchio &col_manager) {
-                 planner.set_is_collision_free_fun([&](const auto &q) {
-                   return col_manager.is_collision_free(q);
-                 });
-            })
-        .def("get_path", &PathShortCut_RX::get_path)
-        .def("init", &PathShortCut_RX::init)
-        .def("get_fine_path", &PathShortCut_RX::get_fine_path)
-        .def("get_planner_data", [](PathShortCut_RX &this_object) {
+      .def(py::init<>())
+      .def("set_bounds_to_state", &PathShortCut_RX::set_bounds_to_state)
+      .def("set_is_collision_free_fun",
+           &PathShortCut_RX::set_is_collision_free_fun)
+      .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
+      .def("set_is_collision_free_fun_from_manager",
+           [](PathShortCut_RX &planner,
+              Collision_manager_pinocchio &col_manager) {
+             planner.set_is_collision_free_fun([&](const auto &q) {
+               return col_manager.is_collision_free(q);
+             });
+           })
+      .def("get_path", &PathShortCut_RX::get_path)
+      .def("init", &PathShortCut_RX::init)
+      .def("get_fine_path", &PathShortCut_RX::get_fine_path)
+      .def("get_planner_data",
+           [](PathShortCut_RX &this_object) {
              json j;
              this_object.get_planner_data(j);
              return j;
            })
-        .def("check_internal", &PathShortCut_RX::check_internal)
-        .def("reset_internal", &PathShortCut_RX::reset_internal)
-        .def("set_initial_path", &PathShortCut_RX::set_initial_path)
-        .def("shortcut", &PathShortCut_RX::shortcut);
-
+      .def("check_internal", &PathShortCut_RX::check_internal)
+      .def("reset_internal", &PathShortCut_RX::reset_internal)
+      .def("set_initial_path", &PathShortCut_RX::set_initial_path)
+      .def("shortcut", &PathShortCut_RX::shortcut);
 
   m.def("srand", [](int seed) { std::srand(seed); });
   m.def("srandtime", []() { std::srand(time(0)); });
   m.def("rand", []() { return std::rand(); });
   m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
-  // m.def( "path_shortcut_v1", &path_shortcut_v1<Eigen::VectorXd, dynotree::Rn<double, -1>, std::function<bool(const Eigen::VectorXd &)>);
+  // m.def( "path_shortcut_v1", &path_shortcut_v1<Eigen::VectorXd,
+  // dynotree::Rn<double, -1>, std::function<bool(const Eigen::VectorXd &)>);
   //
-  // m.def( "path_shortcut_v1b", &path_shortcut_v1b<Eigen::VectorXd, dynotree::Rn<double, -1>>);
-
-
+  // m.def( "path_shortcut_v1b", &path_shortcut_v1b<Eigen::VectorXd,
+  // dynotree::Rn<double, -1>>);
 }

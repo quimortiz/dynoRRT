@@ -36,8 +36,11 @@ class Obstacle:
     radius: float
 
 
-obstacles = [Obstacle(np.array([1, 0.4]), 0.5), Obstacle(np.array([1, 2]), 0.5),
- Obstacle(np.array([2.5, 2]), 0.5) ]
+obstacles = [
+    Obstacle(np.array([1, 0.4]), 0.5),
+    Obstacle(np.array([1, 2]), 0.5),
+    Obstacle(np.array([2.5, 2]), 0.5),
+]
 
 obs1 = pydynorrt.BallObsX([1, 0.4], 0.5)
 obs2 = pydynorrt.BallObsX([1, 2], 0.5)
@@ -99,13 +102,15 @@ planners = [
     # pydynorrt.LazyPRM_X
 ]
 options = [
-    options_rrt_str, None, None,
+    options_rrt_str,
+    None,
+    None,
     # options_prm_str
     # options_lazyprm_str
 ]
 
 names = [
-    "RRT", 
+    "RRT",
     # "BiRRT", "RRT_Connect",
     # "PRM",
     # "LazyPRM",
@@ -139,7 +144,7 @@ for name, planner, options in zip(names, planners, options):
     rrt = planner()
     rrt.set_start(start)
 
-    goal2 = np.array([3., 2.8])
+    goal2 = np.array([3.0, 2.8])
     # goal3 = np.array([2.0, 0.2])
 
     goal_list = [goal, goal2]
@@ -231,7 +236,6 @@ for name, planner, options in zip(names, planners, options):
 
     for goal in goal_list:
         plot_robot(ax, goal, "red")
-
 
     plt.title(name)
 

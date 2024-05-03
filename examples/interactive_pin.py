@@ -63,7 +63,7 @@ robot = pin.RobotWrapper.BuildFromURDF(
     # # base_path + "/
     #     "robots/ur_description/urdf/ur5_robot_with_box.urdf",
     # base_path + "robots/ur_description/meshes/",
-    "/home/quim/code/dynoRRT/src/python/pydynorrt/data/models/"
+    "/home/quim/code/dynoRRT/src/python/pydynorrt/data/models/",
     # base_path + "robots/ur_description/meshes/",
 )
 
@@ -84,23 +84,18 @@ start = np.zeros(7)
 goal = np.zeros(7)
 
 
-
 # q_i = np.array( [-0.31415927,  0.9424778,   0.31415927, -2.,  0.,          0.,
 #   0.  ])
 
 
-
-
-q_i = np.array( [ 1.35663706,  1.0, -0.62831853, -1.88495559,  0.,          0.,
-  0.        ])
+q_i = np.array([1.35663706, 1.0, -0.62831853, -1.88495559, 0.0, 0.0, 0.0])
 
 
 # q_i = start
 # np.zeros(robot.nq)
 
 
-
-q_g = np.array( [ 0.,          0.9424778,   0.,         -0.9424778,  -0.31415927,  1.25663706, 0.31415927] )
+q_g = np.array([0.0, 0.9424778, 0.0, -0.9424778, -0.31415927, 1.25663706, 0.31415927])
 
 
 # q_i = np.array([-0.62831853, 0.0, 0.0, 0.0, 0.9424778, 0.0, -0.9424778])
