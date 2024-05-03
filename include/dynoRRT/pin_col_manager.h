@@ -6,6 +6,8 @@
 #include <Eigen/Dense>
 #include <boost/make_shared.hpp>
 
+#include <hpp/fcl/collision_object.h>
+
 namespace dynorrt {
 
 struct PinExternalObstacle {
