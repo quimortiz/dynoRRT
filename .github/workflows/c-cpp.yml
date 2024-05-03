@@ -103,4 +103,3 @@ jobs:
     - name: Run Notebook
       run: |
           python3 notebooks/tutorial0.py
-
