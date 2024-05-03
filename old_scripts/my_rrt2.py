@@ -223,7 +223,8 @@ def _loadViewerModel(viz, rootNodeName="pinocchio", color=None):
 
 # ## Load UR5
 # In[ ]:
-base_path = "/home/quim/stg/quim-example-robot-data/example-robot-data/"
+base_path = "src/python/pydynorrt/data/"
+# "/home/quim/stg/quim-example-robot-data/example-robot-data/"
 # model_path = join(pinocchio_model_dir, "example-robot-data/robots")
 # mesh_dir = pinocchio_model_dir
 # urdf_filename = "talos_reduced.urdf"
@@ -237,8 +238,8 @@ base_path = "/home/quim/stg/quim-example-robot-data/example-robot-data/"
 
 
 robot = pin.RobotWrapper.BuildFromURDF(
-    base_path + "robots/ur_description/urdf/ur5_robot_with_box.urdf",
-    base_path + "robots/ur_description/meshes/",
+    base_path + "models/ur5_robot_with_box.urdf",
+    base_path + "models/meshes/",
 )
 
 collision_model = robot.collision_model
@@ -315,6 +316,10 @@ q_g = np.array([3.1, -1.0, 1, -0.5, -0.5, 0])
 radius = 0.05
 
 # print(viz.viewerCollisionGroupName)
+
+viz.display_frames = False
+viz_start.display_frames = False
+viz_goal.display_frames = False
 viz.display(pin.neutral(robot.model))
 viz_start.display(q_i)
 viz_goal.display(q_g)
@@ -459,7 +464,10 @@ radius = 0.05
 # In[ ]:
 
 
+viz.display_frames = False
 viz.display(pin.neutral(model))
+viz_start.display_frames = False
+viz_goal.display_frames = False
 viz_start.display(q_i)
 viz_goal.display(q_g)
 M = robot.framePlacement(q_i, 22)
@@ -494,7 +502,7 @@ pydynorrt.srand(1)
 options = "./planner_config/rrt_v0_PIN.toml"
 
 print("hello")
-rrt = pydynorrt.RRT_X()
+rrt = pydynorrt.PlannerRRT_Rn()
 # rrt.init_tree(6)
 rrt.init(6)
 rrt.set_start(q_i)

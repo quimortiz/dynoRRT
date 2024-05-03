@@ -15,6 +15,12 @@ import pickle
 from pinocchio.visualize import MeshcatVisualizer
 
 
+import os
+interactive = False
+if os.environ.get("DYNORRT_I") == "1":
+    interactive = True
+
+
 def solve_ik_with_scipy(x0):
     """ """
 
@@ -353,13 +359,15 @@ for i in range(num_starts):
         html = viewer.static_html()
 
 # lets see the trajectories!!
-
-
 for traj in valid_trajs:
-    input("press enter")
-    for state in traj:
-        viz.display(state)
-        time.sleep(0.05)
+    if interactive:
+        input("press enter")
+        for state in traj:
+            viz.display(state)
+            time.sleep(0.05)
+    else:
+        pass
+
 
         # viz.display(q)
         # input("press enter")
@@ -370,4 +378,5 @@ for traj in valid_trajs:
 #     f.write(html)
 
 
-input("Press Enter to finish")
+if interactive:
+    input("Press Enter to finish")

@@ -88,13 +88,13 @@ jobs:
            pip3 install matplotlib
     - name: Examples Python
       run: |
-           PYTHONPATH="build/bindings/python/" python3  test_rrt.py
+           PYTHONPATH="build/bindings/python/" python3  examples/test_rrt.py
     - name: C++ with Python visualization
       run: |
-           PYTHONPATH="build/bindings/python/" python3  plot.py
+           PYTHONPATH="build/bindings/python/" python3  examples/plot.py
 
     - name: Python with Pinocchio
       run:  |
           pip3 install pin example-robot-data meshcat scipy tqdm
           PYTHONPATH="build/bindings/python/" python3 examplesPIN/my_rrt.py
-          PYTHONPATH="build/bindings/python/" python3 examplesPIN/my_rrt2.py
+          PYTHONPATH="build/bindings/python/" python3 examples/play_kuka.py

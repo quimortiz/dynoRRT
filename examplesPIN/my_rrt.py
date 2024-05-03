@@ -67,12 +67,16 @@ import sys
 sys.path.append("../buildRelease/bindings/python")
 import pydynorrt
 
-rrt_options = pydynorrt.RRT_options()
-rrt_options.max_it = 1000
-rrt_options.max_step = 1.0
-rrt_options.collision_resolution = 0.1
+config_string = """
+[RRT_options]
+max_it = 1000
+max_step = 1.0
+collision_resolution = 0.1
+"""
 
-rrt = pydynorrt.RRT_X()
+# rrt_options = pydynorrt.RRT_options()
+
+rrt = pydynorrt.PlannerRRT_Rn()
 rrt.set_start(q_start)
 rrt.set_goal(q_goal)
 rrt.init(2)
@@ -80,7 +84,7 @@ rrt.set_is_collision_free_fun(lambda x: not coll(x))
 lb = np.array([-3.2, -3.2])
 ub = np.array([3.2, 3.2])
 rrt.set_bounds_to_state(lb, ub)
-rrt.set_options(rrt_options)
+rrt.read_cfg_string(config_string)
 
 out = rrt.plan()
 path = rrt.get_path()
