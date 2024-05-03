@@ -17,6 +17,7 @@ assert out.returncode == 0
 
 fileout = "/tmp/dynorrt/stdout.txt"
 import pathlib
+
 pathlib.Path(fileout).parent.mkdir(parents=True, exist_ok=True)
 with open(fileout, "w") as f:
     out = subprocess.run(run_cmd, cwd="build", stdout=f)

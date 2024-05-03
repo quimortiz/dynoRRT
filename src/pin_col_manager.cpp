@@ -5,19 +5,17 @@
 #include "pinocchio/parsers/urdf.hpp"
 
 #include "dynoRRT/dynorrt_macros.h"
+#include "hpp/fcl/shape/geometric_shapes.h"
 #include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/algorithm/parallel/geometry.hpp"
 #include "pinocchio/multibody/fcl.hpp"
-#include "pinocchio/algorithm/frames.hpp"
-#include "hpp/fcl/shape/geometric_shapes.h"
 #include <atomic>
 
 // #include <hpp/fcl/broadphase/broadphase.h>
 #include <thread>
 
 namespace dynorrt {
-
 
 // using namespace hpp;
 
@@ -68,9 +66,10 @@ void Collision_manager_pinocchio::build() {
                                              obs.rotation_angle_axis.tail<3>());
     placement.translation() = obs.translation;
 
-    pinocchio::Model::JointIndex idx_geom = geom_model.addGeometryObject(
-        pinocchio::GeometryObject(obstacle_base_name + std::to_string(i) + "_" + obs.name,
-                       0, geometry, placement));
+    pinocchio::Model::JointIndex idx_geom =
+        geom_model.addGeometryObject(pinocchio::GeometryObject(
+            obstacle_base_name + std::to_string(i) + "_" + obs.name, 0,
+            geometry, placement));
 
     geom_model.geometryObjects[idx_geom].parentJoint = 0;
     i++;
@@ -155,7 +154,8 @@ bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
         if (collision_objects[cp.first].getAABB().overlap(
                 collision_objects[cp.second].getAABB())) {
 
-          bool res = pinocchio::computeCollision(geom_model, geom_data, cp_index);
+          bool res =
+              pinocchio::computeCollision(geom_model, geom_data, cp_index);
           if (!isColliding && res) {
             isColliding = true;
             geom_data.collisionPairIndex = cp_index; // first pair to be in
@@ -173,7 +173,8 @@ bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
     if (!build_done) {
       THROW_PRETTY_DYNORRT("build not done");
     }
-    bool out = !pinocchio::computeCollisions(model, data, geom_model, geom_data, q, true);
+    bool out = !pinocchio::computeCollisions(model, data, geom_model, geom_data,
+                                             q, true);
 
     // time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
     //                std::chrono::high_resolution_clock::now() - tic)
@@ -244,8 +245,8 @@ bool Collision_manager_pinocchio::is_collision_free_parallel(
   if (!build_done) {
     THROW_PRETTY_DYNORRT("build not done");
   }
-  bool out = !pinocchio::computeCollisions(num_threads, model, data, geom_model, geom_data,
-                                q, true);
+  bool out = !pinocchio::computeCollisions(num_threads, model, data, geom_model,
+                                           geom_data, q, true);
 
   time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
                  std::chrono::high_resolution_clock::now() - tic)
