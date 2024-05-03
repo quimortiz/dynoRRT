@@ -9,13 +9,17 @@ sys.path.append(".")
 
 
 build_cmd = ["make"]
-run_cmd = ["./main", "--run_test=test_1"]
+run_cmd = ["./test_dynorrt", "--run_test=test_1"]
 
 out = subprocess.run(build_cmd, cwd="build")
 
 assert out.returncode == 0
 
-with open("/tmp/dynorrt/stdout.txt", "w") as f:
+fileout = "/tmp/dynorrt/stdout.txt"
+import pathlib
+
+pathlib.Path(fileout).parent.mkdir(parents=True, exist_ok=True)
+with open(fileout, "w") as f:
     out = subprocess.run(run_cmd, cwd="build", stdout=f)
     assert out.returncode == 0
 

@@ -22,7 +22,7 @@ jobs:
       run: |
            sudo apt-get update
            sudo apt update
-           sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev
+           sudo apt install -y cmake libeigen3-dev  python3-pip libboost-all-dev libfcl-dev libyaml-cpp-dev
 
     # - uses: conda-incubator/setup-miniconda@v3
     #   with:
@@ -43,7 +43,7 @@ jobs:
 
 
 
-    - name: Install Pinocchio and FCL
+    - name: Install Pinocchio
       run: |
            sudo apt install -qqy lsb-release curl
            sudo mkdir -p /etc/apt/keyrings
@@ -62,7 +62,7 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake -DBUILD_EXAMPLES=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
+          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
 
     - name: Make
       run: |
@@ -70,7 +70,7 @@ jobs:
            make
     - name: C++ tests
       run: |
-           make && ./test_dynorrt
+           cd build && make && ./test_dynorrt  -- ../ _deps/dynobench-src/
 
     - name: Check 1 Python Bindings
       run: |
@@ -78,7 +78,7 @@ jobs:
            python3 -c 'import pydynorrt'
     - name: Build and Install Python Package
       run: |
-           pip3 install .
+           CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
            python3 -c 'import pydynorrt'
 
 
@@ -88,13 +88,18 @@ jobs:
            pip3 install matplotlib
     - name: Examples Python
       run: |
-           PYTHONPATH="build/bindings/python/" python3  test_rrt.py
+           # PYTHONPATH="build/bindings/python/" python3  examples/test_rrt.py
+           python3  examples/test_rrt.py
     - name: C++ with Python visualization
       run: |
-           PYTHONPATH="build/bindings/python/" python3  plot.py
+           python3  examples/plot.py
 
     - name: Python with Pinocchio
       run:  |
           pip3 install pin example-robot-data meshcat scipy tqdm
-          PYTHONPATH="build/bindings/python/" python3 examplesPIN/my_rrt.py
-          PYTHONPATH="build/bindings/python/" python3 examplesPIN/my_rrt2.py
+          python3 examplesPIN/my_rrt.py
+          python3 examples/play_kuka.py
+
+    - name: Run Notebook
+      run: |
+          python3 notebooks/tutorial0.py

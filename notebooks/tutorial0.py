@@ -2,15 +2,15 @@
 # coding: utf-8
 
 # # DynoRRT
-# 
+#
 # DynoRRT is a C++/Python library for sampling-based motion planning (e.g., Rapidly Exploring Random Trees (RRT), Probabilistic Roadmaps (PRM), etc.)
-# 
+#
 # It delivers state-of-the-art performance with an easy-to-use and install Python interface. The installation is straightforward: no ROS, no system-wide packages, no MOVEIT, no OMPL; just a simple `pip install`. Plus, it's much faster than OMPL.
-# 
+#
 # With DynoRRT, you can write a motion planning problem in 60 seconds and solve it in milliseconds. Planning problems can be defined using URDF Files. We rely on Pinocchio and HPP-FCL for computing collisions and forward kinematics. These are linked statically, so you don't need them at runtime—or it's fine if you have another version of these libraries.
-# 
+#
 # The Python package is created using pybind11, and the API is very similar to the C++ interface. Additionally, the Python package provides a couple of utilities to visualize the problems using Pinocchio and Meshcat, but you're free to use any viewer you want.
-# 
+#
 # The library is currently in its alpha state. We are targeting a public release of version 0.1 in January. The C++ packaging is still under development. Feel free to open a GitHub issue or pull request! Special help is needed for Mac support :)
 
 # In[ ]:
@@ -44,7 +44,9 @@
 from meshcat.animation import Animation
 import numpy as np
 import pydynorrt as pyrrt
-from pydynorrt import pin_more as pyrrt_vis # Small utility functions to visualize motion planning
+from pydynorrt import (
+    pin_more as pyrrt_vis,
+)  # Small utility functions to visualize motion planning
 import pinocchio as pin  # Not needed in the current script (consider removing if not used)
 import meshcat
 import time
@@ -170,7 +172,7 @@ assert out == pyrrt.TerminationCondition.GOAL_REACHED
 parents = rrt.get_parents()
 configs = rrt.get_configs()
 path = rrt.get_path()
-fine_path = rrt.get_fine_path(.05)
+fine_path = rrt.get_fine_path(0.05)
 
 # Some Planners will output a lot of information useful for visualization
 # and debugging -- see below. You can get this directly in a dictionary.
@@ -196,19 +198,35 @@ for i, p in enumerate(parents):
     if p != -1:
         q1 = configs[i]
         q2 = configs[p]
-        pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                              color=[0.2, 0.8, 0.2, 0.9])
+        pyrrt_vis.display_edge(
+            robot,
+            q1,
+            q2,
+            IDX_VIS,
+            display_count,
+            viz,
+            radius=0.005,
+            color=[0.2, 0.8, 0.2, 0.9],
+        )
         display_count += 1
 
 for i in range(len(path) - 1):
     q1 = path[i]
     q2 = path[i + 1]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.02,
-                          color=[0.0, 0.0, 1.0, 0.5])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 0.0, 1.0, 0.5],
+    )
     display_count += 1
 
 # Finally, we can visualize the path of the robot :)
-# In standard Python, you can update the 
+# In standard Python, you can update the
 # visualization with:
 # for p in fine_path:
 #     viz.display(np.array(p))
@@ -275,8 +293,9 @@ cm.reset_counters()
 # Collision shapes used for planning are shown with a translucent color.
 viewer = meshcat.Visualizer()
 package_dirs = pyrrt.DATADIR + "models/meshes"
-viewer_helper = pyrrt_vis.ViewerHelperRRT(viewer, urdf,
-                                         package_dirs=package_dirs, start=start, goal=goal)
+viewer_helper = pyrrt_vis.ViewerHelperRRT(
+    viewer, urdf, package_dirs=package_dirs, start=start, goal=goal
+)
 viewer.render_static()
 
 
@@ -342,8 +361,16 @@ for i, p in enumerate(parents):
         q1 = configs[i]
         q2 = configs[p]
         # Pinocchio
-        pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                              color=[0.2, 0.8, 0.2, 0.9])
+        pyrrt_vis.display_edge(
+            robot,
+            q1,
+            q2,
+            IDX_VIS,
+            display_count,
+            viz,
+            radius=0.005,
+            color=[0.2, 0.8, 0.2, 0.9],
+        )
         display_count += 1
 
 for i, p in enumerate(parents_backward):
@@ -351,15 +378,31 @@ for i, p in enumerate(parents_backward):
         q1 = configs_backward[i]
         q2 = configs_backward[p]
         # Pinocchio
-        pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                              color=[0.8, 0.2, 0.2, 0.9])
+        pyrrt_vis.display_edge(
+            robot,
+            q1,
+            q2,
+            IDX_VIS,
+            display_count,
+            viz,
+            radius=0.005,
+            color=[0.8, 0.2, 0.2, 0.9],
+        )
         display_count += 1
 
 for i in range(len(path) - 1):
     q1 = path[i]
     q2 = path[i + 1]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.02,
-                          color=[0.0, 0.0, 1.0, 0.5])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 0.0, 1.0, 0.5],
+    )
     display_count += 1
 
 # Finally, we can visualize the path of the robot :)
@@ -434,7 +477,9 @@ planner_data = rrt.get_planner_data()
 # before we print from Python.
 time.sleep(0.001)
 print(
-    "Planning Time [s] (note that we are running an asymptotically optimal planner)", toc - tic)
+    "Planning Time [s] (note that we are running an asymptotically optimal planner)",
+    toc - tic,
+)
 # We can examine the content of planner data
 print("Fields in planner_data", [i for i in planner_data])
 
@@ -452,20 +497,36 @@ IDX_VIS = viewer_helper.robot.model.getFrameId(idx_vis_name)
 
 display_count = 0  # just to enumerate the number of edges
 for pp, _path in enumerate(paths[:-1]):
-    transparency = (pp+1) / (len(paths))
+    transparency = (pp + 1) / (len(paths))
     for i in range(len(_path) - 1):
         q1 = _path[i]
         q2 = _path[i + 1]
-        pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.02,
-                                    color=[0.1, 0.1, 0.1, 0.8 * transparency])
+        pyrrt_vis.display_edge(
+            robot,
+            q1,
+            q2,
+            IDX_VIS,
+            display_count,
+            viz,
+            radius=0.02,
+            color=[0.1, 0.1, 0.1, 0.8 * transparency],
+        )
         display_count += 1
 
 # Best path in Blue
 for i in range(len(path) - 1):
     q1 = path[i]
     q2 = path[i + 1]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.02,
-                          color=[0.0, 0.0, 1.0, 0.5])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 0.0, 1.0, 0.5],
+    )
     display_count += 1
 
 anim = Animation()
@@ -488,17 +549,45 @@ viewer.render_static()
 # In the last example, we are going to solve a problem
 # with two robot arms, planning in joint space.
 
-lb = np.array([-3.14, -3.14, -3.14, -3.14, -3.14,
-               -3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14])
+lb = np.array(
+    [-3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14, -3.14]
+)
 
-ub = np.array([3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14,
-               3.14, 3.14, 3.14])
+ub = np.array([3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14, 3.14])
 
-start = np.array([1.88495559, -0.9424778, 1.88495559, 0.0, 0.0,
-                  0.0, -0.9424778, -0.9424778, 1.57079633, 0.0, 0.0, 0.0])
+start = np.array(
+    [
+        1.88495559,
+        -0.9424778,
+        1.88495559,
+        0.0,
+        0.0,
+        0.0,
+        -0.9424778,
+        -0.9424778,
+        1.57079633,
+        0.0,
+        0.0,
+        0.0,
+    ]
+)
 
-goal = np.array([0.62831853, -1.25663707, 1.88495559, 0.0, 0.0, 0.0,
-                 -2.82743339, -0.9424778, 1.57079633, 0.0, 0.0, 0.0])
+goal = np.array(
+    [
+        0.62831853,
+        -1.25663707,
+        1.88495559,
+        0.0,
+        0.0,
+        0.0,
+        -2.82743339,
+        -0.9424778,
+        1.57079633,
+        0.0,
+        0.0,
+        0.0,
+    ]
+)
 
 urdf = pyrrt.DATADIR + "models/ur5_two_robots.urdf"
 srdf = pyrrt.DATADIR + "models/ur5_two_robots.srdf"
@@ -512,8 +601,7 @@ assert cm.is_collision_free(goal)
 
 package_dirs = pyrrt.DATADIR + "models/meshes"
 viewer = meshcat.Visualizer()
-viewer_helper = pyrrt_vis.ViewerHelperRRT(
-    viewer, urdf, package_dirs, start, goal)
+viewer_helper = pyrrt_vis.ViewerHelperRRT(viewer, urdf, package_dirs, start, goal)
 robot = viewer_helper.robot
 viz = viewer_helper.viz
 idx_vis_name = "tool0"
@@ -552,12 +640,12 @@ out = rrt.plan()
 time.sleep(0.001)
 toc = time.time()
 
-print("plan time " , toc - tic)
+print("plan time ", toc - tic)
 path = rrt.get_path()
 fine_path = rrt.get_fine_path(0.05)
 planner_data = rrt.get_planner_data()
 
-configs = [np.array(x) for x in  planner_data["configs"]]
+configs = [np.array(x) for x in planner_data["configs"]]
 adjacency_list = planner_data["adjacency_list"]
 check_edges_invalid = planner_data["check_edges_invalid"]
 check_edges_valid = planner_data["check_edges_valid"]
@@ -571,39 +659,87 @@ display_count = 0
 for i in range(len(path) - 1):
     q1 = path[i]
     q2 = path[i + 1]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.02,
-                          color=[0.0, 0.0, 1.0, 0.5])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 0.0, 1.0, 0.5],
+    )
     display_count += 1
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS2, display_count, viz, radius=0.02,
-                          color=[0.0, 0.0, 1.0, 0.5])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS2,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 0.0, 1.0, 0.5],
+    )
     display_count += 1
-    
-# We plot which edges have checked by the planner. 
-# To plot a configuration/edge, we display the position 
+
+# We plot which edges have checked by the planner.
+# To plot a configuration/edge, we display the position
 # of the end effector of the two robot (in slighlty different colors).
 # In green if they were valid, in red if they are invalid.
 
 for e in check_edges_invalid:
     q1 = configs[e[0]]
     q2 = configs[e[1]]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                           color=[0.7, 0.2, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.7, 0.2, 0.2, 0.7],
+    )
 
     display_count += 1
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS2, display_count, viz, radius=0.005,
-                           color=[0.5, 0.2, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS2,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.5, 0.2, 0.2, 0.7],
+    )
     display_count += 1
 
 for e in check_edges_valid:
     q1 = configs[e[0]]
     q2 = configs[e[1]]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                           color=[0.2, 0.7, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.2, 0.7, 0.2, 0.7],
+    )
     display_count += 1
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS2, display_count, viz, radius=0.005,
-                           color=[0.2, 0.5, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS2,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.2, 0.5, 0.2, 0.7],
+    )
     display_count += 1
-  
+
 # Visualize the trajectory
 anim = Animation()
 __v = viewer_helper.viz.viewer
@@ -616,7 +752,7 @@ for i in range(len(fine_path)):
 # Finally, let's display the best trajectory (the last one)
 viewer.set_animation(anim)
 viewer_helper.viz.viewer = __v
-viewer.render_static()    
+viewer.render_static()
 
 
 # In[ ]:
@@ -626,8 +762,7 @@ viewer.render_static()
 # when required in the A* search, similar to BIT*
 
 viewer = meshcat.Visualizer()
-viewer_helper = pyrrt_vis.ViewerHelperRRT(
-    viewer, urdf, package_dirs, start, goal)
+viewer_helper = pyrrt_vis.ViewerHelperRRT(viewer, urdf, package_dirs, start, goal)
 robot = viewer_helper.robot
 viz = viewer_helper.viz
 idx_vis_name = "tool0"
@@ -655,7 +790,7 @@ tic = time.time()
 out = rrt.plan()
 toc = time.time()
 dif = toc - tic
-print("planning time " , dif)
+print("planning time ", dif)
 path = rrt.get_path()
 fine_path = rrt.get_fine_path(0.05)
 planner_data = rrt.get_planner_data()
@@ -668,31 +803,61 @@ print("check_edges_invalid", len(check_edges_invalid))
 print("check_edges_valid", len(check_edges_valid))
 
 
-
 display_count = 0
 for e in check_edges_invalid:
     q1 = configs[e[0]]
     q2 = configs[e[1]]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                           color=[0.7, 0.2, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.7, 0.2, 0.2, 0.7],
+    )
 
     display_count += 1
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS2, display_count, viz, radius=0.005,
-                           color=[0.5, 0.2, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS2,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.5, 0.2, 0.2, 0.7],
+    )
     display_count += 1
 
 for e in check_edges_valid:
     q1 = configs[e[0]]
     q2 = configs[e[1]]
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS, display_count, viz, radius=0.005,
-                           color=[0.2, 0.7, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.2, 0.7, 0.2, 0.7],
+    )
     display_count += 1
-    pyrrt_vis.display_edge(robot, q1, q2, IDX_VIS2, display_count, viz, radius=0.005,
-                           color=[0.2, 0.5, 0.2, 0.7])
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS2,
+        display_count,
+        viz,
+        radius=0.005,
+        color=[0.2, 0.5, 0.2, 0.7],
+    )
     display_count += 1
-    
-viewer.render_static()
 
+viewer.render_static()
 
 
 # In[ ]:
@@ -701,7 +866,7 @@ viewer.render_static()
 # In these four examples, we have computed collisions using Pinocchio and URDF.
 # Can I use my own collision checker? - Yes!
 # For fast prototyping, you can define the collision function in Python directly.
-# The collision function can even call a compiled function -- then 
+# The collision function can even call a compiled function -- then
 # you will only have the overhead of calling a Python function. In my experience, using collision models with approximate shapes, this may double/triple the time with respect to a pure C++ implementation.
 
 # For example, let's solve a 2D problem, where obstacles are circles
@@ -710,14 +875,17 @@ viewer.render_static()
 xlim = [0, 3]
 ylim = [0, 3]
 
+
 class Obstacle:
     def __init__(self, center: np.ndarray, radius: float):
         self.center = center
         self.radius = radius
 
 
-obstacles = [Obstacle(center=np.array([1, 0.4]), radius=0.5),
-             Obstacle(center=np.array([1, 2]), radius=0.5)]
+obstacles = [
+    Obstacle(center=np.array([1, 0.4]), radius=0.5),
+    Obstacle(center=np.array([1, 2]), radius=0.5),
+]
 
 
 def is_collision_free(x: np.ndarray) -> bool:
@@ -733,8 +901,9 @@ def is_collision_free(x: np.ndarray) -> bool:
 
 def plot_env(ax, obstacles):
     for obstacle in obstacles:
-        ax.add_patch(plt.Circle(
-            (obstacle.center), obstacle.radius, color="blue", alpha=0.5))
+        ax.add_patch(
+            plt.Circle((obstacle.center), obstacle.radius, color="blue", alpha=0.5)
+        )
 
 
 def plot_robot(ax, x, color="black", alpha=1.0):
@@ -773,8 +942,12 @@ parents = rrt.get_parents()
 for i, c in enumerate(configs):
     plot_robot(ax, c, color="gray", alpha=0.5)
     if parents[i] != -1:
-        plt.plot([c[0], configs[parents[i]][0]], [
-                 c[1], configs[parents[i]][1]], color="gray", alpha=0.5)
+        plt.plot(
+            [c[0], configs[parents[i]][0]],
+            [c[1], configs[parents[i]][1]],
+            color="gray",
+            alpha=0.5,
+        )
 
 
 for i in range(len(path)):
@@ -829,16 +1002,23 @@ parents = rrt.get_parents()
 for i, c in enumerate(configs):
     plot_robot(ax, c, color="gray", alpha=0.5)
     if parents[i] != -1:
-        plt.plot([c[0], configs[parents[i]][0]], [
-                 c[1], configs[parents[i]][1]], color="gray", alpha=0.5)
-        
+        plt.plot(
+            [c[0], configs[parents[i]][0]],
+            [c[1], configs[parents[i]][1]],
+            color="gray",
+            alpha=0.5,
+        )
+
 for i, c in enumerate(configs_bwd):
     plot_robot(ax, c, color="gray", alpha=0.5)
     if parents_bwd[i] != -1:
-        plt.plot([c[0], configs_bwd[parents_bwd[i]][0]], [
-                 c[1], configs_bwd[parents_bwd[i]][1]], color="yellow", alpha=0.5)
+        plt.plot(
+            [c[0], configs_bwd[parents_bwd[i]][0]],
+            [c[1], configs_bwd[parents_bwd[i]][1]],
+            color="yellow",
+            alpha=0.5,
+        )
 
-        
 
 for i in range(len(path)):
     plot_robot(ax, path[i], color="black")
@@ -851,7 +1031,7 @@ for i, p in enumerate(parents):
             color="black",
             alpha=0.5,
         )
-        
+
 # And finally, PRM*
 fig, ax = plt.subplots()
 start = np.array([0.1, 0.1])
@@ -894,28 +1074,24 @@ for i in range(len(adjacency)):
             [configs[i][0], configs[j][0]],
             [configs[i][1], configs[j][1]],
             color="black",
-            alpha=0.2)
+            alpha=0.2,
+        )
 
 for i in range(len(check_edges_valid)):
-            ax.plot(
-                [configs[check_edges_valid[i][0]][0], configs[check_edges_valid[i][1]][0]],
-                [configs[check_edges_valid[i][0]][1], configs[check_edges_valid[i][1]][1]],
-                color="green",
-                alpha=0.5)
-        
+    ax.plot(
+        [configs[check_edges_valid[i][0]][0], configs[check_edges_valid[i][1]][0]],
+        [configs[check_edges_valid[i][0]][1], configs[check_edges_valid[i][1]][1]],
+        color="green",
+        alpha=0.5,
+    )
+
 for i in range(len(check_edges_invalid)):
     ax.plot(
-                [configs[check_edges_invalid[i][0]][0], configs[check_edges_invalid[i][1]][0]],
-                [configs[check_edges_invalid[i][0]][1], configs[check_edges_invalid[i][1]][1]],
-                color="red",
-                alpha=0.5,
-            )
-
-
+        [configs[check_edges_invalid[i][0]][0], configs[check_edges_invalid[i][1]][0]],
+        [configs[check_edges_invalid[i][0]][1], configs[check_edges_invalid[i][1]][1]],
+        color="red",
+        alpha=0.5,
+    )
 
 
 # In[ ]:
-
-
-
-

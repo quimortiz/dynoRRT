@@ -1,5 +1,7 @@
 // #include "dynotree/KDTree.h"
+// #include "dynoRRT/rrt_base.h"
 #include "dynoRRT/rrt.h"
+#include "dynoRRT/rrt_base.h"
 
 #include <pybind11/functional.h>
 
@@ -14,6 +16,7 @@
 #include <pybind11/stl_bind.h>
 
 namespace py = pybind11;
+using namespace dynorrt;
 
 // template <typename T>
 // void declare_tree(py::module &m, const std::string &name) {
@@ -87,6 +90,7 @@ namespace py = pybind11;
 
 template <typename StateSpace, int dim>
 void add_planners_to_module(py::module &m, const std::string &name) {
+
   using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   py::class_<PlannerBase_RX>(m, ("PlannerBase_" + name).c_str())
       .def(py::init<>())
@@ -94,12 +98,14 @@ void add_planners_to_module(py::module &m, const std::string &name) {
            &PlannerBase_RX::set_collision_manager)  // add point
       .def("set_start", &PlannerBase_RX::set_start) // add point
       .def("set_goal", &PlannerBase_RX::set_goal)
+      .def("set_goal_list", &PlannerBase_RX::set_goal_list)
       .def("init", &PlannerBase_RX::init)
       .def("plan", &PlannerBase_RX::plan)
       .def("get_path", &PlannerBase_RX::get_path)
       .def("get_fine_path", &PlannerBase_RX::get_fine_path)
       .def("set_is_collision_free_fun",
            &PlannerBase_RX::set_is_collision_free_fun)
+      .def("set_sample_fun", &PlannerBase_RX::set_sample_fun)
       .def("set_bounds_to_state", &PlannerBase_RX::set_bounds_to_state)
       .def("get_sample_configs", &PlannerBase_RX::get_sample_configs)
       .def("set_state_space_with_string",
@@ -154,6 +160,14 @@ void add_planners_to_module(py::module &m, const std::string &name) {
 
   py::class_<LazyPRM, PlannerBase_RX>(m, ("PlannerLazyPRM_" + name).c_str())
       .def(py::init<>());
+
+  // For now, I only expose with control dim = -1.
+  using KinoRRT_RX = KinoRRT<StateSpace, dim, -1>;
+
+  py::class_<KinoRRT_RX, PlannerBase_RX>(m, ("PlannerKinoRRT_" + name).c_str())
+      .def(py::init<>())
+      .def("set_expand_fun", &KinoRRT_RX::set_expand_fun);
+
   // .def("set_options", &LazyPRM_X::set_options)
   // .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
   // .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
@@ -302,6 +316,12 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_radius_robot", &CollisionManagerBallWorld<-1>::set_radius_robot)
       .def("set_obstacles", &CollisionManagerBallWorld<-1>::set_obstacles);
 
+  py::class_<FrameBounds>(m, "FrameBounds")
+      .def(py::init<>())
+      .def_readwrite("frame_name", &FrameBounds::frame_name)
+      .def_readwrite("lower", &FrameBounds::lower)
+      .def_readwrite("upper", &FrameBounds::upper);
+
   py::class_<Collision_manager_pinocchio>(m, "Collision_manager_pinocchio")
       .def(py::init<>())
       .def("set_urdf_filename", &Collision_manager_pinocchio::set_urdf_filename)
@@ -310,12 +330,60 @@ PYBIND11_MODULE(pydynorrt, m) {
            &Collision_manager_pinocchio::set_robots_model_path)
       .def("build", &Collision_manager_pinocchio::build)
       .def("is_collision_free", &Collision_manager_pinocchio::is_collision_free)
+      .def("set_frame_bounds", &Collision_manager_pinocchio::set_frame_bounds)
+      .def("set_edge_parallel", &Collision_manager_pinocchio::set_edge_parallel)
+      .def("is_collision_free_set",
+           [](Collision_manager_pinocchio &this_object,
+              const std::vector<Eigen::VectorXd> &q_set,
+              bool stop_at_first_collision) {
+             int counter_infeas_out = 0;
+             int counter_feas_out = 0;
+             bool out = this_object.is_collision_free_set(
+                 q_set, stop_at_first_collision, &counter_infeas_out,
+                 &counter_feas_out);
+             return std::make_tuple(out, counter_infeas_out, counter_feas_out);
+           })
       .def("reset_counters", &Collision_manager_pinocchio::reset_counters)
       .def("get_num_collision_checks",
            &Collision_manager_pinocchio::get_num_collision_checks)
       .def("get_time_ms", &Collision_manager_pinocchio::get_time_ms);
 
+  using PathShortCut_RX = PathShortCut<RX, -1>;
+
+  py::class_<PathShortCut_RX>(m, "PathShortCut_RX")
+      .def(py::init<>())
+      .def("set_bounds_to_state", &PathShortCut_RX::set_bounds_to_state)
+      .def("set_is_collision_free_fun",
+           &PathShortCut_RX::set_is_collision_free_fun)
+      .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
+      .def("set_is_collision_free_fun_from_manager",
+           [](PathShortCut_RX &planner,
+              Collision_manager_pinocchio &col_manager) {
+             planner.set_is_collision_free_fun([&](const auto &q) {
+               return col_manager.is_collision_free(q);
+             });
+           })
+      .def("get_path", &PathShortCut_RX::get_path)
+      .def("init", &PathShortCut_RX::init)
+      .def("get_fine_path", &PathShortCut_RX::get_fine_path)
+      .def("get_planner_data",
+           [](PathShortCut_RX &this_object) {
+             json j;
+             this_object.get_planner_data(j);
+             return j;
+           })
+      .def("check_internal", &PathShortCut_RX::check_internal)
+      .def("reset_internal", &PathShortCut_RX::reset_internal)
+      .def("set_initial_path", &PathShortCut_RX::set_initial_path)
+      .def("shortcut", &PathShortCut_RX::shortcut);
+
   m.def("srand", [](int seed) { std::srand(seed); });
+  m.def("srandtime", []() { std::srand(time(0)); });
   m.def("rand", []() { return std::rand(); });
   m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
+  // m.def( "path_shortcut_v1", &path_shortcut_v1<Eigen::VectorXd,
+  // dynotree::Rn<double, -1>, std::function<bool(const Eigen::VectorXd &)>);
+  //
+  // m.def( "path_shortcut_v1b", &path_shortcut_v1b<Eigen::VectorXd,
+  // dynotree::Rn<double, -1>>);
 }

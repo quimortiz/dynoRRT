@@ -147,11 +147,11 @@ class CMakeBuild(build_ext):
         cmake_args += [
             "-DCMAKE_BUILD_TYPE=Release",
             "-DBUILD_PYRRT=1",
-            "-DBoost_USE_STATIC_LIBS=1",
-            "-DBUILD_SHARED_LIBS=0",
+            # "-DBoost_USE_STATIC_LIBS=1",
+            # "-DBUILD_SHARED_LIBS=0",
             # "-DPYTHON_EXECUTABLE=/opt/python/cp38-cp38/bin/python",
-            "-DBoost_CHRONO_LIBRARY_RELEASE=/usr/local/lib/libboost_chrono.a",
-            "-DUSE_ZLIBSTATIC=1",
+            # "-DBoost_CHRONO_LIBRARY_RELEASE=/usr/local/lib/libboost_chrono.a",
+            # "-DUSE_ZLIBSTATIC=1",
         ]
 
         subprocess.run(
@@ -173,7 +173,7 @@ class CMakeBuild(build_ext):
 # long_description = (this_directory / "README.md").read_text()
 setup(
     name="pydynorrt",
-    version="0.0.9",
+    version="0.0.10",
     author="Joaquim Ortiz-Haro",
     author_email="quimortiz21@gmail.com",
     description="C++/Python Sample Based Motion Planning for Robotics",

@@ -1,0 +1,28 @@
+{
+  "lb": [
+    0,
+    0
+  ],
+  "ub": [
+    6,
+    6
+  ],
+  "start": [
+    3.8,
+    3,
+    0
+  ],
+  "goal": [
+    5.2,
+    3.0,
+    0
+  ],
+  "urdf": "/models/unicycle_bugtrap.urdf",
+  "srdf": "/models/unicycle_bugtrap.srdf",
+  "state_space": [
+    "Rn:2",
+    "SO2"
+  ],
+  "base_path": "src/python/pydynorrt/data/",
+  "idx_vis_name": "base_link"
+}

@@ -32,6 +32,25 @@ cd build
 ./test_dynorrt --log_sink=z.log  -- ../ _deps/dynobench-src/
 ```
 
+## Local Build
+
+```bash
+CMAKE_PREFIX_PATH=/opt/openrobots/ python3 -m build
+cd dist
+pip install pydynorrt-0.0.9-cp310-cp310-linux_x86_64.whl --force-reinstall              ```
+
+## Dirty fast dev
+
+After changing c++, build pybindings and copy by hand
+```
+cp bindings/python/pydynorrt.cpython-310-x86_64-linux-gnu.so /home/quim/envs/mim/lib/python3.10/site-packages/pydynorrt
+```
+
+
+```Create a PIP Package
+
+```
+
 # Planners
 
 **Geometric Planners:**
@@ -107,3 +126,40 @@ Release 0.1
 - [ ] Evaluate in MotionBenchMaker
 - [ ] Offer problem as two files (robot vs. environment)
 - [ ] Integrate in Dynoplan
+
+# Local Dev
+
+
+from the root of repo:
+
+```
+docker run -it --network common  -v  (pwd):/io   quay.io/pypa/manylinux2014_x86_64
+```
+
+inside docker:
+
+```
+bash /io/install_all_docker.sh
+```
+
+then, i can create a custom build directory
+
+and
+
+```
+bash ../build_cmd.sh
+```
+
+
+or directly use the setup.py of python
+
+
+To build all the wheels:
+
+run inside docker, in the /io folder.
+
+Currently: I have issues with old version of hpp-fcl and pinocchio. TODO: fix this!
+
+```
+bash build-wheels.sh
+```

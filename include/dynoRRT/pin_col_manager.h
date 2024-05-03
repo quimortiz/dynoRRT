@@ -6,6 +6,8 @@
 #include <Eigen/Dense>
 #include <boost/make_shared.hpp>
 
+#include <hpp/fcl/collision_object.h>
+
 namespace dynorrt {
 
 struct PinExternalObstacle {
@@ -15,6 +17,13 @@ struct PinExternalObstacle {
   Eigen::VectorXd data;
   Eigen::VectorXd translation;
   Eigen::VectorXd rotation_angle_axis;
+};
+
+struct FrameBounds {
+  std::string frame_name;
+  Eigen::Vector3d lower;
+  Eigen::Vector3d upper;
+  int frame_id = -1;
 };
 
 class Collision_manager_pinocchio {
@@ -40,6 +49,9 @@ public:
 
   bool is_collision_free(const Eigen::VectorXd &q);
 
+  // one thread, check a list of configurations
+  bool is_collision_free_list(const std::vector<Eigen::VectorXd> qs);
+
   bool is_collision_free_parallel(const Eigen::VectorXd &q, int num_threads);
 
   void reset_counters() {
@@ -53,12 +65,24 @@ public:
                              bool stop_at_first_collision,
                              int *counter_infeas_out, int *counter_feas_out);
 
+  void set_frame_bounds(const std::vector<FrameBounds> &t_frame_bounds) {
+    frame_bounds = t_frame_bounds;
+
+    for (auto &fb : frame_bounds) {
+      fb.frame_id = model.getFrameId(fb.frame_name);
+    }
+  }
+
+  bool is_inside_frame_bounds(const Eigen::VectorXd &q);
+
 private:
   int num_threads_edges = -1;
   std::string urdf_filename;
   std::string srdf_filename;
   std::string env_urdf;
   std::string robots_model_path;
+
+  std::vector<FrameBounds> frame_bounds;
 
   std::vector<PinExternalObstacle> obstacles;
   pinocchio::Model model;

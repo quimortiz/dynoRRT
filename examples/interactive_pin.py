@@ -49,19 +49,21 @@ from pinocchio.shortcuts import createDatas
 # robot = "robots/ur_description/urdf/ur5_two_robots.urdf"
 
 
-robots = "/home/quim/stg/dynoRRT/src/python/pydynorrt/data/models/unicycle_parallel_park.urdf"
+# robots = "/home/quim/stg/dynoRRT/src/python/pydynorrt/data/models/unicycle_parallel_park.urdf"
 
+robots = "/home/quim/code/dynoRRT/src/python/pydynorrt/data/models/iiwa.urdf"
 
 # robot = "/home/quim/stg/dynoRRT/benchmark/models/se3_window.urdf"
 
 robot = pin.RobotWrapper.BuildFromURDF(
-    robots
+    robots,
     # "benchmark/models/point_payload_two_robots.urdf"
     # base_path + robot,
     # robot
-    # base_path + "/
+    # # base_path + "/
     #     "robots/ur_description/urdf/ur5_robot_with_box.urdf",
     # base_path + "robots/ur_description/meshes/",
+    "/home/quim/code/dynoRRT/src/python/pydynorrt/data/models/",
     # base_path + "robots/ur_description/meshes/",
 )
 
@@ -70,16 +72,31 @@ visual_model = robot.visual_model
 model = robot.model
 
 viz = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
+viz.display_frames = False
 viz.initViewer()
+
 pin_more._loadViewerModel(viz)
 
-start = np.array([0.7, 0.8, 0])  # x,y,theta
-goal = np.array([1.9, 0.3, 0])  # x,y,theta
+# start = np.array([0.7, 0.8, 0])  # x,y,theta
+# goal = np.array([1.9, 0.3, 0])  # x,y,theta
 
-q_i = start
+start = np.zeros(7)
+goal = np.zeros(7)
+
+
+# q_i = np.array( [-0.31415927,  0.9424778,   0.31415927, -2.,  0.,          0.,
+#   0.  ])
+
+
+q_i = np.array([1.35663706, 1.0, -0.62831853, -1.88495559, 0.0, 0.0, 0.0])
+
+
+# q_i = start
 # np.zeros(robot.nq)
 
-q_g = goal
+
+q_g = np.array([0.0, 0.9424778, 0.0, -0.9424778, -0.31415927, 1.25663706, 0.31415927])
+
 
 # q_i = np.array([-0.62831853, 0.0, 0.0, 0.0, 0.9424778, 0.0, -0.9424778])
 #
@@ -116,10 +133,12 @@ if show_start_and_goal:
     viz_start = MeshcatVisualizer(
         robot.model, robot.collision_model, robot.visual_model
     )
+    viz_start.display_frames = False
     viz_start.initViewer(viz.viewer)
     pin_more._loadViewerModel(viz_start, "start", color=[0.0, 1.0, 0.0, 0.5])
 
     viz_goal = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
+    viz_goal.display_frames = False
     viz_goal.initViewer(viz.viewer)
     pin_more._loadViewerModel(viz_goal, "goal", color=[1.0, 0.0, 0.0, 0.5])
 
