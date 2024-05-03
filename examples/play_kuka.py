@@ -65,7 +65,7 @@ def solve_ik_with_scipy(x0):
     return res
 
 
-base_path = "/home/quim/code/dynoRRT/src/python/pydynorrt/data/"
+base_path = pyrrt.DATADIR 
 urdf = base_path + "models/iiwa.urdf"
 srdf = base_path + "models/kuka.srdf"
 

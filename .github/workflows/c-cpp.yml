@@ -99,3 +99,8 @@ jobs:
           pip3 install pin example-robot-data meshcat scipy tqdm
           python3 examplesPIN/my_rrt.py
           python3 examples/play_kuka.py
+
+    - name: Run Notebook
+      run: |
+          python3 notebooks/tutorial0.py
+
