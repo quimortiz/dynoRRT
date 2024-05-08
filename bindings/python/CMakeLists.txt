@@ -12,14 +12,19 @@ FetchContent_MakeAvailable(pybind11)
 pybind11_add_module(pydynorrt py.cpp)
 target_link_libraries(
   pydynorrt
-  PUBLIC 
-  Boost::python
-  # I tried this to compile against the python bindings. 
-  # this is not necessary locally, and does not help if I compile in docker and then install with pip
-  # /opt/openrobots/lib/python3.10/site-packages/pinocchio/pinocchio_pywrap.cpython-310-x86_64-linux-gnu.so
-  # /usr/local/lib/python3.12/site-packages/pinocchio/pinocchio_pywrap.cpython-312-x86_64-linux-gnu.so.2.7.1
-  dynorrt::dynorrt dynotree::dynotree Eigen3::Eigen toml11::toml11
-          pinocchio::pinocchio dynorrt::pin_col_manager)
+  PUBLIC
+    Boost::python
+    # I tried this to compile against the python bindings. this is not necessary
+    # locally, and does not help if I compile in docker and then install with
+    # pip
+    # /opt/openrobots/lib/python3.10/site-packages/pinocchio/pinocchio_pywrap.cpython-310-x86_64-linux-gnu.so
+    # /usr/local/lib/python3.12/site-packages/pinocchio/pinocchio_pywrap.cpython-312-x86_64-linux-gnu.so.2.7.1
+    dynorrt::dynorrt
+    dynotree::dynotree
+    Eigen3::Eigen
+    toml11::toml11
+    pinocchio::pinocchio
+    dynorrt::pin_col_manager)
 
 set_target_properties(
   pydynorrt

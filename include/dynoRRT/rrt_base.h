@@ -16,7 +16,8 @@ public:
   using state_cref_t = const Eigen::Ref<const state_t> &;
   using tree_t = dynotree::KDTree<int, DIM, 32, double, StateSpace>;
   using is_collision_free_fun_t = std::function<bool(state_t)>;
-  using is_collision_free_fun_parallel_t = std::function<bool(const std::vector<state_t> & )>;
+  using is_collision_free_fun_parallel_t =
+      std::function<bool(const std::vector<state_t> &)>;
   using sample_fun_t = std::function<void(state_ref_t)>;
   using edge_t = std::pair<state_t, state_t>;
 
@@ -93,12 +94,10 @@ public:
     is_collision_free_fun = t_is_collision_free_fun;
   }
 
-  void
-  set_is_collision_free_fun_parallel(is_collision_free_fun_parallel_t t_is_collision_free_fun_parallel) {
+  void set_is_collision_free_fun_parallel(
+      is_collision_free_fun_parallel_t t_is_collision_free_fun_parallel) {
     is_collision_free_fun_parallel = t_is_collision_free_fun_parallel;
   }
-
-
 
   void set_sample_fun(sample_fun_t t_sample_fun) {
     sample_fun = t_sample_fun;
@@ -258,7 +257,6 @@ public:
     dev_mode_parallel = t_dev_mode_parallel;
   }
 
-
 protected:
   StateSpace state_space;
   state_t start;
@@ -272,11 +270,12 @@ protected:
     return false;
   };
 
-  is_collision_free_fun_parallel_t is_collision_free_fun_parallel = [](const auto &) {
-    THROW_PRETTY_DYNORRT("You have to define a collision free fun parallel!");
-    return false;
-  };
-
+  is_collision_free_fun_parallel_t is_collision_free_fun_parallel =
+      [](const auto &) {
+        THROW_PRETTY_DYNORRT(
+            "You have to define a collision free fun parallel!");
+        return false;
+      };
 
   sample_fun_t sample_fun;
   bool custom_sample_fun = false;

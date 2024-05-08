@@ -31,7 +31,6 @@ using json = nlohmann::json;
 // Continue here!
 // template <typename StateSpace, int DIM>
 
-
 template <typename StateSpace, int DIM>
 class LazyPRM : public PRM<StateSpace, DIM> {
   using Base = PlannerBase<StateSpace, DIM>;
@@ -369,8 +368,5 @@ protected:
   // std::vector<std::pair<int, int>> check_edges_invalid;
   LazyPRM_options options;
 };
-
-
-
 
 } // namespace dynorrt

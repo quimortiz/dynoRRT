@@ -350,6 +350,4 @@ protected:
   std::function<void(state_t &, const state_t &, trajectory_t &)> expand_fun;
 };
 
-
-
 } // namespace dynorrt

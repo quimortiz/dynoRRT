@@ -1,6 +1,5 @@
 #pragma once
 #include <algorithm>
-#include <iostream>
 #include <chrono>
 #include <cstdlib>
 #include <ctime>
@@ -26,7 +25,6 @@
 // a doube?
 namespace dynorrt {
 using json = nlohmann::json;
-
 
 template <typename StateSpace, int DIM>
 class BiRRT : public PlannerBase<StateSpace, DIM> {
@@ -294,6 +292,5 @@ protected:
   std::vector<int> parents_backward;
   std::vector<typename Base::state_t> configs_backward;
 };
-
 
 } // namespace dynorrt

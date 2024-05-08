@@ -181,7 +181,7 @@ public:
       bool is_collision_free = true;
       if (this->dev_mode_parallel) {
         is_collision_free = is_edge_collision_free_parallel(
-             this->x_near, this->x_new, col_parallel, this->state_space,
+            this->x_near, this->x_new, col_parallel, this->state_space,
             options.collision_resolution);
       } else {
         is_collision_free = is_edge_collision_free(

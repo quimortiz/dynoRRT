@@ -1,7 +1,7 @@
 
 #include "pinocchio/algorithm/geometry.hpp"
-#include <string>
 #include "pinocchio/algorithm/joint-configuration.hpp"
+#include <string>
 
 #include <iostream>
 
