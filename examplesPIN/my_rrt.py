@@ -13,12 +13,18 @@ import sys
 
 sys.path.append(".")
 
+# NOTE: this ur5 robot is using meshes for collision checking.
+# If we change the meshes for primitive shapes, we
+# will get much faster collision checking
 robot = load_ur5_with_obstacles(reduced=True)
 
 
-# The next few lines initialize a 3D viewer.
-
-# In[4]:
+# robot.collision_model.addAllCollisionPairs()
+import pydynorrt
+cm = pydynorrt.Collision_manager_pinocchio()
+cm.set_edge_parallel(4)
+pydynorrt.set_pin_model(cm,robot.model, robot.collision_model)
+cm.set_use_pool(True)
 
 
 viz = MeshcatVisualizer(robot)
@@ -47,6 +53,13 @@ viz_goal.loadViewerModel(rootNodeName="goal")
 viz_goal.display(q_goal)
 
 
+assert cm.is_collision_free(q_start)
+assert cm.is_collision_free(q_goal)
+# cm.is_collision_free(np.zeros(2))
+# cm.is_collision_free(np.zeros(2))
+# cm = pydynorrt.Collision_manager_pinocchio()
+# pydynorrt.set_pin_model(cm,robot.model, robot.collision_model)
+
 target_pos = np.array([0.5, 0.5])
 print("the q_goal is touching the target pos")
 target = Target(viz, position=target_pos)
@@ -58,7 +71,12 @@ def coll(q):
         robot.model, robot.data, robot.collision_model, robot.collision_data, q
     )
     out = pin.computeCollisions(robot.collision_model, robot.collision_data, False)
-    print(f"evaluating collision, q ={q} out={out} ")
+    # print(f"evaluating collision, q ={q} out={out} ")
+
+    # assert cm.is_collision_free(q) != out
+
+
+
     return out
 
 
@@ -71,22 +89,29 @@ config_string = """
 [RRT_options]
 max_it = 1000
 max_step = 1.0
-collision_resolution = 0.1
+collision_resolution = 0.01
 """
 
 # rrt_options = pydynorrt.RRT_options()
-
+pydynorrt.srand(0)
 rrt = pydynorrt.PlannerRRT_Rn()
 rrt.set_start(q_start)
 rrt.set_goal(q_goal)
 rrt.init(2)
-rrt.set_is_collision_free_fun(lambda x: not coll(x))
+rrt.set_dev_mode_parallel(True)
+# rrt.set_is_collision_free_fun(lambda x: not coll(x))
+# rrt.
+rrt.set_is_collision_free_fun_from_manager(cm)
+rrt.set_is_collision_free_fun_from_manager_parallel(cm)
 lb = np.array([-3.2, -3.2])
 ub = np.array([3.2, 3.2])
 rrt.set_bounds_to_state(lb, ub)
 rrt.read_cfg_string(config_string)
 
+tic = time.time()
 out = rrt.plan()
+toc = time.time()
+print("Planning time", toc - tic)
 path = rrt.get_path()
 fine_path = rrt.get_fine_path(0.1)
 valid = rrt.get_configs()

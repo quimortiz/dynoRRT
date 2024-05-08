@@ -1,12 +1,29 @@
+#pragma once
+
 #include "pinocchio/parsers/srdf.hpp"
 #include "pinocchio/parsers/urdf.hpp"
-
 #include "pinocchio/algorithm/geometry.hpp"
-
 #include <Eigen/Dense>
 #include <boost/make_shared.hpp>
 
 #include <hpp/fcl/collision_object.h>
+
+//
+//
+// #include "BS_thread_pool.hpp"
+
+
+#include "BS_thread_pool.hpp"
+
+
+
+#include "pinocchio/multibody/fwd.hpp"
+#include <Eigen/Dense>
+#include <boost/make_shared.hpp>
+
+#include <hpp/fcl/collision_object.h>
+#include <string>
+#include <vector>
 
 namespace dynorrt {
 
@@ -75,6 +92,14 @@ public:
 
   bool is_inside_frame_bounds(const Eigen::VectorXd &q);
 
+  bool is_collision_free_v2(const Eigen::VectorXd &q, int thread_id);
+
+  void set_pin_model(pinocchio::Model &t_model,
+                     pinocchio::GeometryModel &t_geomodel);
+
+  void set_pin_model0(pinocchio::Model &t_model);
+  void set_pin_geomodel0(pinocchio::GeometryModel &t_geomodel);
+  void set_use_pool(bool use) { use_pool = use; }
 private:
   int num_threads_edges = -1;
   std::string urdf_filename;
@@ -98,5 +123,11 @@ private:
   int num_collision_checks = 0;
   bool aabb_compute_done = false;
   std::vector<hpp::fcl::CollisionObject> collision_objects;
+  std::vector<std::vector<hpp::fcl::CollisionObject>>
+      collision_objects_parallel;
+
+  std::unique_ptr<BS::thread_pool> pool;
+
+  bool use_pool = false;
 };
 } // namespace dynorrt

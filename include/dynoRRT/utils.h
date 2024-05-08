@@ -2,6 +2,7 @@
 
 #include "dynorrt_macros.h"
 #include <algorithm>
+#include <queue>
 
 namespace dynorrt {
 
@@ -164,13 +165,136 @@ bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
     return true;
   }
   int N = int(d / resolution) + 1;
+  // for (int j = 1; j < N; j++) {
+  //   state_space.interpolate(x_start, x_end, double(j) / N, tmp);
+  //   if (!is_collision_free_fun(tmp)) {
+  //     return false;
+  //   }
+  //
+  // }
+
+  std::vector<T> path;
+  path.reserve(N);
+
   for (int j = 1; j < N; j++) {
     state_space.interpolate(x_start, x_end, double(j) / N, tmp);
-    if (!is_collision_free_fun(tmp)) {
+    path.push_back(tmp);
+  }
+
+  std::vector<T> path_order;
+  path_order.reserve(N);
+
+  using Segment = std::pair<size_t, size_t>;
+  std::queue<Segment> queue;
+
+  int index_start = 0;
+  int index_last = path.size() - 1;
+  queue.push(Segment{index_start, index_last});
+
+  while (!queue.empty()) {
+    auto [si, gi] = queue.front();
+    queue.pop();
+    size_t ii = int((si + gi) / 2);
+    if (ii == si || ii == gi) {
+      continue;
+    } else {
+      path_order.push_back(path.at(ii));
+      if (gi - si < 2) {
+        continue;
+      } else {
+        queue.push(Segment{ii, gi});
+        queue.push(Segment{si, ii});
+      }
+    }
+  }
+
+  path_order.push_back(path.at(index_start));
+  path_order.push_back(path.at(index_last));
+
+  // std::cout << "adding index " << index_start << std::endl;
+  // std::cout << "adding index " << index_last << std::endl;
+
+  // std::cout << "path.size(): " << path.size() << std::endl;
+  // std::cout << "path_order.size(): " << path_order.size() << std::endl;
+
+  // for (auto &x : path_order) {
+  //   if (!is_collision_free_fun(x)) {
+  //     return false;
+  //   }
+  // }
+
+  for (auto &x : path_order) {
+    if (!is_collision_free_fun(x)) {
       return false;
     }
   }
+
+  // bool stop_at_first_collision = true;
+  // return is_collision_free_fun(path);
+
   return true;
+}
+
+template <typename T, typename StateSpace, typename Fun>
+bool is_edge_collision_free_parallel(T x_start, T x_end,
+                                     Fun &is_collision_free_fun,
+                                     StateSpace state_space, double resolution,
+                                     bool check_end_points = true) {
+
+  // TODO: can I avoid memory allocation?
+  std::vector<T> path;
+  if (check_end_points &&
+      !is_collision_free_fun(std::vector<T>{x_end, x_start})) {
+    // (!is_collision_free_fun(std::vector<T>{x_end}) ||
+    // !is_collision_free_fun(std::vector<T>{x_start}))) {
+    return false;
+  }
+
+  T tmp;
+  tmp.resize(x_start.size());
+
+  double d = state_space.distance(x_start, x_end);
+  if (d < resolution) {
+    return true;
+  }
+  int N = int(d / resolution) + 1;
+  path.reserve(N);
+  for (int j = 1; j < N; j++) {
+    state_space.interpolate(x_start, x_end, double(j) / N, tmp);
+    path.push_back(tmp);
+  }
+
+  std::vector<T> path_order;
+  path_order.reserve(N);
+
+  using Segment = std::pair<size_t, size_t>;
+  std::queue<Segment> queue;
+
+  int index_start = 0;
+  int index_last = path.size() - 1;
+  queue.push(Segment{index_start, index_last});
+
+  while (!queue.empty()) {
+    auto [si, gi] = queue.front();
+    queue.pop();
+    size_t ii = int((si + gi) / 2);
+    if (ii == si || ii == gi) {
+      continue;
+    } else {
+      path_order.push_back(path.at(ii));
+      if (gi - si < 2) {
+        continue;
+      } else {
+        queue.push(Segment{ii, gi});
+        queue.push(Segment{si, ii});
+      }
+    }
+  }
+
+  path_order.push_back(path.at(index_start));
+  path_order.push_back(path.at(index_last));
+
+  return is_collision_free_fun(path_order);
 }
 
 // NOTE: it is recommended to call this function with a "fine path",
@@ -340,6 +464,42 @@ inline void ensure_connected_tree_with_no_cycles(
       CHECK_PRETTY_DYNORRT__(visited[i]);
     }
   }
+}
+
+bool inline ensure_childs_and_parents(
+    const std::vector<std::set<int>> &children,
+    const std::vector<int> &parents) {
+
+  if (parents.size() != children.size()) {
+    MESSAGE_PRETTY_DYNORRT("parents.size() != children.size()");
+    return false;
+  }
+
+  for (size_t i = 0; i < parents.size(); i++) {
+    if (parents[i] == -1) {
+      continue;
+    }
+    if (children[parents[i]].find(i) == children[parents[i]].end()) {
+      // MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
+      // std::cout << "parents[i] " << parents[i] << std::endl;
+      // std::cout << "children[parents[i]] " << std::endl;
+      // for (auto &x : children[parents[i]]) {
+      //   std::cout << x << " ";
+      // }
+      return false;
+    }
+  }
+
+  for (size_t i = 0; i < children.size(); i++) {
+    // MESSAGE_PRETTY_DYNORRT("i " + std::to_string(i));
+    for (auto &child : children[i]) {
+      if (parents[child] != i) {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }
 
 template <typename StateSpace, int DIM> class PathShortCut {
@@ -592,6 +752,62 @@ protected:
       valid_edges; // TODO: only with a flag
   std::vector<std::pair<state_t, state_t>>
       invalid_edges; // TODO: only rrth a flag
+};
+
+template <int DIM_state = -1, int DIM_control = -1> struct Trajectory {
+  using state_t = Eigen::Matrix<double, DIM_state, 1>;
+  using control_t = Eigen::Matrix<double, DIM_control, 1>;
+  std::vector<state_t> states;
+  std::vector<control_t> controls;
+};
+
+template <int DIM_state = -1, int DIM_control = -1>
+void to_json(json &j, const Trajectory<DIM_state, DIM_control> &p) {
+  j = json{{"states", p.states}, {"controls", p.controls}};
+}
+
+template <int DIM_state = -1, int DIM_control = -1>
+void from_json(const json &j, Trajectory<DIM_state, DIM_control> &p) {
+  j.at("states").get_to(p.states);
+  j.at("controls").get_to(p.controls);
+}
+
+// NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Trajectory<-1,-1>, states, controls);
+
+// json auto serialization with macro
+
+template <int DIM_state = -1, int DIM_control = -1>
+inline Trajectory<DIM_state, DIM_control> trace_back_full_traj(
+    std::vector<int> parents, int i,
+    std::vector<Trajectory<DIM_state, DIM_control>> small_trajectories) {
+
+  Trajectory<DIM_state, DIM_control> full_trajectory;
+  int id = i;
+  std::vector<int> path_id;
+  path_id.push_back(id);
+  while (parents[id] != -1) {
+    id = parents[id];
+    path_id.push_back(id);
+  }
+
+  std::reverse(path_id.begin(), path_id.end());
+
+  for (size_t j = 1; j < path_id.size(); j++) {
+    int id = path_id.at(j);
+    full_trajectory.controls.insert(full_trajectory.controls.end(),
+                                    small_trajectories[id].controls.begin(),
+                                    small_trajectories[id].controls.end());
+    if (j == path_id.size() - 1) {
+      full_trajectory.states.insert(full_trajectory.states.end(),
+                                    small_trajectories[id].states.begin(),
+                                    small_trajectories[id].states.end());
+    } else {
+      full_trajectory.states.insert(full_trajectory.states.end(),
+                                    small_trajectories[id].states.begin(),
+                                    small_trajectories[id].states.end() - 1);
+    }
+  }
+  return full_trajectory;
 };
 
 } // namespace dynorrt

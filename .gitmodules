@@ -1,3 +1,6 @@
 [submodule "dynotree"]
 	path = dynotree
 	url = https://github.com/quimortiz/dynotree
+[submodule "thread-pool"]
+	path = thread-pool
+	url = https://github.com/bshoshany/thread-pool
