@@ -102,7 +102,7 @@ add_subdirectory(dynotree)
 target_link_libraries(pin_col_manager dynorrt::dynorrt pin_with_zlib
                       OpenMP::OpenMP_CXX)
 
-target_include_directories(pin_col_manager PRIVATE thread-pool/include)
+target_include_directories(pin_col_manager PUBLIC thread-pool/include)
 
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)

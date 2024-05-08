@@ -1,9 +1,8 @@
-#include <pinocchio/bindings/python/pybind11.hpp>
-
-// This lines forces clang-format to keep the include split here
-#include <pybind11/pybind11.h>
+#ifdef PIN_PYTHON_OBJECT
 
 #include <boost/python.hpp>
+#include <pinocchio/bindings/python/pybind11.hpp>
+#include <pybind11/pybind11.h>
 
 #define SCALAR double
 #define OPTIONS 0
@@ -49,47 +48,31 @@ void testModel_manual(pybind11::object model) {
 
 using pinocchio::python::make_pybind11_function;
 
-#if 0
+void set_pin_model(dynorrt::Collision_manager_pinocchio &col_manager,
+                   pinocchio::Model &t_model,
+                   pinocchio::GeometryModel &t_geomodel) {
+  col_manager.set_pin_model(t_model, t_geomodel);
+}
 
-PYBIND11_MODULE(pydynorrt, m) {
-  using namespace pybind11::literals;  // For _a
+void set_pin_model0(dynorrt::Collision_manager_pinocchio &col_manager,
+                    pinocchio::Model &t_model) {
 
-  pybind11::module::import("pinocchio");
-  m.def("testModel_manual", testModel_manual);
+  // col_manager.set_pin_model0(t_model);
+}
 
-  m.def("test1", make_pybind11_function(&test1));
-  m.def("make_model", make_pybind11_function(&make_model));
-  // m.def("return_same_model_broken", make_pybind11_function(&return_same_model_copy),
-  //       pybind11::return_value_policy::reference);
-  // m.def("return_same_model", make_pybind11_function(&return_same_model_nocopy),
-  //       pybind11::return_value_policy::reference);
-  //
-  m.def("get_ptr", make_pybind11_function(&get_ptr<pinocchio::Model>));
-  // m.def("get_se3_ptr", make_pybind11_function(&get_ptr<pinocchio::SE3>));
-  //
-  // m.def("multiply_se3_1", make_pybind11_function(&multiply_se3), "a"_a, "b"_a);
-  // m.def("multiply_se3", make_pybind11_function(&multiply_se3), "a"_a,
-  //       "b"_a = pinocchio::python::default_arg(pinocchio::SE3::Identity()));
-  m.def("testModel1", make_pybind11_function(&testModel1));
-  // m.def("testModel2", make_pybind11_function(&testModel2));
-  // m.def("testModel3", make_pybind11_function(&testModel3));
-  //
-  // pybind11::module no_wrapper = m.def_submodule("no_wrapper");
-  // no_wrapper.def("multiply_se3", &multiply_se3, "a"_a,
-  //                "b"_a
-  //                // does not work = pinocchio::SE3::Identity()
-  //                );
-  // no_wrapper.def("testModel1", &testModel1);
-  // no_wrapper.def("testModel2", &testModel2);
-  // no_wrapper.def("testModel3", &testModel3);
+void set_pin_geomodel0(dynorrt::Collision_manager_pinocchio &col_manager,
+                       pinocchio::GeometryModel &t_geomodel) {
+  // col_manager.set_pin_geomodel0(t_geomodel);
+}
+
+void model_test(pinocchio::Model &model) {
+  std::cout << "model_test" << std::endl;
+  std::cout << "model.nq" << model.nq << std::endl;
+  std::cout << "model.nv" << model.nv << std::endl;
 }
 
 #endif
 
-#if 1
-
-// #include "dynotree/KDTree.h"
-// #include "dynoRRT/rrt_base.h"
 #include "dynoRRT/birrt.h"
 #include "dynoRRT/kinorrt.h"
 #include "dynoRRT/lazyprm.h"
@@ -122,8 +105,6 @@ using namespace dynorrt;
 // #define OPTIONS 0
 // #define JOINT_MODEL_COLLECTION ::pinocchio::JointCollectionDefaultTpl
 // #include <pinocchio/bindings/python/pybind11-all.hpp>
-
-using pinocchio::python::make_pybind11_function;
 
 // template <typename T>
 // void declare_tree(py::module &m, const std::string &name) {
@@ -196,20 +177,6 @@ using pinocchio::python::make_pybind11_function;
 // }
 
 #include <iostream>
-
-void set_pin_model(dynorrt::Collision_manager_pinocchio &col_manager,
-                   pinocchio::Model &t_model,
-                   pinocchio::GeometryModel &t_geomodel) {
-  col_manager.set_pin_model(t_model, t_geomodel);
-}
-
-void model_test(pinocchio::Model &model) {
-  std::cout << "model_test" << std::endl;
-  std::cout << "model.nq" << model.nq << std::endl;
-  std::cout << "model.nv" << model.nv << std::endl;
-}
-
-// m.def("get_ptr", make_pybind11_function(&get_ptr<pinocchio::Model>));
 
 template <typename StateSpace, int dim>
 void add_planners_to_module(py::module &m, const std::string &name) {
@@ -310,14 +277,9 @@ void add_planners_to_module(py::module &m, const std::string &name) {
   // py
 };
 
-// void testModel1(pinocchio::Model& model) {
-//   std::cout << "testModel1: " << &model << std::endl;
-//   model.name = "testModel1: I modified the model name";
-// }
-
 PYBIND11_MODULE(pydynorrt, m) {
 
-  // pybind11::module::import("pinocchio");
+  pybind11::module::import("pinocchio");
   using namespace pybind11::literals; // For _a
 
   m.doc() = R"pbdoc(
@@ -383,6 +345,7 @@ PYBIND11_MODULE(pydynorrt, m) {
 
   add_planners_to_module<Combined, -1>(m, "Combined");
   add_planners_to_module<dynotree::Rn<double, -1>, -1>(m, "Rn");
+
   // add_planners_to_module<dynotree::Rn<double, 12>, 12>(m, "R12");
   // add_planner_to_module<dynotree::Rn<double, -1>, -1>(m, "Rn");
   // add_planner_to_module<dynotree::Rn<double, 2>, 2>(m, "R2");
@@ -525,16 +488,9 @@ PYBIND11_MODULE(pydynorrt, m) {
   m.def("rand", []() { return std::rand(); });
   m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
 
+#ifdef PIN_PYTHON_OBJECT
   m.def("set_pin_model", make_pybind11_function(&set_pin_model));
-
-  // m.def("testModel1", make_pybind11_function(&testModel1));
-  // m.def("model_test", make_pybind11_function(&model_test));
-
-  // m.def( "path_shortcut_v1", &path_shortcut_v1<Eigen::VectorXd,
-  // dynotree::Rn<double, -1>, std::function<bool(const Eigen::VectorXd
-  // &)>);
-  //
-  // m.def( "path_shortcut_v1b", &path_shortcut_v1b<Eigen::VectorXd,
-  // dynotree::Rn<double, -1>>);
-}
+  m.def("set_pin_model0", make_pybind11_function(&set_pin_model0));
+  m.def("set_pin_geomodel0", make_pybind11_function(&set_pin_geomodel0));
 #endif
+}

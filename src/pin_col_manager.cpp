@@ -328,77 +328,81 @@ bool Collision_manager_pinocchio::is_collision_free_set(
     THROW_PRETTY_DYNORRT("build not done");
   }
 
-  int checks_per_thread = int(q_set.size() / num_threads_edges) + 1;
+  if (this->num_threads_edges > 1) {
 
-  if (num_threads_edges > q_set.size()) {
-    checks_per_thread = 1;
-  }
+    int checks_per_thread = int(q_set.size() / num_threads_edges) + 1;
 
-  std::atomic_bool infeasible_found = false;
-  std::atomic_int counter_infeas = 0;
-  std::atomic_int counter_feas = 0;
+    if (num_threads_edges > q_set.size()) {
+      checks_per_thread = 1;
+    }
 
-  if (!use_pool) {
-    std::vector<std::thread> threads(num_threads_edges);
-    // std::cout << "num_threads_edges: " << num_threads_edges << std::endl;
-    // for (auto &q : q_set) {
-    //   std::cout << "q: " << q.transpose() << std::endl;
-    // }
-    // const std::vector<Eigen::VectorXd> &q_set
+    std::atomic_bool infeasible_found = false;
+    std::atomic_int counter_infeas = 0;
+    std::atomic_int counter_feas = 0;
 
-    for (size_t j = 0; j < num_threads_edges; j++) {
-      auto fun = [&](int thread_id) {
-        for (int i = thread_id; i < q_set.size(); i += num_threads_edges) {
+    if (!use_pool) {
+      std::vector<std::thread> threads(num_threads_edges);
 
-          if (stop_at_first_collision && infeasible_found) {
-            return;
-          } else {
-            num_collision_checks++;
-            if (!is_collision_free_v2(q_set[i], thread_id)) {
-              // if (!this->is_collision_free(q_set[i])) {
-              counter_infeas++;
-              infeasible_found = true;
-              break;
+      for (size_t j = 0; j < num_threads_edges; j++) {
+        auto fun = [&](int thread_id) {
+          for (int i = thread_id; i < q_set.size(); i += num_threads_edges) {
+
+            if (stop_at_first_collision && infeasible_found) {
+              return;
             } else {
-              counter_feas++;
+              num_collision_checks++;
+              if (!is_collision_free_v2(q_set[i], thread_id)) {
+                counter_infeas++;
+                infeasible_found = true;
+                break;
+              } else {
+                counter_feas++;
+              }
             }
           }
-        }
+        };
+        threads[j] = std::thread(fun, j);
       };
-      threads[j] = std::thread(fun, j);
-    };
 
-    for (auto &t : threads) {
-      t.join();
+      for (auto &t : threads) {
+        t.join();
+      }
     }
+
+    else {
+      for (size_t i = 0; i < q_set.size(); i++) {
+        pool->detach_task([&, i] {
+          if (infeasible_found) {
+          } else {
+            auto _thread_id = BS::this_thread::get_index();
+            int thread_id = _thread_id.value();
+            if (!is_collision_free_v2(q_set[i], thread_id)) {
+              infeasible_found = true;
+            }
+          }
+        });
+      };
+
+      pool->wait();
+    }
+
+    if (counter_infeas_out)
+      *counter_infeas_out = counter_infeas.load();
+    if (counter_feas_out)
+      *counter_feas_out = counter_feas.load();
+
+    // return true;
+    return !infeasible_found;
   }
 
   else {
-    // std::vector<std::future<void>> futures;
-    // futures.reserve(q_set.size());
-    for (size_t i = 0; i < q_set.size(); i++) {
-      pool->detach_task([&, i] {
-        if (infeasible_found) {
-        } else {
-          auto _thread_id = BS::this_thread::get_index();
-          int thread_id = _thread_id.value();
-          if (!is_collision_free_v2(q_set[i], thread_id)) {
-            infeasible_found = true;
-          }
-        }
-      });
-    };
-
-    pool->wait();
+    for (auto &q : q_set) {
+      if (!is_collision_free(q)) {
+        return false;
+      }
+    }
+    return true;
   }
-
-  if (counter_infeas_out)
-    *counter_infeas_out = counter_infeas.load();
-  if (counter_feas_out)
-    *counter_feas_out = counter_feas.load();
-
-  // return true;
-  return !infeasible_found;
 }
 
 bool Collision_manager_pinocchio::is_collision_free_parallel(
@@ -418,5 +422,14 @@ bool Collision_manager_pinocchio::is_collision_free_parallel(
              1000.0;
   return out;
 };
+
+void Collision_manager_pinocchio::set_pin_model0(pinocchio::Model &t_model) {
+  this->model = t_model;
+}
+
+void Collision_manager_pinocchio::set_pin_geomodel0(
+    pinocchio::GeometryModel &t_geomodel) {
+  this->geom_model = t_geomodel;
+}
 
 } // namespace dynorrt

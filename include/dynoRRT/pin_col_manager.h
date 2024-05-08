@@ -13,7 +13,7 @@
 // #include "BS_thread_pool.hpp"
 
 
-#include "/home/quim/code/dynoRRT/thread-pool/include/BS_thread_pool.hpp"
+#include "BS_thread_pool.hpp"
 
 
 
@@ -97,6 +97,8 @@ public:
   void set_pin_model(pinocchio::Model &t_model,
                      pinocchio::GeometryModel &t_geomodel);
 
+  void set_pin_model0(pinocchio::Model &t_model);
+  void set_pin_geomodel0(pinocchio::GeometryModel &t_geomodel);
   void set_use_pool(bool use) { use_pool = use; }
 private:
   int num_threads_edges = -1;
