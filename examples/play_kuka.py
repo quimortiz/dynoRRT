@@ -65,7 +65,7 @@ def solve_ik_with_scipy(x0):
     return res
 
 
-base_path = pyrrt.DATADIR 
+base_path = pyrrt.DATADIR
 urdf = base_path + "models/iiwa.urdf"
 srdf = base_path + "models/kuka.srdf"
 
