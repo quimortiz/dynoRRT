@@ -1,7 +1,102 @@
+#include <pinocchio/bindings/python/pybind11.hpp>
+
+// This lines forces clang-format to keep the include split here
+#include <pybind11/pybind11.h>
+
+#include <boost/python.hpp>
+
+#define SCALAR double
+#define OPTIONS 0
+#define JOINT_MODEL_COLLECTION ::pinocchio::JointCollectionDefaultTpl
+#include <pinocchio/bindings/python/pybind11-all.hpp>
+
+pinocchio::Model *make_model() {
+  pinocchio::Model *model = new pinocchio::Model;
+  std::cout << "make_model: " << reinterpret_cast<intptr_t>(model) << std::endl;
+  return model;
+}
+
+pinocchio::Model &return_same_model_copy(pinocchio::Model &m) { return m; }
+pinocchio::Model *return_same_model_nocopy(pinocchio::Model &m) { return &m; }
+
+pinocchio::SE3 multiply_se3(pinocchio::SE3 const &a, pinocchio::SE3 const &b) {
+  return a * b;
+}
+
+template <typename T> intptr_t get_ptr(T &m) {
+  std::cout << &m << '\n' << m << std::endl;
+  return reinterpret_cast<intptr_t>(&m);
+}
+
+void test1(int i) { std::cout << "no conversion: " << ' ' << i << std::endl; }
+void testModel1(pinocchio::Model &model) {
+  std::cout << "testModel1: " << &model << std::endl;
+  model.name = "testModel1: I modified the model name";
+}
+intptr_t testModel2(pinocchio::Model &model, int i) {
+  std::cout << "testModel2: " << &model << ' ' << i << std::endl;
+  model.name = "testModel2: I modified the model name";
+  return reinterpret_cast<intptr_t>(&model);
+}
+intptr_t testModel3(pinocchio::Model const &model, int i) {
+  std::cout << "testModel3: " << &model << ' ' << i << std::endl;
+  return reinterpret_cast<intptr_t>(&model);
+}
+
+void testModel_manual(pybind11::object model) {
+  testModel1(pinocchio::python::from<pinocchio::Model &>(model));
+}
+
+using pinocchio::python::make_pybind11_function;
+
+#if 0
+
+PYBIND11_MODULE(pydynorrt, m) {
+  using namespace pybind11::literals;  // For _a
+
+  pybind11::module::import("pinocchio");
+  m.def("testModel_manual", testModel_manual);
+
+  m.def("test1", make_pybind11_function(&test1));
+  m.def("make_model", make_pybind11_function(&make_model));
+  // m.def("return_same_model_broken", make_pybind11_function(&return_same_model_copy),
+  //       pybind11::return_value_policy::reference);
+  // m.def("return_same_model", make_pybind11_function(&return_same_model_nocopy),
+  //       pybind11::return_value_policy::reference);
+  //
+  m.def("get_ptr", make_pybind11_function(&get_ptr<pinocchio::Model>));
+  // m.def("get_se3_ptr", make_pybind11_function(&get_ptr<pinocchio::SE3>));
+  //
+  // m.def("multiply_se3_1", make_pybind11_function(&multiply_se3), "a"_a, "b"_a);
+  // m.def("multiply_se3", make_pybind11_function(&multiply_se3), "a"_a,
+  //       "b"_a = pinocchio::python::default_arg(pinocchio::SE3::Identity()));
+  m.def("testModel1", make_pybind11_function(&testModel1));
+  // m.def("testModel2", make_pybind11_function(&testModel2));
+  // m.def("testModel3", make_pybind11_function(&testModel3));
+  //
+  // pybind11::module no_wrapper = m.def_submodule("no_wrapper");
+  // no_wrapper.def("multiply_se3", &multiply_se3, "a"_a,
+  //                "b"_a
+  //                // does not work = pinocchio::SE3::Identity()
+  //                );
+  // no_wrapper.def("testModel1", &testModel1);
+  // no_wrapper.def("testModel2", &testModel2);
+  // no_wrapper.def("testModel3", &testModel3);
+}
+
+#endif
+
+#if 1
+
 // #include "dynotree/KDTree.h"
 // #include "dynoRRT/rrt_base.h"
+#include "dynoRRT/birrt.h"
+#include "dynoRRT/kinorrt.h"
+#include "dynoRRT/lazyprm.h"
+#include "dynoRRT/prm.h"
 #include "dynoRRT/rrt.h"
-#include "dynoRRT/rrt_base.h"
+#include "dynoRRT/rrtconnect.h"
+#include "dynoRRT/rrtstar.h"
 
 #include <pybind11/functional.h>
 
@@ -17,6 +112,18 @@
 
 namespace py = pybind11;
 using namespace dynorrt;
+
+// #include <pinocchio/bindings/python/pybind11.hpp>
+// This lines forces clang-format to keep the include split here
+
+// #include <boost/python.hpp>
+
+// #define SCALAR double
+// #define OPTIONS 0
+// #define JOINT_MODEL_COLLECTION ::pinocchio::JointCollectionDefaultTpl
+// #include <pinocchio/bindings/python/pybind11-all.hpp>
+
+using pinocchio::python::make_pybind11_function;
 
 // template <typename T>
 // void declare_tree(py::module &m, const std::string &name) {
@@ -88,6 +195,22 @@ using namespace dynorrt;
 //   //
 // }
 
+#include <iostream>
+
+void set_pin_model(dynorrt::Collision_manager_pinocchio &col_manager,
+                   pinocchio::Model &t_model,
+                   pinocchio::GeometryModel &t_geomodel) {
+  col_manager.set_pin_model(t_model, t_geomodel);
+}
+
+void model_test(pinocchio::Model &model) {
+  std::cout << "model_test" << std::endl;
+  std::cout << "model.nq" << model.nq << std::endl;
+  std::cout << "model.nv" << model.nv << std::endl;
+}
+
+// m.def("get_ptr", make_pybind11_function(&get_ptr<pinocchio::Model>));
+
 template <typename StateSpace, int dim>
 void add_planners_to_module(py::module &m, const std::string &name) {
 
@@ -126,9 +249,16 @@ void add_planners_to_module(py::module &m, const std::string &name) {
              planner.set_is_collision_free_fun([&](const auto &q) {
                return col_manager.is_collision_free(q);
              });
-           });
-
-  // create child classes
+           })
+      .def("set_is_collision_free_fun_from_manager_parallel",
+           [](PlannerBase_RX &planner,
+              Collision_manager_pinocchio &col_manager) {
+             planner.set_is_collision_free_fun_parallel([&](const auto &q) {
+               return col_manager.is_collision_free_set(q, true, nullptr,
+                                                        nullptr);
+             });
+           })
+      .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
 
   using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   using RRTStar = RRTStar<StateSpace, dim>;
@@ -180,7 +310,16 @@ void add_planners_to_module(py::module &m, const std::string &name) {
   // py
 };
 
+// void testModel1(pinocchio::Model& model) {
+//   std::cout << "testModel1: " << &model << std::endl;
+//   model.name = "testModel1: I modified the model name";
+// }
+
 PYBIND11_MODULE(pydynorrt, m) {
+
+  // pybind11::module::import("pinocchio");
+  using namespace pybind11::literals; // For _a
+
   m.doc() = R"pbdoc(
         pydynorrt
         -----------------------
@@ -244,7 +383,7 @@ PYBIND11_MODULE(pydynorrt, m) {
 
   add_planners_to_module<Combined, -1>(m, "Combined");
   add_planners_to_module<dynotree::Rn<double, -1>, -1>(m, "Rn");
-  add_planners_to_module<dynotree::Rn<double, 12>, 12>(m, "R12");
+  // add_planners_to_module<dynotree::Rn<double, 12>, 12>(m, "R12");
   // add_planner_to_module<dynotree::Rn<double, -1>, -1>(m, "Rn");
   // add_planner_to_module<dynotree::Rn<double, 2>, 2>(m, "R2");
   // add_planner_to_module<dynotree::Rn<double, 3>, 3>(m, "R3");
@@ -346,8 +485,12 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("reset_counters", &Collision_manager_pinocchio::reset_counters)
       .def("get_num_collision_checks",
            &Collision_manager_pinocchio::get_num_collision_checks)
+      .def("set_use_pool", &Collision_manager_pinocchio::set_use_pool)
       .def("get_time_ms", &Collision_manager_pinocchio::get_time_ms);
 
+  // .def("set_pin_model",
+  // make_pybind11_function(&Collision_manager_pinocchio::set_pin_model);
+  //
   using PathShortCut_RX = PathShortCut<RX, -1>;
 
   py::class_<PathShortCut_RX>(m, "PathShortCut_RX")
@@ -381,9 +524,17 @@ PYBIND11_MODULE(pydynorrt, m) {
   m.def("srandtime", []() { std::srand(time(0)); });
   m.def("rand", []() { return std::rand(); });
   m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
+
+  m.def("set_pin_model", make_pybind11_function(&set_pin_model));
+
+  // m.def("testModel1", make_pybind11_function(&testModel1));
+  // m.def("model_test", make_pybind11_function(&model_test));
+
   // m.def( "path_shortcut_v1", &path_shortcut_v1<Eigen::VectorXd,
-  // dynotree::Rn<double, -1>, std::function<bool(const Eigen::VectorXd &)>);
+  // dynotree::Rn<double, -1>, std::function<bool(const Eigen::VectorXd
+  // &)>);
   //
   // m.def( "path_shortcut_v1b", &path_shortcut_v1b<Eigen::VectorXd,
   // dynotree::Rn<double, -1>>);
 }
+#endif
