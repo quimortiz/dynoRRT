@@ -309,6 +309,4 @@ protected:
   std::vector<std::pair<int, int>> check_edges_invalid;
 };
 
-
-
 } // namespace dynorrt

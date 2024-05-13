@@ -25,9 +25,9 @@ FetchContent_MakeAvailable(toml11)
 
 # NOTE: still linking error when I try to compile in the conda env from
 # pinocchio.
-find_package(
-  Boost REQUIRED COMPONENTS unit_test_framework system filesystem serialization python)
-                            # PATHS /usr/lib/x86_64-linux-gnu/
+find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
+                                       serialization python)
+# PATHS /usr/lib/x86_64-linux-gnu/
 # )
 
 find_package(Eigen3 REQUIRED)
@@ -104,7 +104,6 @@ target_link_libraries(pin_col_manager dynorrt::dynorrt pinocchio::pinocchio Open
 target_include_directories(pin_col_manager PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/thread-pool/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-
 
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)

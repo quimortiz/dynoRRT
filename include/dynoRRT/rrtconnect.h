@@ -27,7 +27,6 @@ using json = nlohmann::json;
 // Continue here!
 // template <typename StateSpace, int DIM>
 
-
 template <typename StateSpace, int DIM>
 class RRTConnect : public BiRRT<StateSpace, DIM> {
 
@@ -252,6 +251,5 @@ public:
     //
   }
 };
-
 
 } // namespace dynorrt
