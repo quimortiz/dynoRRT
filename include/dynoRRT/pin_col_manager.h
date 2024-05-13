@@ -13,7 +13,7 @@
 //
 // #include "BS_thread_pool.hpp"
 
-#include "BS_thread_pool.hpp"
+#include "thread-pool/BS_thread_pool.hpp"
 
 #include "pinocchio/multibody/fwd.hpp"
 #include <Eigen/Dense>

@@ -21,21 +21,17 @@ requirements:
   build:
     - python                                 # [build_platform != target_platform]
     - {{ compiler('cxx') }}
-    - pinocchio
-    - {{ stdlib("c") }}
     - cmake
     - make
     - pkg-config
   host:
     - python
+    - pinocchio
     - numpy
 
   run:
     - python
     - {{ pin_compatible('numpy') }}
-    - cmake
-    - make
-    - pkg-config
 
 
 about:

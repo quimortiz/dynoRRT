@@ -5,6 +5,8 @@ include(FetchContent)
 project(hello_dynorrt)
 find_package(dynorrt REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(pinocchio REQUIRED)
+find_package(OpenMP REQUIRED)
 
 FetchContent_Declare(magic_enum
                      GIT_REPOSITORY https://github.com/Neargye/magic_enum)
@@ -19,8 +21,14 @@ endif()
 
 
 
-add_executable(hello_dynorrt main.cc)
-target_link_libraries(hello_dynorrt dynorrt::dynorrt magic_enum::magic_enum Eigen3::Eigen nlohmann_json::nlohmann_json)
+add_executable(main main.cc)
+add_executable(main_pin main_pin.cc)
+
+
+target_link_libraries(main dynorrt::dynorrt magic_enum::magic_enum Eigen3::Eigen nlohmann_json::nlohmann_json)
+
+
+target_link_libraries( main_pin pinocchio::pinocchio dynorrt::dynorrt dynorrt::pin_col_manager magic_enum::magic_enum Eigen3::Eigen nlohmann_json::nlohmann_json)
 
 
 
