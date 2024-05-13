@@ -1,11 +1,14 @@
-// clang-format off
-#include "pinocchio/parsers/urdf.hpp"
+#include "dynoRRT/dynorrt_macros.h"
+
+#include <string>
+#define BOOST_TEST_MODULE test_0
+#define BOOST_TEST_DYN_LINK
+
+#include "dynoRRT/pin_col_manager.h"
 #include "dynobench/motions.hpp"
-#include "pinocchio/parsers/urdf.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/parsers/srdf.hpp"
-#include "dynobench/motions.hpp"
-#include "dynoRRT/pin_col_manager.h"
+#include "pinocchio/parsers/urdf.hpp"
 // clang-format on
 #define BOOST_TEST_DYN_LINK
 
@@ -50,6 +53,16 @@
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
 
+#include "dynoRRT/birrt.h"
+#include "dynoRRT/dynorrt_macros.h"
+#include "dynoRRT/kinorrt.h"
+#include "dynoRRT/lazyprm.h"
+#include "dynoRRT/prm.h"
+#include "dynoRRT/rrt.h"
+#include "dynoRRT/rrtconnect.h"
+#include "dynoRRT/rrtstar.h"
+#include "dynoRRT/sststar.h"
+
 using namespace dynorrt;
 using PlannerRn = PlannerBase<dynotree::Rn<double>, -1>;
 using PlannerR3SO3 = PlannerBase<dynotree::R3SO3<double>, 7>;
@@ -93,7 +106,9 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
   auto argv = boost::unit_test::framework::master_test_suite().argv;
 
   if (argc < 2) {
-    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+    std::cout
+        << "Usage: ./test_dynorrt [boost_test_options] -- <path_to_base_dir>"
+        << std::endl;
     BOOST_TEST(false);
   }
   std::string base_path(argv[1]);
@@ -125,10 +140,9 @@ BOOST_AUTO_TEST_CASE(t_pin_all) {
   std::vector<json> results;
 
   for (auto &env : envs) {
-    std::ifstream i(env);
+    std::ifstream i(base_path + env);
     if (!i.is_open()) {
-      std::cout << "Error opening file" << std::endl;
-      return;
+      THROW_PRETTY_DYNORRT("Error opening file: " + env);
     }
 
     nlohmann::json j;
@@ -235,7 +249,9 @@ BOOST_AUTO_TEST_CASE(t_col_manager) {
   auto argv = boost::unit_test::framework::master_test_suite().argv;
 
   if (argc < 2) {
-    std::cout << "Usage: ./test_dynorrt <path_to_base_dir>" << std::endl;
+    std::cout
+        << "Usage: ./test_dynorrt [boost_test_options] -- <path_to_base_dir>"
+        << std::endl;
     BOOST_TEST(false);
     return;
   }
@@ -289,124 +305,72 @@ BOOST_AUTO_TEST_CASE(t_col_manager) {
     urdf = robots_model_path + urdf;
     srdf = robots_model_path + srdf;
 
+    int edge_num_threads = 4;
     Collision_manager_pinocchio coll_manager;
     coll_manager.set_urdf_filename(urdf);
     coll_manager.set_srdf_filename(srdf);
     coll_manager.set_robots_model_path(robots_model_path);
-    int edge_num_threads = 3;
     coll_manager.set_edge_parallel(edge_num_threads);
+    coll_manager.set_use_pool(true);
+
+    // NOTE: I do this so that collision checks
+    // take more time, to see speedup from parallel col check
+    coll_manager.set_use_aabb(false);
+
     coll_manager.build();
 
-    // check a line between start and goal
     state_space_t state_space(state_space_vstr);
 
-    int num_points = 1000;
+    int num_points = 10000;
+    if (!coll_manager.is_collision_free(start)) {
+      THROW_PRETTY_DYNORRT("start is in collision");
+    }
+
+    if (!coll_manager.is_collision_free(goal)) {
+      THROW_PRETTY_DYNORRT("goal  is in collision");
+    }
+
+    std::vector<Eigen::VectorXd> q_set;
+    q_set.reserve(num_points);
+    for (size_t i = 0; i < num_points; i++) {
+      if (i % 2 == 0)
+        q_set.push_back(start);
+      else
+        q_set.push_back(goal);
+    }
+
     {
-      if (!coll_manager.is_collision_free(start)) {
-        THROW_PRETTY_DYNORRT("start is in collision");
-      }
-
-      if (!coll_manager.is_collision_free(goal)) {
-        THROW_PRETTY_DYNORRT("goal  is in collision");
-      }
-
-      int free = 0;
-      Eigen::VectorXd out(state_space.get_runtime_dim());
-
       auto tic = std::chrono::high_resolution_clock::now();
-      for (size_t i = 0; i < num_points; i++) {
-        double alpha = (double)i / (double)(num_points - 1);
-        state_space.interpolate(start, goal, alpha, out);
-        auto col_free = coll_manager.is_collision_free(out);
-        free += col_free;
-        if (!col_free)
-          break;
+
+      bool out = true;
+      for (auto &q : q_set) {
+        out = out && coll_manager.is_collision_free(q);
       }
+      BOOST_TEST(out);
       auto toc = std::chrono::high_resolution_clock::now();
-      std::cout << "elapsed time [ms]"
+      double dt =
+          std::chrono::duration_cast<std::chrono::microseconds>(toc - tic)
+              .count() /
+          1000.0;
+
+      std::cout << "SINGLE THREAD elapsed time [ms]" << dt << std::endl;
+      std::cout << "time per collision check [ms] " << dt / num_points
+                << std::endl;
+    }
+    {
+      auto tic = std::chrono::high_resolution_clock::now();
+      bool out = coll_manager.is_collision_free_set(q_set);
+      BOOST_TEST(out);
+      auto toc = std::chrono::high_resolution_clock::now();
+      std::cout << "MULTI THREAD elapsed time [ms]"
                 << std::chrono::duration_cast<std::chrono::microseconds>(toc -
                                                                          tic)
                            .count() /
                        1000.0
                 << std::endl;
     }
-    {
-      std::cout << "test parallel" << std::endl;
-      int num_threads = 4;
-
-      if (!coll_manager.is_collision_free_parallel(start, num_threads)) {
-        THROW_PRETTY_DYNORRT("start is in collision");
-      }
-
-      if (!coll_manager.is_collision_free_parallel(goal, num_threads)) {
-        THROW_PRETTY_DYNORRT("goal  is in collision");
-      }
-
-      int free = 0;
-      Eigen::VectorXd out(state_space.get_runtime_dim());
-
-      auto tic = std::chrono::high_resolution_clock::now();
-      for (size_t i = 0; i < num_points; i++) {
-        double alpha = (double)i / (double)(num_points - 1);
-        state_space.interpolate(start, goal, alpha, out);
-        auto col_free =
-            coll_manager.is_collision_free_parallel(out, num_threads);
-        free += col_free;
-        if (!col_free)
-          break;
-      }
-
-      auto toc = std::chrono::high_resolution_clock::now();
-      double time_ms =
-          std::chrono::duration_cast<std::chrono::microseconds>(toc - tic)
-              .count() /
-          1000.0;
-      std::cout << "elapsed time [ms]" << time_ms << std::endl;
-      std::cout << "elapesed time * num_threads [ms] " << time_ms * num_threads
-                << std::endl;
-      std::cout << "free/total " << free << "/" << num_points << " = "
-                << double(free) / num_points << std::endl;
-    }
-
-    {
-
-      std::vector<Eigen::VectorXd> q_set(
-          num_points, Eigen::VectorXd::Zero(state_space.get_runtime_dim()));
-
-      for (size_t i = 0; i < num_points; i++) {
-        double alpha = (double)i / (double)(num_points - 1);
-        state_space.interpolate(start, goal, alpha, q_set.at(i));
-      }
-
-      int counter_infeas = 0;
-      int counter_feas = 0;
-      auto tic = std::chrono::high_resolution_clock::now();
-      bool edge_free = coll_manager.is_collision_free_set(
-          q_set, true, &counter_infeas, &counter_feas);
-
-      auto toc = std::chrono::high_resolution_clock::now();
-      double time_ms =
-          std::chrono::duration_cast<std::chrono::microseconds>(toc - tic)
-              .count() /
-          1000.0;
-      // BOOST_TEST(counter_feas + counter_infeas == num_points);
-      std::cout << "time [ms] " << time_ms << std::endl;
-      std::cout << "time * num_threads [ms] " << time_ms * edge_num_threads
-                << std::endl;
-      std::cout << "infeas / total " << counter_infeas << "/" << num_points
-                << " = " << double(counter_infeas) / num_points << std::endl;
-    }
-    // It is working better now. Lets integrate this by, and ask user to give
-    // how many threads.
-    // TODO: broad phase collision check! -- Tonight?
-
-    // test how to check points in parallel in a kdtree
-    //
-    // Lets try a broad phase collision check!!
-    // TODO:continue here
-
-    // TODO: try to compile with pinocchio from conda-forge? Will it be faster?
   }
+
 }
 
 BOOST_AUTO_TEST_CASE(t_hello_world_dynobench) {

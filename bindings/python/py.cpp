@@ -184,9 +184,9 @@ void add_planners_to_module(py::module &m, const std::string &name) {
   using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   py::class_<PlannerBase_RX>(m, ("PlannerBase_" + name).c_str())
       .def(py::init<>())
-      .def("set_collision_manager",
-           &PlannerBase_RX::set_collision_manager)  // add point
-      .def("set_start", &PlannerBase_RX::set_start) // add point
+      // .def("set_collision_manager",
+      //      &PlannerBase_RX::set_collision_manager)
+      .def("set_start", &PlannerBase_RX::set_start)
       .def("set_goal", &PlannerBase_RX::set_goal)
       .def("set_goal_list", &PlannerBase_RX::set_goal_list)
       .def("init", &PlannerBase_RX::init)
@@ -217,17 +217,17 @@ void add_planners_to_module(py::module &m, const std::string &name) {
                return col_manager.is_collision_free(q);
              });
            })
-      .def("set_is_collision_free_fun_from_manager_parallel",
+      .def("set_is_set_collision_free_fun_from_manager_parallel",
            [](PlannerBase_RX &planner,
               Collision_manager_pinocchio &col_manager) {
-             planner.set_is_collision_free_fun_parallel([&](const auto &q) {
+             planner.set_is_set_collision_free_fun([&](const auto &q) {
                return col_manager.is_collision_free_set(q, true, nullptr,
                                                         nullptr);
              });
-           })
-      .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
+           });
+      // .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
 
-  using PlannerBase_RX = PlannerBase<StateSpace, dim>;
+      using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   using RRTStar = RRTStar<StateSpace, dim>;
   using RRT = RRT<StateSpace, dim>;
   using BiRRT = BiRRT<StateSpace, dim>;
@@ -461,7 +461,7 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds_to_state", &PathShortCut_RX::set_bounds_to_state)
       .def("set_is_collision_free_fun",
            &PathShortCut_RX::set_is_collision_free_fun)
-      .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
+      // .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
       .def("set_is_collision_free_fun_from_manager",
            [](PathShortCut_RX &planner,
               Collision_manager_pinocchio &col_manager) {

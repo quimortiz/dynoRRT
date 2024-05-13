@@ -1,0 +1,55 @@
+{% set name = "dynorrt" %}
+{% set version = "0.0.5" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  path: .
+
+#
+# maybe i can put this into package!
+#
+build:
+  number: 1
+  skip: true  # [win]
+  run_exports:
+    - {{ pin_subpackage(name|lower, max_pin='x.x.x') }}
+
+requirements:
+  build:
+    - python                                 # [build_platform != target_platform]
+    - {{ compiler('cxx') }}
+    - pinocchio
+    - boost
+  host:
+    - python
+    - numpy
+    - pinocchio
+    - boost
+  run:
+    - python
+    - {{ pin_compatible('numpy') }}
+    - pinocchio
+    - boost
+
+
+about:
+  home: https://github.com/machines-in-motion/mim_solvers
+  license: BSD-3-Clause
+  license_file: LICENSE
+  summary: Implementation of numerical solvers used in the Machines in Motion Laboratory
+  description: |
+    Implementation of numerical solvers used in the Machines in Motion Laboratory.
+    In particular, the Sequential Quadratic Programming (SQP) solver that solves efficiently nonlinear constrained OCPs.
+    All solvers are implemented by using Crocoddyl (v2.0) as the base software.
+    Consquently, Crocoddyl users can use our efficient solvers while constructing their OCPs using the same API they are used to.
+  doc_url: https://github.com/machines-in-motion/mim_solvers
+  dev_url: https://github.com/machines-in-motion/mim_solvers
+
+extra:
+  recipe-maintainers:
+    - jcarpent
+    - ajordana
+    - ymontmarin

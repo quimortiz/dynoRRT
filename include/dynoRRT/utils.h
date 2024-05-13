@@ -136,6 +136,41 @@ void a_star_search(Graph graph, Location start, Location goal,
   }
 }
 
+template <typename T>
+void create_binary_order(const std::vector<T> &path_in,
+                         std::vector<T> &path_out) {
+
+  const int N = path_in.size();
+  path_out.reserve(N);
+
+  using Segment = std::pair<size_t, size_t>;
+  std::queue<Segment> queue;
+
+  int index_start = 0;
+  int index_last = path_in.size() - 1;
+  queue.push(Segment{index_start, index_last});
+
+  while (!queue.empty()) {
+    auto [si, gi] = queue.front();
+    queue.pop();
+    size_t ii = int((si + gi) / 2);
+    if (ii == si || ii == gi) {
+      continue;
+    } else {
+      path_out.push_back(path_in.at(ii));
+      if (gi - si < 2) {
+        continue;
+      } else {
+        queue.push(Segment{ii, gi});
+        queue.push(Segment{si, ii});
+      }
+    }
+  }
+
+  path_out.push_back(path_in.at(index_start));
+  path_out.push_back(path_in.at(index_last));
+}
+
 /**
  * @brief      Check if a path is collision free.
  * @tparam     T     The type of the state
@@ -150,103 +185,69 @@ void a_star_search(Graph graph, Location start, Location goal,
 template <typename T, typename StateSpace, typename Fun>
 bool is_edge_collision_free(T x_start, T x_end, Fun &is_collision_free_fun,
                             StateSpace state_space, double resolution,
-                            bool check_end_points = true) {
+                            bool check_end_points = true,
+                            bool binary_order = false) {
 
   if (check_end_points &&
       (!is_collision_free_fun(x_end) || !is_collision_free_fun(x_start))) {
     return false;
   }
 
-  T tmp;
-  tmp.resize(x_start.size());
-
   double d = state_space.distance(x_start, x_end);
   if (d < resolution) {
     return true;
   }
+
   int N = int(d / resolution) + 1;
-  // for (int j = 1; j < N; j++) {
-  //   state_space.interpolate(x_start, x_end, double(j) / N, tmp);
-  //   if (!is_collision_free_fun(tmp)) {
-  //     return false;
-  //   }
-  //
-  // }
 
-  std::vector<T> path;
-  path.reserve(N);
+  if (!binary_order) {
 
-  for (int j = 1; j < N; j++) {
-    state_space.interpolate(x_start, x_end, double(j) / N, tmp);
-    path.push_back(tmp);
-  }
+    T tmp;
+    tmp.resize(x_start.size());
 
-  std::vector<T> path_order;
-  path_order.reserve(N);
+    for (int j = 1; j < N; j++) {
+      state_space.interpolate(x_start, x_end, double(j) / N, tmp);
+      if (!is_collision_free_fun(tmp)) {
+        return false;
+      }
+    }
+  } else {
 
-  using Segment = std::pair<size_t, size_t>;
-  std::queue<Segment> queue;
+    // TODO::  A better implementation can avoid (or reduce) memory allocation
+    // of vectors!
+    T tmp;
+    tmp.resize(x_start.size());
 
-  int index_start = 0;
-  int index_last = path.size() - 1;
-  queue.push(Segment{index_start, index_last});
+    std::vector<T> path;
+    path.reserve(N);
 
-  while (!queue.empty()) {
-    auto [si, gi] = queue.front();
-    queue.pop();
-    size_t ii = int((si + gi) / 2);
-    if (ii == si || ii == gi) {
-      continue;
-    } else {
-      path_order.push_back(path.at(ii));
-      if (gi - si < 2) {
-        continue;
-      } else {
-        queue.push(Segment{ii, gi});
-        queue.push(Segment{si, ii});
+    for (int j = 1; j < N; j++) {
+      state_space.interpolate(x_start, x_end, double(j) / N, tmp);
+      path.push_back(tmp);
+    }
+
+    std::vector<T> path_order;
+
+    create_binary_order(path, path_order);
+
+    for (auto &x : path_order) {
+      if (!is_collision_free_fun(x)) {
+        return false;
       }
     }
   }
-
-  path_order.push_back(path.at(index_start));
-  path_order.push_back(path.at(index_last));
-
-  // std::cout << "adding index " << index_start << std::endl;
-  // std::cout << "adding index " << index_last << std::endl;
-
-  // std::cout << "path.size(): " << path.size() << std::endl;
-  // std::cout << "path_order.size(): " << path_order.size() << std::endl;
-
-  // for (auto &x : path_order) {
-  //   if (!is_collision_free_fun(x)) {
-  //     return false;
-  //   }
-  // }
-
-  for (auto &x : path_order) {
-    if (!is_collision_free_fun(x)) {
-      return false;
-    }
-  }
-
-  // bool stop_at_first_collision = true;
-  // return is_collision_free_fun(path);
 
   return true;
 }
 
 template <typename T, typename StateSpace, typename Fun>
-bool is_edge_collision_free_parallel(T x_start, T x_end,
-                                     Fun &is_collision_free_fun,
-                                     StateSpace state_space, double resolution,
-                                     bool check_end_points = true) {
+bool is_edge_collision_free_set(T x_start, T x_end, Fun &is_collision_free_fun,
+                                StateSpace state_space, double resolution,
+                                bool check_end_points = true) {
 
-  // TODO: can I avoid memory allocation?
   std::vector<T> path;
   if (check_end_points &&
       !is_collision_free_fun(std::vector<T>{x_end, x_start})) {
-    // (!is_collision_free_fun(std::vector<T>{x_end}) ||
-    // !is_collision_free_fun(std::vector<T>{x_start}))) {
     return false;
   }
 
@@ -265,35 +266,8 @@ bool is_edge_collision_free_parallel(T x_start, T x_end,
   }
 
   std::vector<T> path_order;
-  path_order.reserve(N);
 
-  using Segment = std::pair<size_t, size_t>;
-  std::queue<Segment> queue;
-
-  int index_start = 0;
-  int index_last = path.size() - 1;
-  queue.push(Segment{index_start, index_last});
-
-  while (!queue.empty()) {
-    auto [si, gi] = queue.front();
-    queue.pop();
-    size_t ii = int((si + gi) / 2);
-    if (ii == si || ii == gi) {
-      continue;
-    } else {
-      path_order.push_back(path.at(ii));
-      if (gi - si < 2) {
-        continue;
-      } else {
-        queue.push(Segment{ii, gi});
-        queue.push(Segment{si, ii});
-      }
-    }
-  }
-
-  path_order.push_back(path.at(index_start));
-  path_order.push_back(path.at(index_last));
-
+  create_binary_order(path, path_order);
   return is_collision_free_fun(path_order);
 }
 
@@ -560,12 +534,12 @@ public:
     is_collision_free_fun = t_is_collision_free_fun;
   }
 
-  void
-  set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
-    is_collision_free_fun = [collision_manager](state_t x) {
-      return !collision_manager->is_collision(x);
-    };
-  }
+  // void
+  // set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
+  //   is_collision_free_fun = [collision_manager](state_t x) {
+  //     return !collision_manager->is_collision(x);
+  //   };
+  // }
 
   // TODO: timing collisions take a lot of overhead, specially for
   // very simple envs where collisions are very fast.

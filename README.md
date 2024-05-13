@@ -23,7 +23,7 @@ pip3 install pydynorrt
 
 ## Tutorial
 
-You can try it online! Run the `tutorial0` notebook in Binder.
+You can try it online! Run the `tutorial0` notebook in Binder or Google Colab (links at the top of the README)
 
 ## Run tests in C++
 
@@ -133,7 +133,7 @@ Release 0.1
 from the root of repo:
 
 ```
-docker run -it --network common  -v  (pwd):/io   quay.io/pypa/manylinux2014_x86_64
+docker run -it  -v  (pwd):/io   quay.io/pypa/manylinux2014_x86_64
 ```
 
 inside docker:

@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.5)
 project(
-  dynoRRT
+  dynorrt
   VERSION 0.0.1
   LANGUAGES CXX)
 
@@ -73,17 +73,17 @@ endif()
 option(BUILD_EXAMPLES "" OFF)
 option(BUILD_PYRRT "" OFF)
 option(BUILD_BENCHMARK "" OFF)
-option(USE_ZLIBSTATIC "" OFF)
+# option(USE_ZLIBSTATIC "" OFF)
 message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
 message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
 message(STATUS "BUILD_EXAMPLES ${BUILD_EXAMPLES}")
-message(STATUS "USE_ZLIBSTATIC ${USE_ZLIBSTATIC}")
+# message(STATUS "USE_ZLIBSTATIC ${USE_ZLIBSTATIC}")
 
 include(GNUInstallDirs)
 add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
 
-add_library(pin_col_manager src/pin_col_manager.cpp)
+add_library(pin_col_manager SHARED src/pin_col_manager.cpp)
 add_library(dynorrt::pin_col_manager ALIAS pin_col_manager)
 
 target_include_directories(
@@ -99,10 +99,12 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-target_link_libraries(pin_col_manager dynorrt::dynorrt pin_with_zlib
-                      OpenMP::OpenMP_CXX)
+target_link_libraries(pin_col_manager dynorrt::dynorrt pinocchio::pinocchio OpenMP::OpenMP_CXX)
 
-target_include_directories(pin_col_manager PUBLIC thread-pool/include)
+target_include_directories(pin_col_manager PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/thread-pool/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
 
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -110,14 +112,14 @@ set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # TODO: add external flag!!
 
 # set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
-if(USE_ZLIBSTATIC)
-  set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
-else()
-  set(LIB_MYLIB)
-endif()
+# if(USE_ZLIBSTATIC)
+#   set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
+# else()
+#   set(LIB_MYLIB)
+# endif()
 
-add_library(pin_with_zlib INTERFACE)
-target_link_libraries(pin_with_zlib INTERFACE pinocchio::pinocchio ${LIB_MYLIB})
+# add_library(pin_with_zlib INTERFACE)
+# target_link_libraries(pin_with_zlib INTERFACE pinocchio::pinocchio ${LIB_MYLIB})
 
 # add_library(assimp_with_zlib INTERFACE) target_link_libraries(assimp_with_zlib
 # INTERFACE /usr/local/lib64/libassimp.a ${LIB_MYLIB})
@@ -134,13 +136,18 @@ if(BUILD_EXAMPLES)
 
   # add_subdirectory(dynobench)
 
-  add_executable(test_dynorrt test/main.cpp test/test_dev.cpp)
-  # test/test_ddp.cpp)
+  add_executable(test_dynorrt test/main.cpp) 
+  if (BUILD_DYNOBENCH)
+    add_executable(test_dynorrt_kino test/test_dev.cpp)
+  endif()
+
+  add_executable(play_toml test/play_toml.cpp)
+
 
   # add_executable(pin_col test/pin_col.cpp) add_executable(pin_ur5_example
   # test/pin_ur5_example.cpp) add_executable(pin_ur5_with_obs
   # test/pin_ur5_with_obs.cpp)
-  add_executable(play_toml test/play_toml.cpp)
+
 
   # target_link_libraries(pin_col pin_with_zlib)
   # target_link_libraries(pin_ur5_example pin_with_zlib)
@@ -168,9 +175,26 @@ if(BUILD_EXAMPLES)
             toml11::toml11
             pinocchio::pinocchio
             dynorrt::pin_col_manager
+            # octomap::octomap
+  )
+
+
+  target_link_libraries(
+    test_dynorrt_kino
+    PUBLIC Eigen3::Eigen
+    PRIVATE dynorrt::dynorrt
+            dynotree::dynotree
+            Eigen3::Eigen
+            magic_enum::magic_enum
+            nlohmann_json::nlohmann_json
+            Boost::unit_test_framework
+            toml11::toml11
+            pinocchio::pinocchio
+            dynorrt::pin_col_manager
             dynobench::dynobench
             # octomap::octomap
   )
+
 
   set_target_properties(
     test_dynorrt
@@ -180,6 +204,62 @@ if(BUILD_EXAMPLES)
 
   add_test(NAME test COMMAND test_dynorrt)
 endif()
+
+# install
+
+install(TARGETS nlohmann_json
+    EXPORT dynorrtTargets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(TARGETS magic_enum
+    EXPORT dynorrtTargets
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Export dynorrt targets for easy import in other projects
+install(TARGETS dynorrt
+        EXPORT dynorrtTargets
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+# Installation and export for pin_col_manager compiled library
+install(TARGETS pin_col_manager
+        EXPORT dynorrtTargets
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
+# Install the exports as a CMake file
+install(EXPORT dynorrtTargets
+        FILE dynorrtTargets.cmake
+        NAMESPACE dynorrt::
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
+
+# Optionally create and install a config file for the project
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    "dynorrtConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/dynorrtConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt
+)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt
+)
+
+
+
+
 
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization
 # Boost::stacktrace_basic ${CMAKE_DL_LIBS} PUBLIC nlohmann_json::nlohmann_json)

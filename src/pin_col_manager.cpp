@@ -112,7 +112,17 @@ void Collision_manager_pinocchio::build() {
     for (size_t i = 0; i < num_threads_edges; i++) {
       data_parallel.push_back(pinocchio::Data(model));
       geom_data_parallel.push_back(pinocchio::GeometryData(geom_model));
+
+      std::vector<hpp::fcl::CollisionObject> _collision_objects;
+      _collision_objects.reserve(geom_model.geometryObjects.size());
+      for (size_t j = 0; j < geom_model.geometryObjects.size(); j++) {
+        _collision_objects.emplace_back(
+            hpp::fcl::CollisionObject(geom_model.geometryObjects[j].geometry));
+      }
+      collision_objects_parallel.push_back(_collision_objects);
     }
+
+    pool = std::make_unique<BS::thread_pool>(num_threads_edges);
   }
 }
 
@@ -169,9 +179,9 @@ void Collision_manager_pinocchio::set_pin_model(
 
       std::vector<hpp::fcl::CollisionObject> _collision_objects;
       _collision_objects.reserve(geom_model.geometryObjects.size());
-      for (size_t i = 0; i < geom_model.geometryObjects.size(); i++) {
+      for (size_t j = 0; j < geom_model.geometryObjects.size(); j++) {
         _collision_objects.emplace_back(
-            hpp::fcl::CollisionObject(geom_model.geometryObjects[i].geometry));
+            hpp::fcl::CollisionObject(geom_model.geometryObjects[j].geometry));
       }
       collision_objects_parallel.push_back(_collision_objects);
     }
@@ -191,7 +201,6 @@ bool Collision_manager_pinocchio::is_collision_free_v2(const Eigen::VectorXd &q,
   }
 
   // num_collision_checks++;
-  const bool use_aabb = true;
 
   if (use_aabb) {
 
@@ -261,7 +270,6 @@ bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
   }
 
   num_collision_checks++;
-  const bool use_aabb = true;
 
   if (use_aabb) {
 
@@ -323,12 +331,13 @@ bool Collision_manager_pinocchio::is_collision_free_set(
     const std::vector<Eigen::VectorXd> &q_set, bool stop_at_first_collision,
     int *counter_infeas_out, int *counter_feas_out) {
 
-  // num_collision_checks++;
   if (!build_done) {
     THROW_PRETTY_DYNORRT("build not done");
   }
 
   if (this->num_threads_edges > 1) {
+    // std::cout << "num_threads_edges: " << num_threads_edges << std::endl;
+    // std::cout << "use pool" << use_pool << std::endl;
 
     int checks_per_thread = int(q_set.size() / num_threads_edges) + 1;
 
@@ -405,23 +414,24 @@ bool Collision_manager_pinocchio::is_collision_free_set(
   }
 }
 
-bool Collision_manager_pinocchio::is_collision_free_parallel(
-    const Eigen::VectorXd &q, int num_threads) {
-
-  num_collision_checks++;
-  auto tic = std::chrono::high_resolution_clock::now();
-  if (!build_done) {
-    THROW_PRETTY_DYNORRT("build not done");
-  }
-  bool out = !pinocchio::computeCollisions(num_threads, model, data, geom_model,
-                                           geom_data, q, true);
-
-  time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
-                 std::chrono::high_resolution_clock::now() - tic)
-                 .count() /
-             1000.0;
-  return out;
-};
+// bool Collision_manager_pinocchio::is_collision_free_parallel(
+//     const Eigen::VectorXd &q, int num_threads) {
+//
+//   num_collision_checks++;
+//   auto tic = std::chrono::high_resolution_clock::now();
+//   if (!build_done) {
+//     THROW_PRETTY_DYNORRT("build not done");
+//   }
+//   bool out = !pinocchio::computeCollisions(num_threads, model, data,
+//   geom_model,
+//                                            geom_data, q, true);
+//
+//   time_ms += std::chrono::duration_cast<std::chrono::microseconds>(
+//                  std::chrono::high_resolution_clock::now() - tic)
+//                  .count() /
+//              1000.0;
+//   return out;
+// };
 
 void Collision_manager_pinocchio::set_pin_model0(pinocchio::Model &t_model) {
   this->model = t_model;

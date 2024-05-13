@@ -4,9 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "magic_enum.hpp"
 #include "nlohmann/json_fwd.hpp"
@@ -18,8 +16,8 @@
 
 #include "dynorrt_macros.h"
 #include "options.h"
-#include "rrt_base.h"
 #include "utils.h"
+#include "birrt.h"
 
 // NOTE: possible bug in TOML? connection_radius = 3 is not parsed correctly as
 // a doube?
@@ -50,6 +48,8 @@ public:
 
   virtual TerminationCondition plan() override {
     this->check_internal();
+    CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
+
 
     std::cout << "Options" << std::endl;
     this->print_options();

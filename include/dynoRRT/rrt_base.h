@@ -2,10 +2,11 @@
 
 #include "dynotree/KDTree.h"
 
-#include "collision_manager.h"
 #include "dynorrt_macros.h"
 #include "options.h"
 #include <chrono>
+#include <nlohmann/json.hpp>
+using json = nlohmann::json;
 
 namespace dynorrt {
 template <typename StateSpace, int DIM> class PlannerBase {
@@ -16,7 +17,8 @@ public:
   using state_cref_t = const Eigen::Ref<const state_t> &;
   using tree_t = dynotree::KDTree<int, DIM, 32, double, StateSpace>;
   using is_collision_free_fun_t = std::function<bool(state_t)>;
-  using is_collision_free_fun_parallel_t = std::function<bool(const std::vector<state_t> & )>;
+  using is_set_collision_free_funt_t =
+      std::function<bool(const std::vector<state_t> &)>;
   using sample_fun_t = std::function<void(state_ref_t)>;
   using edge_t = std::pair<state_t, state_t>;
 
@@ -93,24 +95,23 @@ public:
     is_collision_free_fun = t_is_collision_free_fun;
   }
 
-  void
-  set_is_collision_free_fun_parallel(is_collision_free_fun_parallel_t t_is_collision_free_fun_parallel) {
-    is_collision_free_fun_parallel = t_is_collision_free_fun_parallel;
+  void set_is_set_collision_free_fun(
+      is_set_collision_free_funt_t t_is_set_collision_free_fun) {
+    is_set_collision_free_fun = t_is_set_collision_free_fun;
+    custom_is_set_collision_free_fun = true;
   }
-
-
 
   void set_sample_fun(sample_fun_t t_sample_fun) {
     sample_fun = t_sample_fun;
     custom_sample_fun = true;
   }
 
-  void
-  set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
-    is_collision_free_fun = [collision_manager](state_t x) {
-      return !collision_manager->is_collision(x);
-    };
-  }
+  // void
+  // set_collision_manager(CollisionManagerBallWorld<DIM> *collision_manager) {
+  //   is_collision_free_fun = [collision_manager](state_t x) {
+  //     return !collision_manager->is_collision(x);
+  //   };
+  // }
 
   // TODO: timing collisions take a lot of overhead, specially for
   // very simple envs where collisions are very fast.
@@ -258,31 +259,27 @@ public:
     dev_mode_parallel = t_dev_mode_parallel;
   }
 
-
 protected:
   StateSpace state_space;
   state_t start;
-  // User can define a goal or goal_list.
-  // NOTE: Goal list has priority over goal
   state_t goal;
-  std::vector<state_t> goal_list;
+  std::vector<state_t> goal_list; // NOTE: Goal list has priority over goal
   tree_t tree;
   is_collision_free_fun_t is_collision_free_fun = [](const auto &) {
     THROW_PRETTY_DYNORRT("You have to define a collision free fun!");
     return false;
   };
 
-  is_collision_free_fun_parallel_t is_collision_free_fun_parallel = [](const auto &) {
+  is_set_collision_free_funt_t is_set_collision_free_fun = [](const auto &) {
     THROW_PRETTY_DYNORRT("You have to define a collision free fun parallel!");
     return false;
   };
-
-
+  bool custom_is_set_collision_free_fun = false;
   sample_fun_t sample_fun;
   bool custom_sample_fun = false;
   std::vector<state_t> path;
   std::vector<state_t> configs;
-  std::vector<state_t> sample_configs; // TODO: only with  flag
+  std::vector<state_t> sample_configs;
   std::vector<int> parents;
   int runtime_dim = DIM;
   double total_distance = -1;
@@ -291,10 +288,8 @@ protected:
   int evaluated_edges = 0;
   int infeasible_edges = 0;
   bool dev_mode_parallel = false;
-  std::vector<std::pair<state_t, state_t>>
-      valid_edges; // TODO: only with a flag
-  std::vector<std::pair<state_t, state_t>>
-      invalid_edges; // TODO: only rrth a flag
+  std::vector<std::pair<state_t, state_t>> valid_edges;
+  std::vector<std::pair<state_t, state_t>> invalid_edges;
 
   state_t x_rand, x_new, x_near;
 };
