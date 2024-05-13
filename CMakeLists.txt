@@ -33,7 +33,7 @@ find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
 find_package(Eigen3 REQUIRED)
 
 find_package(pinocchio REQUIRED)
-find_package(OpenMP REQUIRED)
+find_package(OpenMP REQUIRED) # WHY??
 # find_package(octomap REQUIRED)
 include(FindThreads)
 
@@ -57,7 +57,8 @@ if(NOT TARGET nlohmann_json)
   FetchContent_MakeAvailable(json)
 endif()
 
-if(OPENMP_FOUND)
+# TODO: WHY??
+if(OPENMP_FOUND) #
   # If found, add OpenMP flags to the compiler
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
@@ -256,7 +257,58 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt
 )
 
+if(BUILD_PYRRT)
+# Add the install command for Python files
 
+
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+execute_process(
+    COMMAND "${Python3_EXECUTABLE}" -c "import site; print(site.getsitepackages()[0])"
+    OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+message(STATUS "Installing Python modules to: ${PYTHON_SITE_PACKAGES}")
+
+# Other project configurations, add_subdirectory, etc.
+
+
+
+# I can hardcode the python path
+# set(PYTHON_SITE_PACKAGES "lib/python3.12/site-packages")
+
+# find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# execute_process(
+#     COMMAND "${Python3_EXECUTABLE}" -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
+#     OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
+#     OUTPUT_STRIP_TRAILING_WHITESPACE
+# )
+
+message(STATUS "Python site-packages directory: ${PYTHON_SITE_PACKAGES}")
+
+# Other configuration and build setup...
+
+# install(DIRECTORY ${CMAKE_BINARY_DIR}/src/python/
+#         DESTINATION ${PYTHON_SITE_PACKAGES}
+#         FILES_MATCHING PATTERN "*.py"
+#         PATTERN "*.so")
+
+# Example install command using the determined site-packages directory
+install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
+        DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
+        FILES_MATCHING PATTERN "*.so")
+
+
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/python/pydynorrt/
+        DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
+        FILES_MATCHING PATTERN "*.py")
+
+# Install shared libraries (.so files) associated with the Python bindings
+# install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
+#         DESTINATION ${CMAKE_INSTALL_PREFIX}/${PYTHON_SITE_PACKAGES}
+#         FILES_MATCHING PATTERN "*.so")
+endif()
 
 
 
