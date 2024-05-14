@@ -308,7 +308,8 @@ install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/python/pydynorrt/
         DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
-        FILES_MATCHING PATTERN "*.py")
+        # FILES_MATCHING PATTERN "*.py" # NOTE: I also want to install all the data files
+        )
 
 # Install shared libraries (.so files) associated with the Python bindings
 # install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
