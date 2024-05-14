@@ -1,3 +1,24 @@
+#include "dynoRRT/pin_col_manager.h"
+#include "dynoRRT/birrt.h"
+#include "dynoRRT/kinorrt.h"
+#include "dynoRRT/lazyprm.h"
+#include "dynoRRT/prm.h"
+#include "dynoRRT/rrt.h"
+#include "dynoRRT/rrtconnect.h"
+#include "dynoRRT/rrtstar.h"
+
+#include <pybind11/functional.h>
+
+#include "dynoRRT/collision_manager.h"
+
+#include "pybind11_json.hpp"
+#include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+
+
 #ifdef PIN_PYTHON_OBJECT
 
 #include <boost/python.hpp>
@@ -73,25 +94,6 @@ void model_test(pinocchio::Model &model) {
 
 #endif
 
-#include "dynoRRT/birrt.h"
-#include "dynoRRT/kinorrt.h"
-#include "dynoRRT/lazyprm.h"
-#include "dynoRRT/prm.h"
-#include "dynoRRT/rrt.h"
-#include "dynoRRT/rrtconnect.h"
-#include "dynoRRT/rrtstar.h"
-
-#include <pybind11/functional.h>
-
-#include "dynoRRT/collision_manager.h"
-#include "dynoRRT/pin_col_manager.h"
-
-#include "pybind11_json.hpp"
-#include <pybind11/eigen.h>
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/stl_bind.h>
 
 namespace py = pybind11;
 using namespace dynorrt;
