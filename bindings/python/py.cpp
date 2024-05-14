@@ -1,23 +1,24 @@
-#include "dynoRRT/pin_col_manager.h"
 #include "dynoRRT/birrt.h"
 #include "dynoRRT/kinorrt.h"
 #include "dynoRRT/lazyprm.h"
+#include "dynoRRT/pin_col_manager.h"
 #include "dynoRRT/prm.h"
 #include "dynoRRT/rrt.h"
 #include "dynoRRT/rrtconnect.h"
 #include "dynoRRT/rrtstar.h"
+#include "dynoRRT/shortcut.h"
 
 #include <pybind11/functional.h>
 
 #include "dynoRRT/collision_manager.h"
 
+#include "dynoRRT/pin_ik_solver.h"
 #include "pybind11_json.hpp"
 #include <pybind11/eigen.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <pybind11/stl_bind.h>
-
 
 #ifdef PIN_PYTHON_OBJECT
 
@@ -69,22 +70,22 @@ void testModel_manual(pybind11::object model) {
 
 using pinocchio::python::make_pybind11_function;
 
-void set_pin_model(dynorrt::Collision_manager_pinocchio &col_manager,
-                   pinocchio::Model &t_model,
-                   pinocchio::GeometryModel &t_geomodel) {
+void set_pin_model_col_manager(
+    dynorrt::Collision_manager_pinocchio &col_manager,
+    pinocchio::Model &t_model, pinocchio::GeometryModel &t_geomodel) {
   col_manager.set_pin_model(t_model, t_geomodel);
 }
 
-void set_pin_model0(dynorrt::Collision_manager_pinocchio &col_manager,
-                    pinocchio::Model &t_model) {
-
-  // col_manager.set_pin_model0(t_model);
+void set_pin_model_ik(dynorrt::Pin_ik_solver &solver, pinocchio::Model &t_model,
+                      pinocchio::GeometryModel &t_geomodel) {
+  solver.set_pin_model(t_model, t_geomodel);
 }
+
+void set_pin_model0(dynorrt::Collision_manager_pinocchio &col_manager,
+                    pinocchio::Model &t_model) {}
 
 void set_pin_geomodel0(dynorrt::Collision_manager_pinocchio &col_manager,
-                       pinocchio::GeometryModel &t_geomodel) {
-  // col_manager.set_pin_geomodel0(t_geomodel);
-}
+                       pinocchio::GeometryModel &t_geomodel) {}
 
 void model_test(pinocchio::Model &model) {
   std::cout << "model_test" << std::endl;
@@ -93,7 +94,6 @@ void model_test(pinocchio::Model &model) {
 }
 
 #endif
-
 
 namespace py = pybind11;
 using namespace dynorrt;
@@ -227,9 +227,9 @@ void add_planners_to_module(py::module &m, const std::string &name) {
                                                         nullptr);
              });
            });
-      // .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
+  // .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
 
-      using PlannerBase_RX = PlannerBase<StateSpace, dim>;
+  using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   using RRTStar = RRTStar<StateSpace, dim>;
   using RRT = RRT<StateSpace, dim>;
   using BiRRT = BiRRT<StateSpace, dim>;
@@ -325,6 +325,13 @@ PYBIND11_MODULE(pydynorrt, m) {
 
   using RX = dynotree::Rn<double, -1>;
   using Combined = dynotree::Combined<double>;
+
+  py::enum_<IKStatus>(m, "IKStatus", py::arithmetic())
+      .value("RUNNING", IKStatus::RUNNING)
+      .value("SUCCESS", IKStatus::SUCCESS)
+      .value("UNKNOWN", IKStatus::UNKNOWN)
+      .value("MAX_ATTEMPTS", IKStatus::MAX_ATTEMPTS)
+      .value("MAX_TIME", IKStatus::MAX_TIME);
 
   py::enum_<TerminationCondition>(m, "TerminationCondition", py::arithmetic())
       .value("MAX_IT", TerminationCondition::MAX_IT)
@@ -426,6 +433,32 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def_readwrite("lower", &FrameBounds::lower)
       .def_readwrite("upper", &FrameBounds::upper);
 
+  py::class_<Pin_ik_solver>(m, "Pin_ik_solver")
+      .def(py::init<>())
+      .def("set_urdf_filename", &Pin_ik_solver::set_urdf_filename)
+      .def("set_srdf_filename", &Pin_ik_solver::set_srdf_filename)
+      .def("set_robots_model_path", &Pin_ik_solver::set_robots_model_path)
+      .def("set_num_threads", &Pin_ik_solver::set_num_threads)
+      .def("build", &Pin_ik_solver::build)
+      .def("set_bounds", &Pin_ik_solver::set_bounds)
+      .def("set_use_aabb", &Pin_ik_solver::set_use_aabb)
+      .def("set_bounds", &Pin_ik_solver::set_bounds)
+      .def("set_p_des", &Pin_ik_solver::set_p_des)
+      .def("set_pq_des", &Pin_ik_solver::set_pq_des)
+      .def("set_max_num_attempts", &Pin_ik_solver::set_max_num_attempts)
+      .def("set_max_solutions", &Pin_ik_solver::set_max_solutions)
+      .def("set_max_time_ms", &Pin_ik_solver::set_max_time_ms)
+      .def("get_distance_cost", &Pin_ik_solver::get_distance_cost)
+      .def("get_bounds_cost", &Pin_ik_solver::get_bounds_cost)
+      .def("get_frame_cost", &Pin_ik_solver::get_frame_cost)
+      .def("get_cost", &Pin_ik_solver::get_cost)
+      .def("get_cost_derivative", &Pin_ik_solver::get_cost_derivative)
+      .def("solve_ik", &Pin_ik_solver::solve_ik)
+      .def("get_ik_solutions", &Pin_ik_solver::get_ik_solutions)
+      .def("set_tolerances", &Pin_ik_solver::set_tolerances)
+      .def("set_frame_id", &Pin_ik_solver::set_frame_id)
+      .def("set_frame_name", &Pin_ik_solver::set_frame_name);
+
   py::class_<Collision_manager_pinocchio>(m, "Collision_manager_pinocchio")
       .def(py::init<>())
       .def("set_urdf_filename", &Collision_manager_pinocchio::set_urdf_filename)
@@ -491,7 +524,7 @@ PYBIND11_MODULE(pydynorrt, m) {
   m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
 
 #ifdef PIN_PYTHON_OBJECT
-  m.def("set_pin_model", make_pybind11_function(&set_pin_model));
+  m.def("set_pin_model", make_pybind11_function(&set_pin_model_col_manager));
   m.def("set_pin_model0", make_pybind11_function(&set_pin_model0));
   m.def("set_pin_geomodel0", make_pybind11_function(&set_pin_geomodel0));
 #endif

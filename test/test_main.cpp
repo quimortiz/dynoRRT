@@ -18,10 +18,6 @@
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
 
-#include "pinocchio/parsers/srdf.hpp"
-#include "pinocchio/parsers/urdf.hpp"
-
-#include "pinocchio/algorithm/geometry.hpp"
 
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
@@ -41,10 +37,6 @@
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
 
-#include "pinocchio/parsers/srdf.hpp"
-#include "pinocchio/parsers/urdf.hpp"
-
-#include "pinocchio/algorithm/geometry.hpp"
 
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
@@ -58,7 +50,9 @@
 #include "dynoRRT/rrtconnect.h"
 #include "dynoRRT/rrtstar.h"
 
-#include "dynoRRT/pin_col_manager.h"
+
+
+
 
 using json = nlohmann::json;
 
@@ -481,10 +475,6 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
   BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
 }
 
-#ifndef PINOCCHIO_MODEL_DIR
-#define PINOCCHIO_MODEL_DIR
-
-#endif
 
 #if 0
 BOOST_AUTO_TEST_CASE(test_PIN_ur5) {

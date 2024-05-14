@@ -71,7 +71,7 @@ endif()
 # Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
 # EXACT)
 
-option(BUILD_EXAMPLES "" OFF)
+option(BUILD_TESTS_RRT "" OFF)
 option(BUILD_PYRRT "" OFF)
 
 option(PIN_PYTHON_OBJECT "" OFF)
@@ -82,7 +82,7 @@ option(BUILD_BENCHMARK "" OFF)
 # option(USE_ZLIBSTATIC "" OFF)
 message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
 message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
-message(STATUS "BUILD_EXAMPLES ${BUILD_EXAMPLES}")
+message(STATUS "BUILD_TESTS_RRT ${BUILD_TESTS_RRT}")
 message(STATUS "PIN_PYTHON_OBJECT ${PIN_PYTHON_OBJECT}")
 # message(STATUS "USE_ZLIBSTATIC ${USE_ZLIBSTATIC}")
 
@@ -90,7 +90,7 @@ include(GNUInstallDirs)
 add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
 
-add_library(pin_col_manager SHARED src/pin_col_manager.cpp)
+add_library(pin_col_manager SHARED src/pin_col_manager.cpp src/pin_ik_solver.cpp)
 add_library(dynorrt::pin_col_manager ALIAS pin_col_manager)
 
 target_include_directories(
@@ -138,16 +138,18 @@ if(BUILD_BENCHMARK)
   add_subdirectory(benchmark)
 endif()
 
-if(BUILD_EXAMPLES)
+if(BUILD_TESTS_RRT)
 
   # add_subdirectory(dynobench)
 
-  add_executable(test_dynorrt test/main.cpp) 
+  add_executable(test_main test/test_main.cpp) 
+  add_executable(test_pin test/test_pin.cpp)
+
   if (BUILD_DYNOBENCH)
-    add_executable(test_dynorrt_kino test/test_dev.cpp)
+  add_executable(test_dyno test/test_dyno.cpp)
   endif()
 
-  add_executable(play_toml test/play_toml.cpp)
+  # add_executable(play_toml test/play_toml.cpp)
 
 
   # add_executable(pin_col test/pin_col.cpp) add_executable(pin_ur5_example
@@ -159,18 +161,18 @@ if(BUILD_EXAMPLES)
   # target_link_libraries(pin_ur5_example pin_with_zlib)
   # target_link_libraries(pin_ur5_with_obs pin_with_zlib)
 
-  target_link_libraries(
-    play_toml
-    PRIVATE dynorrt::dynorrt
-            dynotree::dynotree
-            Eigen3::Eigen
-            magic_enum::magic_enum
-            nlohmann_json::nlohmann_json
-            Boost::unit_test_framework
-            toml11::toml11)
+  # target_link_libraries(
+  #   play_toml
+  #   PRIVATE dynorrt::dynorrt
+  #           dynotree::dynotree
+  #           Eigen3::Eigen
+  #           magic_enum::magic_enum
+  #           nlohmann_json::nlohmann_json
+  #           Boost::unit_test_framework
+  #           toml11::toml11)
 
   target_link_libraries(
-    test_dynorrt
+    test_main
     PUBLIC Eigen3::Eigen
     PRIVATE dynorrt::dynorrt
             dynotree::dynotree
@@ -184,6 +186,26 @@ if(BUILD_EXAMPLES)
             # octomap::octomap
   )
 
+
+  target_link_libraries(
+    test_pin
+    PUBLIC Eigen3::Eigen
+    PRIVATE dynorrt::dynorrt
+            dynotree::dynotree
+            Eigen3::Eigen
+            magic_enum::magic_enum
+            nlohmann_json::nlohmann_json
+            Boost::unit_test_framework
+            toml11::toml11
+            pinocchio::pinocchio
+            dynorrt::pin_col_manager
+            # octomap::octomap
+  )
+
+
+
+
+  if (BUILD_DYNOBENCH)
 
   target_link_libraries(
     test_dynorrt_kino
@@ -201,14 +223,18 @@ if(BUILD_EXAMPLES)
             # octomap::octomap
   )
 
+  endif()
 
-  set_target_properties(
-    test_dynorrt
-    PROPERTIES CXX_STANDARD 17
-               CXX_STANDARD_REQUIRED YES
-               CXX_EXTENSIONS NO)
 
-  add_test(NAME test COMMAND test_dynorrt)
+
+
+  # set_target_properties(
+  #   test_dynorrt
+  #   PROPERTIES CXX_STANDARD 17
+  #              CXX_STANDARD_REQUIRED YES
+  #              CXX_EXTENSIONS NO)
+
+  # add_test(NAME test COMMAND test_dynorrt)
 endif()
 
 # install
