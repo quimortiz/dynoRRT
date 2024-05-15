@@ -1,10 +1,10 @@
 #pragma once
 
 #include "dynorrt_macros.h"
+#include "nlohmann/json.hpp"
 #include <algorithm>
 #include <queue>
 #include <toml.hpp>
-#include "nlohmann/json.hpp"
 using json = nlohmann::json;
 namespace dynorrt {
 
@@ -478,15 +478,12 @@ bool inline ensure_childs_and_parents(
   return true;
 }
 
-
-
 template <int DIM_state = -1, int DIM_control = -1> struct Trajectory {
   using state_t = Eigen::Matrix<double, DIM_state, 1>;
   using control_t = Eigen::Matrix<double, DIM_control, 1>;
   std::vector<state_t> states;
   std::vector<control_t> controls;
 };
-
 
 template <int DIM_state = -1, int DIM_control = -1>
 void to_json(json &j, const Trajectory<DIM_state, DIM_control> &p) {
@@ -536,5 +533,48 @@ inline Trajectory<DIM_state, DIM_control> trace_back_full_traj(
   }
   return full_trajectory;
 };
+
+void finite_diff_grad(const Eigen::VectorXd &q,
+                      std::function<double(const Eigen::VectorXd &)> f,
+                      Eigen::VectorXd &grad_out, double eps = 1e-5) {
+
+  Eigen::VectorXd q_plus = q;
+  Eigen::VectorXd q_minus = q;
+
+  for (size_t i = 0; i < q.size(); i++) {
+    q_plus = q;
+    q_minus = q;
+    q_plus(i) += eps;
+    q_minus(i) -= eps;
+
+    double f_plus = f(q_plus);
+    double f_minus = f(q_minus);
+
+    double grad = (f_plus - f_minus) / (2 * eps);
+    grad_out(i) = grad;
+  }
+}
+
+void finite_diff_hess(const Eigen::VectorXd &q,
+                      std::function<double(const Eigen::VectorXd &)> f,
+                      Eigen::MatrixXd &H_out, double eps = 1e-5) {
+
+  Eigen::VectorXd q_plus = q;
+  Eigen::VectorXd q_minus = q;
+  for (size_t i = 0; i < q.size(); i++) {
+    q_plus = q;
+    q_minus = q;
+    q_plus(i) += eps;
+    q_minus(i) -= eps;
+
+    Eigen::VectorXd grad_plus(q.size());
+    Eigen::VectorXd grad_minus(q.size());
+    finite_diff_grad(q_plus, f, grad_plus);
+    finite_diff_grad(q_minus, f, grad_minus);
+
+    Eigen::VectorXd grad_diff = grad_plus - grad_minus;
+    H_out.col(i) = grad_diff / (2 * eps);
+  }
+}
 
 } // namespace dynorrt

@@ -62,6 +62,8 @@
 #include "dynoRRT/rrtstar.h"
 #include "dynoRRT/sststar.h"
 
+#include <Eigen/Dense>
+
 #include "dynoRRT/pin_ik_solver.h"
 
 using namespace dynorrt;
@@ -367,7 +369,7 @@ BOOST_AUTO_TEST_CASE(t_col_manager) {
   }
 }
 
-BOOST_AUTO_TEST_CASE(test_pin_ik) {
+BOOST_AUTO_TEST_CASE(test_pin_ik_jac) {
 
   int argc = boost::unit_test::framework::master_test_suite().argc;
   auto argv = boost::unit_test::framework::master_test_suite().argv;
@@ -420,18 +422,295 @@ BOOST_AUTO_TEST_CASE(test_pin_ik) {
 
   int frame_id = mptr->getFrameId("tool0");
   const pinocchio::SE3 iMd = dptr->oMf[frame_id];
+  std::cout << "iMd: " << iMd << std::endl;
 
   // pinocchio::SE3 pq_des;
   // pq_des.setIdentity();
   pin_ik_solver.set_pq_des(iMd);
+
+  Eigen::VectorXd q = start;
+
+  {
+
+    // change the bounds so that I am outside bounds
+    lb = q - 0.1 * Eigen::VectorXd::Ones(q.size());
+    ub = q - 0.2 * Eigen::VectorXd::Ones(q.size());
+    lb(0) = -10;
+    ub(0) = 10;
+
+    pin_ik_solver.set_bounds(lb, ub);
+
+    Eigen::VectorXd grad = Eigen::VectorXd::Zero(q.size());
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(q.size(), q.size());
+    pin_ik_solver.get_bounds_cost(q, &grad, &H);
+
+    // std::cout << "grad: " << grad.transpose() << std::endl;
+    // std::cout << "H: " << H << std::endl;
+    Eigen::VectorXd grad_fd(q.size());
+    grad_fd.setZero();
+    Eigen::MatrixXd H_fd(q.size(), q.size());
+    H_fd.setZero();
+
+    finite_diff_grad(
+        q, [&](const auto &q) { return pin_ik_solver.get_bounds_cost(q); },
+        grad_fd);
+
+    finite_diff_hess(
+        q, [&](const auto &q) { return pin_ik_solver.get_bounds_cost(q); },
+        H_fd);
+
+    // check if grad is equal to grad_fd
+
+    if ((grad - grad_fd).norm() > 1e-4) {
+      std::cout << "grad: " << grad.transpose() << std::endl;
+      std::cout << "grad_fd: " << grad_fd.transpose() << std::endl;
+      THROW_PRETTY_DYNORRT("grad not equal to grad_fd");
+    }
+    if ((H - H_fd).norm() > 1e-4) {
+      std::cout << "H: " << H << std::endl;
+      std::cout << "H_fd: " << H_fd << std::endl;
+      std::cout << "Warning: H not equal to H_fd" << std::endl;
+
+      std::cout << "This could be because of the gauss newton approximation"
+                << std::endl;
+
+      // THROW_PRETTY_DYNORRT("H not equal to H_fd");
+    }
+  }
+
+  {
+
+    std::cout << "checking the frame cost" << std::endl;
+    // TODO: Check the coll consraints in a point that is in collision
+    Eigen::VectorXd grad = Eigen::VectorXd::Zero(q.size());
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(q.size(), q.size());
+    pin_ik_solver.get_frame_cost(q, &grad, &H);
+
+    // std::cout << "grad: \n" << grad.transpose() << std::endl;
+    // std::cout << "H: \n" << H << std::endl;
+    Eigen::VectorXd grad_fd(q.size());
+    Eigen::MatrixXd H_fd(q.size(), q.size());
+
+    finite_diff_grad(
+        q, [&](const auto &q) { return pin_ik_solver.get_frame_cost(q); },
+        grad_fd);
+
+    finite_diff_hess(
+        q, [&](const auto &q) { return pin_ik_solver.get_frame_cost(q); },
+        H_fd);
+
+    // check if grad is equal to grad_fd
+
+    // std::cout << "grad_fd: \n" << grad.transpose() << std::endl;
+    // std::cout << "H_fd: \n" << H << std::endl;
+
+    if ((grad - grad_fd).norm() > 1e-4) {
+      std::cout << "grad: " << grad.transpose() << std::endl;
+      std::cout << "grad_fd: " << grad_fd.transpose() << std::endl;
+      THROW_PRETTY_DYNORRT("grad not equal to grad_fd");
+    }
+    if ((H - H_fd).norm() > 1e-4) {
+      std::cout << "H: " << H << std::endl;
+      std::cout << "H_fd: " << H_fd << std::endl;
+      // THROW_PRETTY_DYNORRT("H not equal to H_fd");
+
+      std::cout << "This could be because of the gauss newton approximation"
+                << std::endl;
+    }
+  }
+
+  {
+
+    int J = 100;
+    double worst_cost = 0;
+    Eigen::VectorXd worst_q;
+    for (size_t j = 0; j < J; j++) {
+      q = start + j * (goal - start) / J;
+      double cj = pin_ik_solver.get_distance_cost(q);
+      if (cj > worst_cost) {
+        worst_cost = cj;
+        worst_q = q;
+      }
+    }
+    std::cout << "worst_cost: " << worst_cost << std::endl;
+    std::cout << "worst_q: " << worst_q.transpose() << std::endl;
+    q = worst_q;
+
+    // change the margins
+    // pin_ik_solver.set_col_margin(.001);
+
+    // std::cout << "checking the collision cost" << std::endl;
+    // TODO: Check the coll consraints in a point that is in collision
+    Eigen::VectorXd grad = Eigen::VectorXd::Zero(q.size());
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(q.size(), q.size());
+    pin_ik_solver.get_distance_cost(q, &grad, &H);
+
+    // std::cout << "grad: \n" << grad.transpose() << std::endl;
+    // std::cout << "H: \n" << H << std::endl;
+    Eigen::VectorXd grad_fd(q.size());
+    Eigen::MatrixXd H_fd(q.size(), q.size());
+
+    finite_diff_grad(
+        q, [&](const auto &q) { return pin_ik_solver.get_distance_cost(q); },
+        grad_fd, 1e-4);
+
+    finite_diff_hess(
+        q, [&](const auto &q) { return pin_ik_solver.get_distance_cost(q); },
+        H_fd, 1e-4);
+
+    // std::cout << "grad: \n" << grad.transpose() << std::endl;
+    // std::cout << "H: \n" << H << std::endl;
+    //
+    // std::cout << "grad_fd: \n" << grad.transpose() << std::endl;
+    // std::cout << "H_fd: \n" << H << std::endl;
+
+    if ((grad - grad_fd).norm() > 1e-3) {
+      std::cout << "grad: " << grad.transpose() << std::endl;
+      std::cout << "grad_fd: " << grad_fd.transpose() << std::endl;
+      THROW_PRETTY_DYNORRT("grad not equal to grad_fd");
+    }
+    if ((H - H_fd).norm() > 1e-3) {
+      std::cout << "H: " << H << std::endl;
+      std::cout << "H_fd: " << H_fd << std::endl;
+      std::cout << "Warning: H not equal to H_fd" << std::endl;
+      std::cout << "This could be because of the gauss newton approximation"
+                << std::endl;
+    }
+  }
+
+  {
+    pin_ik_solver.set_joint_reg_penalty(.1);
+    pin_ik_solver.set_joint_reg(Eigen::VectorXd::Ones(q.size()) * 1e-2);
+    Eigen::VectorXd grad = Eigen::VectorXd::Zero(q.size());
+    Eigen::MatrixXd H = Eigen::MatrixXd::Zero(q.size(), q.size());
+    pin_ik_solver.get_joint_reg_cost(q, &grad, &H);
+    Eigen::VectorXd grad_fd(q.size());
+    grad_fd.setZero();
+    Eigen::MatrixXd H_fd(q.size(), q.size());
+    H_fd.setZero();
+
+    finite_diff_grad(
+        q, [&](const auto &q) { return pin_ik_solver.get_joint_reg_cost(q); },
+        grad_fd);
+
+    finite_diff_hess(
+        q, [&](const auto &q) { return pin_ik_solver.get_joint_reg_cost(q); },
+        H_fd);
+
+    if ((grad - grad_fd).norm() > 1e-4) {
+      std::cout << "grad: " << grad.transpose() << std::endl;
+      std::cout << "grad_fd: " << grad_fd.transpose() << std::endl;
+      THROW_PRETTY_DYNORRT("grad not equal to grad_fd");
+    }
+    if ((H - H_fd).norm() > 1e-4) {
+      std::cout << "H: " << H << std::endl;
+      std::cout << "H_fd: " << H_fd << std::endl;
+      THROW_PRETTY_DYNORRT("H not equal to H_fd");
+    }
+  }
+}
+
+BOOST_AUTO_TEST_CASE(test_pin_ik) {
+
+  std::srand(0);
+  int argc = boost::unit_test::framework::master_test_suite().argc;
+  auto argv = boost::unit_test::framework::master_test_suite().argv;
+
+  if (argc < 2) {
+    std::cout << "Usage: ./test_dynorrt [] -- <path_to_base_dir>" << std::endl;
+    BOOST_TEST(false);
+    return;
+  }
+
+  std::string base_path(argv[1]);
+
+  Pin_ik_solver pin_ik_solver;
+  std::string env = "benchmark/envs/pinocchio/ur5_bin.json";
+
+  std::ifstream i(base_path + env);
+  if (!i.is_open()) {
+    THROW_PRETTY_DYNORRT("Error opening file: " + env);
+  }
+
+  nlohmann::json j;
+  i >> j;
+
+  Eigen::VectorXd start = j["start"];
+  Eigen::VectorXd goal = j["goal"];
+  Eigen::VectorXd lb = j["lb"];
+  std::vector<std::string> state_space_vstr = j["state_space"];
+  Eigen::VectorXd ub = j["ub"];
+
+  std::string urdf = j["urdf"];
+  std::string srdf = j["srdf"];
+
+  std::string robots_model_path = base_path + std::string(j["base_path"]);
+  std::cout << "robots_model_path: " << robots_model_path << std::endl;
+  urdf = robots_model_path + urdf;
+  srdf = robots_model_path + srdf;
+  pin_ik_solver.set_urdf_filename(urdf);
+  pin_ik_solver.set_srdf_filename(srdf);
+  pin_ik_solver.build();
+
+  pin_ik_solver.set_frame_name("tool0");
+
+  lb = start - 0.1 * Eigen::VectorXd::Ones(start.size());
+  ub = start + 0.1 * Eigen::VectorXd::Ones(start.size());
+  pin_ik_solver.set_bounds(lb, ub);
+
+  bool test_jacs = true;
+
+  auto [mptr, dptr] = pin_ik_solver.get_model_data_ptr();
+
+  pinocchio::framesForwardKinematics(*mptr, *dptr, start);
+
+  int frame_id = mptr->getFrameId("tool0");
+  const pinocchio::SE3 iMd = dptr->oMf[frame_id];
+  std::cout << "iMd: " << iMd << std::endl;
+
+  // pinocchio::SE3 pq_des;
+  // pq_des.setIdentity();
+  pin_ik_solver.set_pq_des(iMd);
+
   std::cout << "checking start" << std::endl;
   pin_ik_solver.get_cost(start);
 
   std::cout << "checking goal" << std::endl;
   pin_ik_solver.get_cost(goal);
+  // this is easy, should be solve by gradient descent
 
-  auto status = pin_ik_solver.solve_ik();
-  BOOST_TEST(bool(status == IKStatus::SUCCESS));
+  {
+    pin_ik_solver.set_max_it(1000);
+    pin_ik_solver.set_use_gradient_descent(true);
+    pin_ik_solver.set_use_finite_diff(true);
+    auto status = pin_ik_solver.solve_ik();
+    BOOST_TEST(bool(status == IKStatus::SUCCESS));
+  }
 
-  //
+  {
+    std::srand(0);
+    pin_ik_solver.set_max_it(1000);
+    pin_ik_solver.set_use_gradient_descent(true);
+    pin_ik_solver.set_use_finite_diff(false);
+    auto status = pin_ik_solver.solve_ik();
+    BOOST_TEST(bool(status == IKStatus::SUCCESS));
+  }
+
+  {
+    std::srand(0);
+    pin_ik_solver.set_max_it(1000);
+    pin_ik_solver.set_use_gradient_descent(false);
+    pin_ik_solver.set_use_finite_diff(true);
+    auto status = pin_ik_solver.solve_ik();
+    BOOST_TEST(bool(status == IKStatus::SUCCESS));
+  }
+
+  {
+    std::srand(0);
+    pin_ik_solver.set_max_it(1000);
+    pin_ik_solver.set_use_gradient_descent(false);
+    pin_ik_solver.set_use_finite_diff(false);
+    auto status = pin_ik_solver.solve_ik();
+    BOOST_TEST(bool(status == IKStatus::SUCCESS));
+  }
 }

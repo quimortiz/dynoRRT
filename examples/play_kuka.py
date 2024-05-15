@@ -129,6 +129,10 @@ if generate_valid_goals:
         solver.set_frame_name("contact")
         solver.set_max_time_ms(3000)
         solver.set_max_solutions(20)
+        solver.set_max_it(1000)
+        solver.set_use_gradient_descent(False);
+        solver.set_use_finite_diff(False);
+
         out = solver.solve_ik()
         ik_solutions = solver.get_ik_solutions()
         print("number of solutions", len(ik_solutions))

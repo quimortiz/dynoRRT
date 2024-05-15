@@ -457,7 +457,11 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("get_ik_solutions", &Pin_ik_solver::get_ik_solutions)
       .def("set_tolerances", &Pin_ik_solver::set_tolerances)
       .def("set_frame_id", &Pin_ik_solver::set_frame_id)
-      .def("set_frame_name", &Pin_ik_solver::set_frame_name);
+      .def("set_frame_name", &Pin_ik_solver::set_frame_name)
+      .def("set_col_margin", &Pin_ik_solver::set_col_margin)
+      .def("set_max_it", &Pin_ik_solver::set_max_it)
+      .def("set_use_gradient_descent", &Pin_ik_solver::set_use_gradient_descent)
+      .def("set_use_finite_diff", &Pin_ik_solver::set_use_finite_diff);
 
   py::class_<Collision_manager_pinocchio>(m, "Collision_manager_pinocchio")
       .def(py::init<>())

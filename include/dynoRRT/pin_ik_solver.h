@@ -28,6 +28,16 @@
 
 enum class IKStatus { RUNNING, SUCCESS, UNKNOWN, MAX_ATTEMPTS, MAX_TIME };
 
+enum class OPTStatus {
+  RUNNING,
+  SUCCESS,
+  UNKNOWN,
+  MAX_IT,
+  STEP_TOL,
+  STEP_TOL_MAXREG,
+  GRAD_TOL
+};
+
 namespace dynorrt {
 
 class Pin_ik_solver {
@@ -79,86 +89,22 @@ public:
 
   auto get_model_data_ptr() { return std::make_tuple(&model, &data); }
 
-  double get_distance_cost(const Eigen::VectorXd &q) {
+  double get_bounds_cost(const Eigen::VectorXd &q,
+                         Eigen::VectorXd *grad = nullptr,
+                         Eigen::MatrixXd *H = nullptr);
 
-    double cost_dist = 0;
-    // Collisions
-    size_t min_index = computeDistances(model, data, geom_model, geom_data, q);
+  double get_distance_cost(const Eigen::VectorXd &q,
+                           Eigen::VectorXd *grad = nullptr,
+                           Eigen::MatrixXd *H = nullptr);
 
-    double min_dist =
-        geom_data.distanceResults[min_index].min_distance - col_margin;
+  double get_frame_cost(const Eigen::VectorXd &q,
+                        Eigen::VectorXd *grad = nullptr,
+                        Eigen::MatrixXd *H = nullptr);
 
-    // std::cout << "min_dist: " << min_dist << std::endl;
+  double get_cost(const Eigen::VectorXd &q, Eigen::VectorXd *grad = nullptr,
+                  Eigen::MatrixXd *H = nullptr);
 
-    // lets assume this is a signed distance function!!
-    if (min_dist < 0) {
-      cost_dist = min_dist * min_dist;
-    } else {
-      cost_dist = 0;
-    }
-    return .5 * cost_dist;
-  }
-
-  double get_bounds_cost(const Eigen::VectorXd &q) {
-
-    double cost_bounds = 0;
-
-    for (size_t i = 0; i < q.size(); i++) {
-      if (q[i] < x_lb[i]) {
-        cost_bounds += (x_lb[i] - q[i]) * (x_lb[i] - q[i]);
-      } else if (q[i] > x_ub[i]) {
-        cost_bounds += (q[i] - x_ub[i]) * (q[i] - x_ub[i]);
-      }
-    }
-    return .5 * cost_bounds;
-  }
-
-  double get_frame_cost(const Eigen::VectorXd &q) {
-
-    pinocchio::framesForwardKinematics(model, data, q);
-
-    double cost_frame = 0;
-    if (flag_desired_pq) {
-      const pinocchio::SE3 iMd = data.oMf[frame_id].actInv(pq_des);
-      Eigen::VectorXd err = pinocchio::log6(iMd).toVector(); // in joint frame
-      cost_frame = .5 * err.squaredNorm();
-    } else {
-      // std::cout << "trans:" << data.oMf[frame_id].translation() << std::endl;
-      // std::cout << "p_des:" << p_des << std::endl;
-      Eigen::VectorXd tool_nu = data.oMf[frame_id].translation() - p_des;
-      cost_frame = .5 * tool_nu.squaredNorm();
-    }
-
-    return cost_frame;
-  }
-
-  double get_cost(const Eigen::VectorXd &q) {
-
-    double cost_dist = get_distance_cost(q);
-    double cost_bounds = get_bounds_cost(q);
-    double cost_frame = get_frame_cost(q);
-
-    // std::cout << "evaluating at q: " << q.transpose() << " cost: "
-    //           << col_penalty * cost_dist + bound_penalty * cost_bounds +
-    //                  frame_penalty * cost_frame
-    //           << std::endl;
-    // std::cout << "cost_dist: " << cost_dist << " cost_bounds: " << cost_bounds
-    //           << " cost_frame: " << cost_frame << std::endl;
-    return col_penalty * cost_dist + bound_penalty * cost_bounds +
-           frame_penalty * cost_frame;
-  }
-
-  void get_cost_derivative(const Eigen::VectorXd &q, Eigen::VectorXd &dq) {
-    double eps = 1e-5;
-    double fq = get_cost(q);
-    Eigen::VectorXd qplus = q;
-
-    for (size_t i = 0; i < q.size(); i++) {
-      qplus = q;
-      qplus[i] += eps;
-      dq[i] = (get_cost(qplus) - fq) / eps;
-    }
-  }
+  void get_cost_derivative(const Eigen::VectorXd &q, Eigen::VectorXd &dq);
 
   IKStatus solve_ik();
 
@@ -179,11 +125,26 @@ public:
   }
 
   void set_col_margin(double t_col_margin) { col_margin = t_col_margin; }
+  void set_max_it(int t_max_it) { max_it = t_max_it; }
+  void set_use_gradient_descent(bool use) { use_gradient_descent = use; }
+  void set_use_finite_diff(bool fd) { use_finite_diff = fd; }
+
+  double get_joint_reg_cost(const Eigen::VectorXd &q,
+                            Eigen::VectorXd *grad = nullptr,
+                            Eigen::MatrixXd *H = nullptr);
+
+  void set_joint_reg_penalty(double t_joint_reg_penalty) {
+    joint_reg_penalty = t_joint_reg_penalty;
+  }
+  void set_joint_reg(const Eigen::VectorXd &t_joint_reg) {
+    joint_reg = t_joint_reg;
+  }
 
 private:
   int frame_id = -1;
   std::string frame_name;
 
+  double joint_reg_penalty = 0.;
   double col_penalty = 1e4;
   double bound_penalty = 1e4;
   double frame_penalty = 1e2;
@@ -193,6 +154,7 @@ private:
   double col_tol = 1e-4;
   double frame_tol = 1e-4;
   double col_margin = .001;
+  double max_it = 100; // max iterations for the solver
 
   int max_time_ms = 1000;
   int max_num_attempts = 1;
@@ -225,9 +187,12 @@ private:
   std::vector<hpp::fcl::CollisionObject> collision_objects;
   std::vector<std::vector<hpp::fcl::CollisionObject>>
       collision_objects_parallel;
+  Eigen::VectorXd joint_reg;
 
   std::unique_ptr<BS::thread_pool> pool;
 
+  bool use_finite_diff = true;
+  bool use_gradient_descent = false;
   bool use_pool = false;
   bool use_aabb = false; // what to do here?
 };
