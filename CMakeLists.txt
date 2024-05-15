@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(
   dynorrt
-  VERSION 0.0.1
+  VERSION 0.0.12
   LANGUAGES CXX)
 
 include(FetchContent)
