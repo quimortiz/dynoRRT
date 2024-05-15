@@ -76,20 +76,27 @@ jobs:
       run: |
            cd build/bindings/python
            python3 -c 'import pydynorrt'
-    - name: Build and Install Python Package
-      run: |
-           CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
-           python3 -c 'import pydynorrt'
 
+    # - name: Build and Install Python Package
+    #   run: |
+    #        CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
+    #        python3 -c 'import pydynorrt'
+
+
+    - name: Install Python Package into system
+      run: cmake --install build \
+           python -c "import pydynorrt"
 
     - name: Python Install Dependencies
       run: |
            pip3 install numpy
            pip3 install matplotlib
+
     - name: Examples Python
       run: |
            # PYTHONPATH="build/bindings/python/" python3  examples/test_rrt.py
            python3  examples/test_rrt.py
+
     - name: C++ with Python visualization
       run: |
            python3  examples/plot.py
