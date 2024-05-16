@@ -14,10 +14,10 @@
 #include <boost/test/tools/detail/fwd.hpp>
 #include <nlohmann/json.hpp>
 
+#include "birrt.h"
 #include "dynorrt_macros.h"
 #include "options.h"
 #include "utils.h"
-#include "birrt.h"
 
 // NOTE: possible bug in TOML? connection_radius = 3 is not parsed correctly as
 // a doube?
@@ -48,7 +48,6 @@ public:
   virtual TerminationCondition plan() override {
     this->check_internal();
     CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
-
 
     std::cout << "Options" << std::endl;
     this->print_options();

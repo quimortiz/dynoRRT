@@ -130,8 +130,8 @@ if generate_valid_goals:
         solver.set_max_time_ms(3000)
         solver.set_max_solutions(20)
         solver.set_max_it(1000)
-        solver.set_use_gradient_descent(False);
-        solver.set_use_finite_diff(False);
+        solver.set_use_gradient_descent(False)
+        solver.set_use_finite_diff(False)
 
         out = solver.solve_ik()
         ik_solutions = solver.get_ik_solutions()
@@ -143,7 +143,6 @@ if generate_valid_goals:
         for q in ik_solutions:
             viz.display(q)
             input("press enter")
-
 
         # print()
         # print(out)
@@ -157,7 +156,6 @@ if generate_valid_goals:
             # q, f = solve_ik(robot, oMgoal, IDX_VIS, x0)
             res = solve_ik_with_scipy(x0)
             q = res.x
-
 
             # res = solve_ik_with_scipy(x0)
             # q = res.x

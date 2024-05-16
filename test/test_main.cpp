@@ -18,7 +18,6 @@
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
 
-
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
 #include <iostream>
@@ -37,7 +36,6 @@
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
 
-
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
 #include <iostream>
@@ -49,10 +47,6 @@
 #include "dynoRRT/rrt.h"
 #include "dynoRRT/rrtconnect.h"
 #include "dynoRRT/rrtstar.h"
-
-
-
-
 
 using json = nlohmann::json;
 
@@ -474,7 +468,6 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
   o << std::setw(2) << j << std::endl;
   BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
 }
-
 
 #if 0
 BOOST_AUTO_TEST_CASE(test_PIN_ur5) {

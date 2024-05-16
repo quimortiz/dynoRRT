@@ -101,7 +101,6 @@ public:
     Base::check_internal();
     CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
 
-
     std::cout << "Options" << std::endl;
     this->print_options();
 

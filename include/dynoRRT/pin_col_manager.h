@@ -95,7 +95,6 @@ public:
   void set_pin_geomodel0(pinocchio::GeometryModel &t_geomodel);
   void set_use_pool(bool use) { use_pool = use; }
 
-
   void set_use_aabb(bool use) { use_aabb = use; }
 
 private:

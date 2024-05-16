@@ -33,8 +33,6 @@ set_target_properties(
              CXX_EXTENSIONS NO
              POSITION_INDEPENDENT_CODE ON)
 
-
 if(PIN_PYTHON_OBJECT)
   target_compile_definitions(pydynorrt PRIVATE PIN_PYTHON_OBJECT)
 endif()
-

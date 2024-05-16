@@ -71,8 +71,6 @@ using state_space_t = dynotree::Combined<double>;
 using PlannerBase_t = PlannerBase<state_space_t, -1>;
 using PlannerPtr = std::shared_ptr<PlannerBase_t>;
 
-
-
 BOOST_AUTO_TEST_CASE(t_hello_world_dynobench) {
 
   int argc = boost::unit_test::framework::master_test_suite().argc;

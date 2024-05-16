@@ -117,10 +117,7 @@ jobs:
     - name: Example CPP project that depends on this package
       run: |
           cd example_cpplib
-          cmake -S . -B build -DCMAKE_PREFIX_PATH="/opt/openrobots/"   
+          cmake -S . -B build -DCMAKE_PREFIX_PATH="/opt/openrobots/"
           cmake --build build
           ./build/main
           ./build/main_pin ../
-
-
-

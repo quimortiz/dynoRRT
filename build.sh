@@ -16,5 +16,5 @@ cmake .. \
       -DBUILD_PYRRT=1 \
       -DPIN_PYTHON_OBJECT=1
 
-make -j${CPU_COUNT} 
+make -j${CPU_COUNT}
 make install

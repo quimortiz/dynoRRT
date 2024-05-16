@@ -27,8 +27,7 @@ FetchContent_MakeAvailable(toml11)
 # pinocchio.
 find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
                                        serialization python)
-# PATHS /usr/lib/x86_64-linux-gnu/
-# )
+# PATHS /usr/lib/x86_64-linux-gnu/ )
 
 find_package(Eigen3 REQUIRED)
 
@@ -76,8 +75,6 @@ option(BUILD_PYRRT "" OFF)
 
 option(PIN_PYTHON_OBJECT "" OFF)
 
-
-
 option(BUILD_BENCHMARK "" OFF)
 # option(USE_ZLIBSTATIC "" OFF)
 message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
@@ -90,7 +87,8 @@ include(GNUInstallDirs)
 add_library(dynorrt INTERFACE)
 add_library(dynorrt::dynorrt ALIAS dynorrt)
 
-add_library(pin_col_manager SHARED src/pin_col_manager.cpp src/pin_ik_solver.cpp)
+add_library(pin_col_manager SHARED src/pin_col_manager.cpp
+                                   src/pin_ik_solver.cpp)
 add_library(dynorrt::pin_col_manager ALIAS pin_col_manager)
 
 target_include_directories(
@@ -106,26 +104,23 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-target_link_libraries(pin_col_manager dynorrt::dynorrt pinocchio::pinocchio toml11::toml11 OpenMP::OpenMP_CXX)
+target_link_libraries(pin_col_manager dynorrt::dynorrt pinocchio::pinocchio
+                      toml11::toml11 OpenMP::OpenMP_CXX)
 
-target_include_directories(pin_col_manager PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/thread-pool/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
-
+target_include_directories(
+  pin_col_manager
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/thread-pool/include>
+         $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # TODO: add external flag!!
 
-# set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
-# if(USE_ZLIBSTATIC)
-#   set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a)
-# else()
-#   set(LIB_MYLIB)
-# endif()
+# set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a) if(USE_ZLIBSTATIC)
+# set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a) else() set(LIB_MYLIB) endif()
 
-# add_library(pin_with_zlib INTERFACE)
-# target_link_libraries(pin_with_zlib INTERFACE pinocchio::pinocchio ${LIB_MYLIB})
+# add_library(pin_with_zlib INTERFACE) target_link_libraries(pin_with_zlib
+# INTERFACE pinocchio::pinocchio ${LIB_MYLIB})
 
 # add_library(assimp_with_zlib INTERFACE) target_link_libraries(assimp_with_zlib
 # INTERFACE /usr/local/lib64/libassimp.a ${LIB_MYLIB})
@@ -142,34 +137,26 @@ if(BUILD_TESTS_RRT)
 
   # add_subdirectory(dynobench)
 
-  add_executable(test_main test/test_main.cpp) 
+  add_executable(test_main test/test_main.cpp)
   add_executable(test_pin test/test_pin.cpp)
 
-  if (BUILD_DYNOBENCH)
-  add_executable(test_dyno test/test_dyno.cpp)
+  if(BUILD_DYNOBENCH)
+    add_executable(test_dyno test/test_dyno.cpp)
   endif()
 
   # add_executable(play_toml test/play_toml.cpp)
-
 
   # add_executable(pin_col test/pin_col.cpp) add_executable(pin_ur5_example
   # test/pin_ur5_example.cpp) add_executable(pin_ur5_with_obs
   # test/pin_ur5_with_obs.cpp)
 
-
   # target_link_libraries(pin_col pin_with_zlib)
   # target_link_libraries(pin_ur5_example pin_with_zlib)
   # target_link_libraries(pin_ur5_with_obs pin_with_zlib)
 
-  # target_link_libraries(
-  #   play_toml
-  #   PRIVATE dynorrt::dynorrt
-  #           dynotree::dynotree
-  #           Eigen3::Eigen
-  #           magic_enum::magic_enum
-  #           nlohmann_json::nlohmann_json
-  #           Boost::unit_test_framework
-  #           toml11::toml11)
+  # target_link_libraries( play_toml PRIVATE dynorrt::dynorrt dynotree::dynotree
+  # Eigen3::Eigen magic_enum::magic_enum nlohmann_json::nlohmann_json
+  # Boost::unit_test_framework toml11::toml11)
 
   target_link_libraries(
     test_main
@@ -186,7 +173,6 @@ if(BUILD_TESTS_RRT)
             # octomap::octomap
   )
 
-
   target_link_libraries(
     test_pin
     PUBLIC Eigen3::Eigen
@@ -202,148 +188,135 @@ if(BUILD_TESTS_RRT)
             # octomap::octomap
   )
 
+  if(BUILD_DYNOBENCH)
 
-
-
-  if (BUILD_DYNOBENCH)
-
-  target_link_libraries(
+    target_link_libraries(
       test_dyno
-    PUBLIC Eigen3::Eigen
-    PRIVATE dynorrt::dynorrt
-            dynotree::dynotree
-            Eigen3::Eigen
-            magic_enum::magic_enum
-            nlohmann_json::nlohmann_json
-            Boost::unit_test_framework
-            toml11::toml11
-            pinocchio::pinocchio
-            dynorrt::pin_col_manager
-            dynobench::dynobench
-            # octomap::octomap
-  )
+      PUBLIC Eigen3::Eigen
+      PRIVATE dynorrt::dynorrt
+              dynotree::dynotree
+              Eigen3::Eigen
+              magic_enum::magic_enum
+              nlohmann_json::nlohmann_json
+              Boost::unit_test_framework
+              toml11::toml11
+              pinocchio::pinocchio
+              dynorrt::pin_col_manager
+              dynobench::dynobench
+              # octomap::octomap
+    )
 
   endif()
 
-
-
-
-  # set_target_properties(
-  #   test_dynorrt
-  #   PROPERTIES CXX_STANDARD 17
-  #              CXX_STANDARD_REQUIRED YES
-  #              CXX_EXTENSIONS NO)
+  # set_target_properties( test_dynorrt PROPERTIES CXX_STANDARD 17
+  # CXX_STANDARD_REQUIRED YES CXX_EXTENSIONS NO)
 
   # add_test(NAME test COMMAND test_dynorrt)
 endif()
 
 # install
 
-install(TARGETS nlohmann_json
-    EXPORT dynorrtTargets
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+  TARGETS nlohmann_json
+  EXPORT dynorrtTargets
+  INCLUDES
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
-install(TARGETS magic_enum
-    EXPORT dynorrtTargets
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
-
+install(
+  TARGETS magic_enum
+  EXPORT dynorrtTargets
+  INCLUDES
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Export dynorrt targets for easy import in other projects
-install(TARGETS dynorrt
-        EXPORT dynorrtTargets
-        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(
+  TARGETS dynorrt
+  EXPORT dynorrtTargets
+  INCLUDES
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # Installation and export for pin_col_manager compiled library
-install(TARGETS pin_col_manager
-        EXPORT dynorrtTargets
-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(
+  TARGETS pin_col_manager
+  EXPORT dynorrtTargets
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
 # Install the exports as a CMake file
-install(EXPORT dynorrtTargets
-        FILE dynorrtTargets.cmake
-        NAMESPACE dynorrt::
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
+install(
+  EXPORT dynorrtTargets
+  FILE dynorrtTargets.cmake
+  NAMESPACE dynorrt::
+  DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
 
 # Optionally create and install a config file for the project
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
-    "dynorrtConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
-)
+  "dynorrtConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion)
 
 configure_package_config_file(
-    ${CMAKE_CURRENT_LIST_DIR}/cmake/dynorrtConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt
-)
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/dynorrtConfig.cmake.in
+  ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
 
-install(FILES
-    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
-    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfigVersion.cmake
-    DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt
-)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
+              ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfigVersion.cmake
+        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
 
 if(BUILD_PYRRT)
-# Add the install command for Python files
-
+  # Add the install command for Python files
 
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
-execute_process(
-    COMMAND "${Python3_EXECUTABLE}" -c "import site; print(site.getsitepackages()[0])"
+  execute_process(
+    COMMAND "${Python3_EXECUTABLE}" -c
+            "import site; print(site.getsitepackages()[0])"
     OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
 
-message(STATUS "Installing Python modules to: ${PYTHON_SITE_PACKAGES}")
+  message(STATUS "Installing Python modules to: ${PYTHON_SITE_PACKAGES}")
 
-# Other project configurations, add_subdirectory, etc.
+  # Other project configurations, add_subdirectory, etc.
 
+  # I can hardcode the python path set(PYTHON_SITE_PACKAGES
+  # "lib/python3.12/site-packages")
 
+  # find_package(Python3 REQUIRED COMPONENTS Interpreter) execute_process(
+  # COMMAND "${Python3_EXECUTABLE}" -c "from distutils.sysconfig import
+  # get_python_lib; print(get_python_lib())" OUTPUT_VARIABLE
+  # PYTHON_SITE_PACKAGES OUTPUT_STRIP_TRAILING_WHITESPACE )
 
-# I can hardcode the python path
-# set(PYTHON_SITE_PACKAGES "lib/python3.12/site-packages")
+  message(STATUS "Python site-packages directory: ${PYTHON_SITE_PACKAGES}")
 
-# find_package(Python3 REQUIRED COMPONENTS Interpreter)
-# execute_process(
-#     COMMAND "${Python3_EXECUTABLE}" -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())"
-#     OUTPUT_VARIABLE PYTHON_SITE_PACKAGES
-#     OUTPUT_STRIP_TRAILING_WHITESPACE
-# )
+  # Other configuration and build setup...
 
-message(STATUS "Python site-packages directory: ${PYTHON_SITE_PACKAGES}")
+  # install(DIRECTORY ${CMAKE_BINARY_DIR}/src/python/ DESTINATION
+  # ${PYTHON_SITE_PACKAGES} FILES_MATCHING PATTERN "*.py" PATTERN "*.so")
 
-# Other configuration and build setup...
+  # Example install command using the determined site-packages directory
+  install(
+    DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
+    DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
+    FILES_MATCHING
+    PATTERN "*.so")
 
-# install(DIRECTORY ${CMAKE_BINARY_DIR}/src/python/
-#         DESTINATION ${PYTHON_SITE_PACKAGES}
-#         FILES_MATCHING PATTERN "*.py"
-#         PATTERN "*.so")
+  install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/python/pydynorrt/
+    DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
+    # FILES_MATCHING PATTERN "*.py" # NOTE: I also want to install all the data
+    # files
+  )
 
-# Example install command using the determined site-packages directory
-install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
-        DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
-        FILES_MATCHING PATTERN "*.so")
-
-
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/python/pydynorrt/
-        DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
-        # FILES_MATCHING PATTERN "*.py" # NOTE: I also want to install all the data files
-        )
-
-# Install shared libraries (.so files) associated with the Python bindings
-# install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/
-#         DESTINATION ${CMAKE_INSTALL_PREFIX}/${PYTHON_SITE_PACKAGES}
-#         FILES_MATCHING PATTERN "*.so")
+  # Install shared libraries (.so files) associated with the Python bindings
+  # install(DIRECTORY ${CMAKE_BINARY_DIR}/bindings/python/ DESTINATION
+  # ${CMAKE_INSTALL_PREFIX}/${PYTHON_SITE_PACKAGES} FILES_MATCHING PATTERN
+  # "*.so")
 endif()
-
-
 
 # dynobench PUBLIC fcl yaml-cpp Boost::program_options Boost::serialization
 # Boost::stacktrace_basic ${CMAKE_DL_LIBS} PUBLIC nlohmann_json::nlohmann_json)
