@@ -208,7 +208,7 @@ if(BUILD_TESTS_RRT)
   if (BUILD_DYNOBENCH)
 
   target_link_libraries(
-    test_dynorrt_kino
+      test_dyno
     PUBLIC Eigen3::Eigen
     PRIVATE dynorrt::dynorrt
             dynotree::dynotree
