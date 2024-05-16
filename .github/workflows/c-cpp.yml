@@ -70,9 +70,12 @@ jobs:
            make
     - name: C++ tests
       run: |
-           cd build && make && ./test_dynorrt  -- ../ _deps/dynobench-src/
+           cd build
+           ./test_main  -- ../ _deps/dynobench-src/
+           ./test_pin -- ../ _deps/dynobench-src/
+           ./test_dyno -- ../ _deps/dynobench-src/
 
-    - name: Check 1 Python Bindings
+    - name: Check Compiled Python Bindings
       run: |
            cd build/bindings/python
            python3 -c 'import pydynorrt'
