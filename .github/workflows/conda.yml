@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -l {0}
 
     steps:
     - name: Checkout code
@@ -20,6 +23,8 @@ jobs:
         auto-update-conda: true
         python-version: 3.12  # You can specify the Python version you need
         activate-environment: myenv  # Name of the conda environment
+        auto-update-conda: true
+        auto-activate-base: true
 
     - name: Create environment
       run: conda create --name myenv python=3.12
