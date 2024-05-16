@@ -75,6 +75,10 @@ jobs:
            ./test_pin -- ../ _deps/dynobench-src/
            ./test_dyno -- ../ _deps/dynobench-src/
 
+    - name: Python Install Dependencies
+      run: |
+           pip install numpy matplotlib pin example-robot-data meshcat scipy tqdm
+
     - name: Check Compiled Python Bindings
       run: |
            cd build/bindings/python
@@ -90,10 +94,12 @@ jobs:
       run: cmake --install build \
            python -c "import pydynorrt"
 
-    - name: Python Install Dependencies
+
+    - name: Test in Python
       run: |
-           pip3 install numpy
-           pip3 install matplotlib
+           python -m unittest pydynorrt.test.test_cols
+           python -m unittest pydynorrt.test.test_ik
+           python -m unittest pydynorrt.test.test_basic
 
     - name: Examples Python
       run: |
@@ -106,7 +112,6 @@ jobs:
 
     - name: Python with Pinocchio
       run:  |
-          pip3 install pin example-robot-data meshcat scipy tqdm
           python3 examplesPIN/my_rrt.py
           python3 examples/play_kuka.py
 

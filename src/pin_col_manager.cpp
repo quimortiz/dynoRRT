@@ -186,9 +186,10 @@ void Collision_manager_pinocchio::set_pin_model(
       collision_objects_parallel.push_back(_collision_objects);
     }
     // collision_objects_parallel.resize(num_threads_edges);
+
+    pool = std::make_unique<BS::thread_pool>(num_threads_edges);
   }
 
-  pool = std::make_unique<BS::thread_pool>(num_threads_edges);
   // 12);
 }
 
@@ -265,6 +266,10 @@ bool Collision_manager_pinocchio::is_collision_free_v2(const Eigen::VectorXd &q,
 
 bool Collision_manager_pinocchio::is_collision_free(const Eigen::VectorXd &q) {
 
+  if (!build_done) {
+    THROW_PRETTY_DYNORRT("build not done");
+  }
+
   if (!is_inside_frame_bounds(q)) {
     return false;
   }
@@ -335,6 +340,7 @@ bool Collision_manager_pinocchio::is_collision_free_set(
     THROW_PRETTY_DYNORRT("build not done");
   }
 
+  std::atomic_bool infeasible_found = false;
   if (this->num_threads_edges > 1) {
     // std::cout << "num_threads_edges: " << num_threads_edges << std::endl;
     // std::cout << "use pool" << use_pool << std::endl;
@@ -345,7 +351,6 @@ bool Collision_manager_pinocchio::is_collision_free_set(
       checks_per_thread = 1;
     }
 
-    std::atomic_bool infeasible_found = false;
     std::atomic_int counter_infeas = 0;
     std::atomic_int counter_feas = 0;
 
@@ -363,7 +368,8 @@ bool Collision_manager_pinocchio::is_collision_free_set(
               if (!is_collision_free_v2(q_set[i], thread_id)) {
                 counter_infeas++;
                 infeasible_found = true;
-                break;
+                if (stop_at_first_collision)
+                  break;
               } else {
                 counter_feas++;
               }
@@ -381,12 +387,15 @@ bool Collision_manager_pinocchio::is_collision_free_set(
     else {
       for (size_t i = 0; i < q_set.size(); i++) {
         pool->detach_task([&, i] {
-          if (infeasible_found) {
+          if (infeasible_found && stop_at_first_collision) {
           } else {
             auto _thread_id = BS::this_thread::get_index();
             int thread_id = _thread_id.value();
             if (!is_collision_free_v2(q_set[i], thread_id)) {
+              counter_infeas++;
               infeasible_found = true;
+            } else {
+              counter_feas++;
             }
           }
         });
@@ -405,12 +414,25 @@ bool Collision_manager_pinocchio::is_collision_free_set(
   }
 
   else {
+    bool edge_col_free = true;
     for (auto &q : q_set) {
-      if (!is_collision_free(q)) {
-        return false;
+
+      bool col_free = is_collision_free(q);
+      if (col_free) {
+        if (counter_feas_out)
+          (*counter_feas_out)++;
+
+      } else {
+        edge_col_free = false;
+        if (counter_infeas_out)
+          (*counter_infeas_out)++;
+      }
+
+      if (stop_at_first_collision && !col_free) {
+        break;
       }
     }
-    return true;
+    return edge_col_free;
   }
 }
 
