@@ -18,7 +18,7 @@ jobs:
       # with:
       #   auto-activate-base: true
       #   activate-environment: ""
-    - name: Install Dependencies
+    - name: Install Dependencies in latest ubuntu
       run: |
            sudo apt-get update
            sudo apt update
@@ -62,7 +62,7 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
+          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   -DBUILD_TESTS_RRT=1 ..
 
     - name: Make
       run: |
@@ -113,3 +113,14 @@ jobs:
     - name: Run Notebook
       run: |
           python3 notebooks/tutorial0.py
+
+    - name: Example CPP project that depends on this package
+      run: |
+          cd example_cpplib
+          cmake -S . -B build -DCMAKE_PREFIX_PATH="/opt/openrobots/"   
+          cmake --build build
+          ./build/main
+          ./build/main_pin ../
+
+
+
