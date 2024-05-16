@@ -26,6 +26,7 @@ jobs:
 
     - name: Install dependencies
       run: |
+        conda init
         conda activate myenv
         conda install -y pinocchio numpy cmake make cxx-compiler  -c conda-forge  # Replace with your specific dependencies
         # If you need to install packages from a requirements.txt file
@@ -33,6 +34,7 @@ jobs:
 
     - name: Compile package
       run: |
+        conda init
         conda activate myenv
         # Add commands to compile your package
         # For example, if using cmake:
