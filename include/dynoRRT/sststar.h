@@ -26,9 +26,6 @@
 namespace dynorrt {
 using json = nlohmann::json;
 
-// Continue here!
-// template <typename StateSpace, int DIM>
-
 // Reference:
 // Asymptotically Optimal Sampling-based Kinodynamic Planning
 // Yanbo Li, Zakary Littlefield, Kostas E. Bekris

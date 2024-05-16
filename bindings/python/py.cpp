@@ -7,6 +7,7 @@
 #include "dynoRRT/rrtconnect.h"
 #include "dynoRRT/rrtstar.h"
 #include "dynoRRT/shortcut.h"
+#include "dynoRRT/sststar.h"
 
 #include <pybind11/functional.h>
 
@@ -262,21 +263,15 @@ void add_planners_to_module(py::module &m, const std::string &name) {
 
   // For now, I only expose with control dim = -1.
   using KinoRRT_RX = KinoRRT<StateSpace, dim, -1>;
+  using SSTstar_RX = SSTstar<StateSpace, dim, -1>;
 
   py::class_<KinoRRT_RX, PlannerBase_RX>(m, ("PlannerKinoRRT_" + name).c_str())
       .def(py::init<>())
       .def("set_expand_fun", &KinoRRT_RX::set_expand_fun);
 
-  // .def("set_options", &LazyPRM_X::set_options)
-  // .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
-  // .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
-  // .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
-
-  // py::class_<RRTConnect, PlannerBase_RX>(m, ("PlannerRRTConnect_" +
-  // name).c_str())
-  //     .def(py::init<>());
-
-  // py
+  py::class_<SSTstar_RX, PlannerBase_RX>(m, ("PlannerSSTstar_" + name).c_str())
+      .def(py::init<>())
+      .def("set_expand_fun", &SSTstar_RX::set_expand_fun);
 };
 
 PYBIND11_MODULE(pydynorrt, m) {
@@ -403,7 +398,8 @@ PYBIND11_MODULE(pydynorrt, m) {
   //     .def("set_options", &LazyPRM_X::set_options)
   //     .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
   //     .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
-  //     .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
+  //     .def("get_check_edges_invalid",
+  //     &LazyPRM_X::get_check_edges_invalid);
 
   py::class_<BallObstacle<2>>(m, "BallObs2")
       .def(py::init<BallObstacle<2>::Cref, double>())
@@ -500,7 +496,8 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds_to_state", &PathShortCut_RX::set_bounds_to_state)
       .def("set_is_collision_free_fun",
            &PathShortCut_RX::set_is_collision_free_fun)
-      // .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
+      // .def("set_collision_manager",
+      // &PathShortCut_RX::set_collision_manager)
       .def("set_is_collision_free_fun_from_manager",
            [](PathShortCut_RX &planner,
               Collision_manager_pinocchio &col_manager) {
