@@ -1,15 +1,16 @@
-#include "dynoRRT/dynorrt_macros.h"
-
-#include <boost/test/unit_test_suite.hpp>
-#include <string>
+// clang-format off
 #define BOOST_TEST_MODULE test_0
 #define BtOST_TEST_DYN_LINK
+#include <boost/test/unit_test_suite.hpp>
+// clang-format on
 
+#include "dynoRRT/dynorrt_macros.h"
 #include "dynoRRT/pin_col_manager.h"
 #include "dynobench/motions.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
 #include "pinocchio/parsers/srdf.hpp"
 #include "pinocchio/parsers/urdf.hpp"
+#include <string>
 // clang-format on
 
 #include "dynoRRT/dynorrt_macros.h"
