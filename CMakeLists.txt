@@ -9,6 +9,14 @@ project(
 
 include(FetchContent)
 
+# Set default build type to Release if not specified
+if(NOT CMAKE_BUILD_TYPE)
+  message(STATUS "No build type specified, defaulting to Release")
+  set(CMAKE_BUILD_TYPE
+      "Release"
+      CACHE STRING "Build type" FORCE)
+endif()
+
 FetchContent_Declare(magic_enum
                      GIT_REPOSITORY https://github.com/Neargye/magic_enum)
 FetchContent_MakeAvailable(magic_enum)
@@ -308,6 +316,8 @@ if(BUILD_PYRRT)
   install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/python/pydynorrt/
     DESTINATION ${PYTHON_SITE_PACKAGES}/pydynorrt
+    PATTERN "*.pyc" EXCLUDE
+    PATTERN "__pycache__" EXCLUDE
     # FILES_MATCHING PATTERN "*.py" # NOTE: I also want to install all the data
     # files
   )
