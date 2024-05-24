@@ -76,7 +76,7 @@ jobs:
 
     - name: Python Install Dependencies
       run: |
-           pip install numpy matplotlib pin example-robot-data meshcat scipy tqdm
+           pip install numpy matplotlib meshcat scipy tqdm
 
     - name: Check Compiled Python Bindings
       run: |
@@ -90,34 +90,38 @@ jobs:
 
 
     - name: Install Python Package into system
-      run: | 
-           sudo cmake --install build 
+      run: |
+           sudo cmake --install build
            python -c "import pydynorrt"
 
 
     - name: Test in Python
+      # NOTE: I need to update PYTHONPATH because of Pinocchio from APT
       run: |
-           python -m unittest pydynorrt.test.test_cols
-           python -m unittest pydynorrt.test.test_ik
-           python -m unittest pydynorrt.test.test_basic
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages python -m unittest pydynorrt.test.test_cols
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages python -m unittest pydynorrt.test.test_ik
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages python -m unittest pydynorrt.test.test_basic
 
     - name: Examples Python
       run: |
-           # PYTHONPATH="build/bindings/python/" python3  examples/test_rrt.py
-           python3  examples/test_rrt.py
+           # NOTE: I need to update PYTHONPATH because of Pinocchio from APT
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages  python3  examples/test_rrt.py
 
     - name: C++ with Python visualization
       run: |
-           python3  examples/plot.py
+           # NOTE: I need to update PYTHONPATH because of Pinocchio from APT
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages  python3  examples/plot.py
 
     - name: Python with Pinocchio
       run:  |
-          python3 examplesPIN/my_rrt.py
-          python3 examples/play_kuka.py
+          # NOTE: I need to update PYTHONPATH because of Pinocchio from APT
+          PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages  python3 examplesPIN/my_rrt.py
+          PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages  python3 examples/play_kuka.py
 
     - name: Run Notebook
       run: |
-          python3 notebooks/tutorial0.py
+          # NOTE: I need to update PYTHONPATH because of Pinocchio from APT
+          PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages python3 notebooks/tutorial0.py
 
     - name: Example CPP project that depends on this package
       run: |
