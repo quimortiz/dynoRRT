@@ -1,15 +1,9 @@
 #pragma once
-#include <algorithm>
-#include <chrono>
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <unordered_map>
-#include <utility>
-#include <vector>
 
 #include "magic_enum.hpp"
-#include "nlohmann/json_fwd.hpp"
 #include <Eigen/Core>
 #include <Eigen/Dense>
 #include <boost/fusion/functional/invocation/invoke.hpp>
@@ -72,13 +66,15 @@ public:
       return this->is_collision_free_fun_timed(x);
     };
 
-    auto col_parallel = [this](const auto &x) {
-      return this->is_collision_free_fun_parallel(x);
-    };
+    // auto col_parallel = [this](const auto &x) {
+    //   return this->is_collision_free_fun_parallel(x);
+    // };
 
+    std::cout << "state_space" << std::endl;
     this->state_space.print(std::cout);
 
     CHECK_PRETTY_DYNORRT__(col(this->start));
+    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->start));
 
     if (this->goal_list.size()) {
       for (auto &goal : this->goal_list) {
@@ -89,7 +85,6 @@ public:
       CHECK_PRETTY_DYNORRT__(col(this->goal));
       CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->goal));
     }
-    CHECK_PRETTY_DYNORRT__(this->state_space.check_bounds(this->start));
 
     auto get_elapsed_ms = [&] {
       return std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -120,7 +115,6 @@ public:
 
       if (static_cast<double>(std::rand()) / RAND_MAX < options.goal_bias) {
         if (this->goal_list.size()) {
-          // get a goal at random
           int rand_goal_id = std::rand() % this->goal_list.size();
           this->x_rand = this->goal_list[rand_goal_id];
           is_goal = true;
@@ -146,8 +140,6 @@ public:
         }
         CHECK_PRETTY_DYNORRT(is_collision_free,
                              "cannot generate a valid xrand");
-        CHECK_PRETTY_DYNORRT(is_collision_free,
-                             "cannot generate a valid xrand");
       }
       if (options.debug) {
         this->sample_configs.push_back(this->x_rand);
@@ -157,7 +149,7 @@ public:
       this->x_near = this->configs.at(nn.id);
 
       if (is_goal) {
-        // Experimental: if the goal is sampled, then I will try to connect
+        // NOTE: if the goal is sampled, then I will try to connect
         // a random state, not only the closest one!
         if (static_cast<double>(std::rand()) / RAND_MAX < 0.5) {
           int rand_id = std::rand() % this->configs.size();
@@ -177,12 +169,15 @@ public:
 
       this->evaluated_edges += 1;
 
-      // bool dev_mode_parallel = true;
       bool is_collision_free = true;
-      if (this->dev_mode_parallel) {
-        is_collision_free = is_edge_collision_free_parallel(
-             this->x_near, this->x_new, col_parallel, this->state_space,
-            options.collision_resolution);
+
+      // TODO: check firss the end point!
+
+      if (this->custom_is_set_collision_free_fun) {
+        is_collision_free = is_edge_collision_free_set(
+            this->x_near, this->x_new, this->is_set_collision_free_fun,
+            this->state_space, options.collision_resolution);
+
       } else {
         is_collision_free = is_edge_collision_free(
             this->x_near, this->x_new, col, this->state_space,
@@ -205,8 +200,6 @@ public:
         this->parents.push_back(nn.id);
 
         if (this->goal_list.size()) {
-          // check againts all the goal
-
           for (size_t i = 0; i < this->goal_list.size(); i++) {
             if (this->state_space.distance(this->x_new, this->goal_list[i]) <
                 options.goal_tolerance) {

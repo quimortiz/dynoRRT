@@ -109,50 +109,84 @@ cm.set_srdf_filename(srdf)
 cm.build()
 cm.reset_counters()
 
-genertate_valid_goals = True
+generate_valid_goals = True
 num_goals = 20
 
 
-if genertate_valid_goals:
+use_ik_solver = True
+
+if generate_valid_goals:
 
     valid_goals = []
-    for i in range(1000):
-        if i % 100 == 0:
-            print("attempt", i)
-        x0 = np.random.uniform(lb, ub)
-        # q, f = solve_ik(robot, oMgoal, IDX_VIS, x0)
-        res = solve_ik_with_scipy(x0)
-        q = res.x
-        # res = solve_ik_with_scipy(x0)
-        # q = res.x
-        # check that I am inisie the bounds
+    if use_ik_solver:
+        solver = pyrrt.Pin_ik_solver()
+        solver.set_urdf_filename(urdf)
+        solver.set_srdf_filename(srdf)
+        solver.build()
+        solver.set_p_des(oMgoal.translation)
+        solver.set_bounds(lb, ub)
+        solver.set_max_num_attempts(1000)
+        solver.set_frame_name("contact")
+        solver.set_max_time_ms(3000)
+        solver.set_max_solutions(20)
+        solver.set_max_it(1000)
+        solver.set_use_gradient_descent(False)
+        solver.set_use_finite_diff(False)
 
-        eps_bound = 1e-3
+        out = solver.solve_ik()
+        ik_solutions = solver.get_ik_solutions()
+        print("number of solutions", len(ik_solutions))
+        print("out", out)
 
-        pin.framesForwardKinematics(robot.model, robot.data, q)
-        tool_nu = robot.data.oMf[IDX_VIS].translation - oMgoal.translation
-        if np.linalg.norm(tool_nu) < 1e-2:
-            if np.all(q > lb - eps_bound) and np.all(q < ub + eps_bound):
+        # solver.get_ik_solutions(ik_solutions)
 
-                if cm.is_collision_free(q):
-                    valid_goals.append(q)
-                    # viz.display(q)
-                    # input("press enter")
-                    if len(valid_goals) == num_goals:
-                        print("We have enough goal configurations")
-                        break
+        for q in ik_solutions:
+            viz.display(q)
+            input("press enter")
+
+        # print()
+        # print(out)
+        sys.exit()
+
+    else:
+        for i in range(1000):
+            if i % 100 == 0:
+                print("attempt", i)
+            x0 = np.random.uniform(lb, ub)
+            # q, f = solve_ik(robot, oMgoal, IDX_VIS, x0)
+            res = solve_ik_with_scipy(x0)
+            q = res.x
+
+            # res = solve_ik_with_scipy(x0)
+            # q = res.x
+            # check that I am inisie the bounds
+
+            eps_bound = 1e-3
+
+            pin.framesForwardKinematics(robot.model, robot.data, q)
+            tool_nu = robot.data.oMf[IDX_VIS].translation - oMgoal.translation
+            if np.linalg.norm(tool_nu) < 1e-2:
+                if np.all(q > lb - eps_bound) and np.all(q < ub + eps_bound):
+
+                    if cm.is_collision_free(q):
+                        valid_goals.append(q)
+                        # viz.display(q)
+                        # input("press enter")
+                        if len(valid_goals) == num_goals:
+                            print("We have enough goal configurations")
+                            break
+                    else:
+                        print("collision")
                 else:
-                    print("collision")
+                    print("not in bounds")
+                    print(q)
+                    print(lb)
+                    print(ub)
             else:
-                print("not in bounds")
-                print(q)
-                print(lb)
-                print(ub)
-        else:
-            print("not close to goal")
+                print("not close to goal")
 
-        with open("valid_goals.pkl", "wb") as f:
-            pickle.dump(valid_goals, f)
+    with open("valid_goals.pkl", "wb") as f:
+        pickle.dump(valid_goals, f)
 else:
     with open("valid_goals.pkl", "rb") as f:
         valid_goals = pickle.load(f)

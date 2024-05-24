@@ -1,3 +1,26 @@
+#include "dynoRRT/birrt.h"
+#include "dynoRRT/kinorrt.h"
+#include "dynoRRT/lazyprm.h"
+#include "dynoRRT/pin_col_manager.h"
+#include "dynoRRT/prm.h"
+#include "dynoRRT/rrt.h"
+#include "dynoRRT/rrtconnect.h"
+#include "dynoRRT/rrtstar.h"
+#include "dynoRRT/shortcut.h"
+#include "dynoRRT/sststar.h"
+
+#include <pybind11/functional.h>
+
+#include "dynoRRT/collision_manager.h"
+
+#include "dynoRRT/pin_ik_solver.h"
+#include "pybind11_json.hpp"
+#include <pybind11/eigen.h>
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
+
 #ifdef PIN_PYTHON_OBJECT
 
 #include <boost/python.hpp>
@@ -48,22 +71,22 @@ void testModel_manual(pybind11::object model) {
 
 using pinocchio::python::make_pybind11_function;
 
-void set_pin_model(dynorrt::Collision_manager_pinocchio &col_manager,
-                   pinocchio::Model &t_model,
-                   pinocchio::GeometryModel &t_geomodel) {
+void set_pin_model_col_manager(
+    dynorrt::Collision_manager_pinocchio &col_manager,
+    pinocchio::Model &t_model, pinocchio::GeometryModel &t_geomodel) {
   col_manager.set_pin_model(t_model, t_geomodel);
 }
 
-void set_pin_model0(dynorrt::Collision_manager_pinocchio &col_manager,
-                    pinocchio::Model &t_model) {
-
-  // col_manager.set_pin_model0(t_model);
+void set_pin_model_ik(dynorrt::Pin_ik_solver &solver, pinocchio::Model &t_model,
+                      pinocchio::GeometryModel &t_geomodel) {
+  solver.set_pin_model(t_model, t_geomodel);
 }
+
+void set_pin_model0(dynorrt::Collision_manager_pinocchio &col_manager,
+                    pinocchio::Model &t_model) {}
 
 void set_pin_geomodel0(dynorrt::Collision_manager_pinocchio &col_manager,
-                       pinocchio::GeometryModel &t_geomodel) {
-  // col_manager.set_pin_geomodel0(t_geomodel);
-}
+                       pinocchio::GeometryModel &t_geomodel) {}
 
 void model_test(pinocchio::Model &model) {
   std::cout << "model_test" << std::endl;
@@ -72,26 +95,6 @@ void model_test(pinocchio::Model &model) {
 }
 
 #endif
-
-#include "dynoRRT/birrt.h"
-#include "dynoRRT/kinorrt.h"
-#include "dynoRRT/lazyprm.h"
-#include "dynoRRT/prm.h"
-#include "dynoRRT/rrt.h"
-#include "dynoRRT/rrtconnect.h"
-#include "dynoRRT/rrtstar.h"
-
-#include <pybind11/functional.h>
-
-#include "dynoRRT/collision_manager.h"
-#include "dynoRRT/pin_col_manager.h"
-
-#include "pybind11_json.hpp"
-#include <pybind11/eigen.h>
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/stl_bind.h>
 
 namespace py = pybind11;
 using namespace dynorrt;
@@ -184,9 +187,9 @@ void add_planners_to_module(py::module &m, const std::string &name) {
   using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   py::class_<PlannerBase_RX>(m, ("PlannerBase_" + name).c_str())
       .def(py::init<>())
-      .def("set_collision_manager",
-           &PlannerBase_RX::set_collision_manager)  // add point
-      .def("set_start", &PlannerBase_RX::set_start) // add point
+      // .def("set_collision_manager",
+      //      &PlannerBase_RX::set_collision_manager)
+      .def("set_start", &PlannerBase_RX::set_start)
       .def("set_goal", &PlannerBase_RX::set_goal)
       .def("set_goal_list", &PlannerBase_RX::set_goal_list)
       .def("init", &PlannerBase_RX::init)
@@ -217,15 +220,15 @@ void add_planners_to_module(py::module &m, const std::string &name) {
                return col_manager.is_collision_free(q);
              });
            })
-      .def("set_is_collision_free_fun_from_manager_parallel",
+      .def("set_is_set_collision_free_fun_from_manager_parallel",
            [](PlannerBase_RX &planner,
               Collision_manager_pinocchio &col_manager) {
-             planner.set_is_collision_free_fun_parallel([&](const auto &q) {
+             planner.set_is_set_collision_free_fun([&](const auto &q) {
                return col_manager.is_collision_free_set(q, true, nullptr,
                                                         nullptr);
              });
-           })
-      .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
+           });
+  // .def("set_dev_mode_parallel", &PlannerBase_RX::set_dev_mode_parallel);
 
   using PlannerBase_RX = PlannerBase<StateSpace, dim>;
   using RRTStar = RRTStar<StateSpace, dim>;
@@ -260,26 +263,23 @@ void add_planners_to_module(py::module &m, const std::string &name) {
 
   // For now, I only expose with control dim = -1.
   using KinoRRT_RX = KinoRRT<StateSpace, dim, -1>;
+  using SSTstar_RX = SSTstar<StateSpace, dim, -1>;
 
   py::class_<KinoRRT_RX, PlannerBase_RX>(m, ("PlannerKinoRRT_" + name).c_str())
       .def(py::init<>())
       .def("set_expand_fun", &KinoRRT_RX::set_expand_fun);
 
-  // .def("set_options", &LazyPRM_X::set_options)
-  // .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
-  // .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
-  // .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
-
-  // py::class_<RRTConnect, PlannerBase_RX>(m, ("PlannerRRTConnect_" +
-  // name).c_str())
-  //     .def(py::init<>());
-
-  // py
+  py::class_<SSTstar_RX, PlannerBase_RX>(m, ("PlannerSSTstar_" + name).c_str())
+      .def(py::init<>())
+      .def("set_expand_fun", &SSTstar_RX::set_expand_fun);
 };
 
 PYBIND11_MODULE(pydynorrt, m) {
 
+#ifdef PIN_PYTHON_OBJECT
   pybind11::module::import("pinocchio");
+#endif
+
   using namespace pybind11::literals; // For _a
 
   m.doc() = R"pbdoc(
@@ -323,6 +323,13 @@ PYBIND11_MODULE(pydynorrt, m) {
 
   using RX = dynotree::Rn<double, -1>;
   using Combined = dynotree::Combined<double>;
+
+  py::enum_<IKStatus>(m, "IKStatus", py::arithmetic())
+      .value("RUNNING", IKStatus::RUNNING)
+      .value("SUCCESS", IKStatus::SUCCESS)
+      .value("UNKNOWN", IKStatus::UNKNOWN)
+      .value("MAX_ATTEMPTS", IKStatus::MAX_ATTEMPTS)
+      .value("MAX_TIME", IKStatus::MAX_TIME);
 
   py::enum_<TerminationCondition>(m, "TerminationCondition", py::arithmetic())
       .value("MAX_IT", TerminationCondition::MAX_IT)
@@ -394,7 +401,8 @@ PYBIND11_MODULE(pydynorrt, m) {
   //     .def("set_options", &LazyPRM_X::set_options)
   //     .def("get_adjacency_list", &LazyPRM_X::get_adjacency_list)
   //     .def("get_check_edges_valid", &LazyPRM_X::get_check_edges_valid)
-  //     .def("get_check_edges_invalid", &LazyPRM_X::get_check_edges_invalid);
+  //     .def("get_check_edges_invalid",
+  //     &LazyPRM_X::get_check_edges_invalid);
 
   py::class_<BallObstacle<2>>(m, "BallObs2")
       .def(py::init<BallObstacle<2>::Cref, double>())
@@ -423,6 +431,36 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def_readwrite("frame_name", &FrameBounds::frame_name)
       .def_readwrite("lower", &FrameBounds::lower)
       .def_readwrite("upper", &FrameBounds::upper);
+
+  py::class_<Pin_ik_solver>(m, "Pin_ik_solver")
+      .def(py::init<>())
+      .def("set_urdf_filename", &Pin_ik_solver::set_urdf_filename)
+      .def("set_srdf_filename", &Pin_ik_solver::set_srdf_filename)
+      .def("set_robots_model_path", &Pin_ik_solver::set_robots_model_path)
+      .def("set_num_threads", &Pin_ik_solver::set_num_threads)
+      .def("build", &Pin_ik_solver::build)
+      .def("set_bounds", &Pin_ik_solver::set_bounds)
+      .def("set_use_aabb", &Pin_ik_solver::set_use_aabb)
+      .def("set_bounds", &Pin_ik_solver::set_bounds)
+      .def("set_p_des", &Pin_ik_solver::set_p_des)
+      .def("set_pq_des", &Pin_ik_solver::set_pq_des)
+      .def("set_max_num_attempts", &Pin_ik_solver::set_max_num_attempts)
+      .def("set_max_solutions", &Pin_ik_solver::set_max_solutions)
+      .def("set_max_time_ms", &Pin_ik_solver::set_max_time_ms)
+      .def("get_distance_cost", &Pin_ik_solver::get_distance_cost)
+      .def("get_bounds_cost", &Pin_ik_solver::get_bounds_cost)
+      .def("get_frame_cost", &Pin_ik_solver::get_frame_cost)
+      .def("get_cost", &Pin_ik_solver::get_cost)
+      .def("get_cost_derivative", &Pin_ik_solver::get_cost_derivative)
+      .def("solve_ik", &Pin_ik_solver::solve_ik)
+      .def("get_ik_solutions", &Pin_ik_solver::get_ik_solutions)
+      .def("set_tolerances", &Pin_ik_solver::set_tolerances)
+      .def("set_frame_id", &Pin_ik_solver::set_frame_id)
+      .def("set_frame_name", &Pin_ik_solver::set_frame_name)
+      .def("set_col_margin", &Pin_ik_solver::set_col_margin)
+      .def("set_max_it", &Pin_ik_solver::set_max_it)
+      .def("set_use_gradient_descent", &Pin_ik_solver::set_use_gradient_descent)
+      .def("set_use_finite_diff", &Pin_ik_solver::set_use_finite_diff);
 
   py::class_<Collision_manager_pinocchio>(m, "Collision_manager_pinocchio")
       .def(py::init<>())
@@ -461,7 +499,8 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds_to_state", &PathShortCut_RX::set_bounds_to_state)
       .def("set_is_collision_free_fun",
            &PathShortCut_RX::set_is_collision_free_fun)
-      .def("set_collision_manager", &PathShortCut_RX::set_collision_manager)
+      // .def("set_collision_manager",
+      // &PathShortCut_RX::set_collision_manager)
       .def("set_is_collision_free_fun_from_manager",
            [](PathShortCut_RX &planner,
               Collision_manager_pinocchio &col_manager) {
@@ -489,7 +528,7 @@ PYBIND11_MODULE(pydynorrt, m) {
   m.def("rand01", []() { return static_cast<double>(std::rand()) / RAND_MAX; });
 
 #ifdef PIN_PYTHON_OBJECT
-  m.def("set_pin_model", make_pybind11_function(&set_pin_model));
+  m.def("set_pin_model", make_pybind11_function(&set_pin_model_col_manager));
   m.def("set_pin_model0", make_pybind11_function(&set_pin_model0));
   m.def("set_pin_geomodel0", make_pybind11_function(&set_pin_geomodel0));
 #endif

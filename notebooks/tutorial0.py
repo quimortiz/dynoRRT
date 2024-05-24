@@ -40,6 +40,16 @@
 # In[ ]:
 
 
+# FOR CONDA:
+get_ipython().system("pip3 install matplotlib # For visualization of 2D problems")
+get_ipython().system(
+    "pip3 install meshcat # Only if you want to use Pinocchio for visualization"
+)
+
+
+# In[ ]:
+
+
 # Import all packages
 from meshcat.animation import Animation
 import numpy as np
@@ -94,15 +104,6 @@ assert cm.is_collision_free(start)
 assert cm.is_collision_free(goal)
 mid = (goal + start) / 2.0
 assert not cm.is_collision_free(mid)
-
-cm.reset_counters()
-N = 100
-for i in range(N):
-    p = start + (goal - start) * i / float(N)
-    col = cm.is_collision_free(p)
-
-# Collision Checking, based on Pinocchio and Hpp-fcl, is fast!
-print("Average Time of 1 collision check in C++ [ms]:", cm.get_time_ms() / N)
 cm.reset_counters()
 
 
@@ -118,6 +119,7 @@ cm.reset_counters()
 # and the tutorials at https://github.com/Gepetto/supaero2022
 viewer = meshcat.Visualizer()
 viewer_helper = pyrrt_vis.ViewerHelperRRT(viewer, urdf, srdf, start, goal)
+# TODO: I need to solve the issue with
 # Now, you can open the URL with your browser, in another tab, or use
 viewer.render_static()
 
@@ -863,6 +865,321 @@ viewer.render_static()
 # In[ ]:
 
 
+# In[ ]:
+
+
+# In manipulation planning, we often have a desired end effector configuration instead of a joint configuration.
+# Dynorrt provides an optimization-based IK solver to compute robot poses such that the end effector has a given position and orientation,
+# is free of obstacles, and within bounds.
+# Such configurations are computed using nonlinear optimization (Second Order + Backtracking Line Search). In most cases, this algorithm
+# will be fast and precise.
+
+# Once we have one or more goal robot configurations, we can pass them to the planner.
+# Here, we provide an example using KUKA.
+from pinocchio.visualize import MeshcatVisualizer as PMV
+
+
+class MeshcatVisualizer(PMV):
+    def __init__(
+        self, robot=None, model=None, collision_model=None, visual_model=None, url=None
+    ):
+        if robot is not None:
+            super().__init__(robot.model, robot.collision_model, robot.visual_model)
+        elif model is not None:
+            super().__init__(model, collision_model, visual_model)
+
+        if url is not None:
+            if url == "classical":
+                url = "tcp://127.0.0.1:6000"
+            print("Wrapper tries to connect to server <%s>" % url)
+            server = meshcat.Visualizer(zmq_url=url)
+        else:
+            server = None
+
+        if robot is not None or model is not None:
+            self.initViewer(loadModel=True, viewer=server)
+        else:
+            self.viewer = server if server is not None else meshcat.Visualizer()
+
+
+base_path = pyrrt.DATADIR
+urdf = base_path + "models/iiwa.urdf"
+srdf = base_path + "models/kuka.srdf"
+
+robot = pin.RobotWrapper.BuildFromURDF(urdf, base_path + "models")
+viz = MeshcatVisualizer(robot)
+viz.display(np.array([0, 0, 0, 0, 0, 0, 0]))
+# viz.viewer.jupyter_cell()
+# viz.viewer.render_static()
+
+
+TARGET = np.array([0.4, 0.0, 0.1])
+oMgoal = pin.SE3(np.eye(3), TARGET)
+
+
+viz.displayCollisions(True)
+q_lim = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1e-5])
+q0 = np.array([0.0, 1.0, 0.0, -1.4, -0.7, 0.0, 0.0])
+lb = q0 - q_lim
+ub = q0 + q_lim
+
+
+generate_valid_goals = True
+num_goals = 20
+
+
+use_ik_solver = True
+
+
+solver = pyrrt.Pin_ik_solver()
+solver.set_urdf_filename(urdf)
+solver.set_srdf_filename(srdf)
+solver.build()
+solver.set_p_des(oMgoal.translation)
+solver.set_bounds(lb, ub)
+solver.set_max_num_attempts(1000)
+solver.set_frame_name("contact")
+solver.set_max_time_ms(3000)
+solver.set_max_solutions(20)
+solver.set_max_it(1000)
+solver.set_use_gradient_descent(False)
+solver.set_use_finite_diff(False)
+out = solver.solve_ik()
+tic = time.time()
+ik_solutions = solver.get_ik_solutions()
+toc = time.time()
+print("number of solutions", len(ik_solutions))
+print(
+    "Elapsed time [s]: ",
+    toc - tic,
+    " time per IK solutions",
+    (toc - tic) / len(ik_solutions),
+)
+print("out", out)
+
+# for q in ik_solutions:
+#   viz.display(q)
+#   time.sleep(.1)
+
+# We display all configs in the viewer, one after the other.
+anim = Animation()
+viewer = viz.viewer
+__v = viz.viewer
+# A small hack to generate visualization. Please contact me if you know a better way!
+for i in range(len(ik_solutions)):
+    with anim.at_frame(viz.viewer, i) as frame:
+        viz.viewer = frame
+        viz.display(ik_solutions[i])
+
+viewer.set_animation(anim)
+viz.viewer = __v
+viz.viewer.render_static()
+# Now, you can check the IK solutions with open control -> animations -> time
+
+
+# In[ ]:
+
+
+# Now we can plan from the start to any of the goal configurations!
+# We also provide a path shortcutting algorithm that, given a valid path, attempts to reduce the length by connecting intermediate configurations.
+
+cm = pyrrt.Collision_manager_pinocchio()
+cm.set_urdf_filename(urdf)
+cm.set_srdf_filename(srdf)
+cm.build()
+cm.reset_counters()
+
+
+rrt = pyrrt.PlannerRRT_Rn()
+config_str = """
+[RRT_options]
+max_it = 20000
+max_num_configs = 20000
+max_step = 1.0
+goal_tolerance = 0.001
+collision_resolution = 0.05
+goal_bias = 0.1
+store_all = false
+"""
+
+# lets generate a collision free configuration as a start.
+
+p_lb = np.array([0.0, -0.2, 0])
+p_ub = np.array([1.0, 0.2, 0.9])
+frame_bound = pyrrt.FrameBounds()
+frame_bound.frame_name = "contact"
+frame_bound.lower = p_lb
+frame_bound.upper = p_ub
+cm.set_frame_bounds([frame_bound])
+
+
+# start = None
+# valid_start = False
+# while not valid_start:
+#     s = np.random.uniform(lb, ub)
+#     if cm.is_collision_free(s):
+#         valid_start = True
+#         start = s
+
+
+start = np.array(
+    [
+        1.51437234e-01,
+        8.17017891e-01,
+        -4.71108920e-01,
+        -1.36055381e00,
+        -1.61660844e00,
+        7.37057021e-01,
+        -4.84776655e-07,
+    ]
+)  # NOTE: this is a nice start, the robot has to move around the obstacles.
+
+
+# NOTE: depending on the tolerances of the IK solver, some
+# configs might have very small collisions, and the RRT planner
+# will complain. Let's filter them.
+ik_solutions = [
+    s
+    for s in ik_solutions
+    if cm.is_collision_free(s) and np.sum(s < lb) == 0 and np.sum(s > ub) == 0
+]
+print("valide ik solutions after filtering: ", len(ik_solutions))
+assert cm.is_collision_free(start)
+print("start", start)
+rrt.set_start(start)
+rrt.set_goal_list(ik_solutions)
+rrt.init(7)
+rrt.set_bounds_to_state(lb, ub)
+
+# We can also add Cartesian Bounds to any frame of the robot in the collision manager
+
+
+rrt.set_is_collision_free_fun_from_manager(cm)
+
+rrt.read_cfg_string(config_str)
+
+# Let's plan -- it is fast.
+
+tic = time.time()
+out = rrt.plan()
+toc = time.time()
+print("Planning Time [s]:", toc - tic)
+
+assert out == pyrrt.TerminationCondition.GOAL_REACHED
+
+parents = rrt.get_parents()
+configs = rrt.get_configs()
+path = rrt.get_path()
+fine_path = rrt.get_fine_path(0.1)
+
+# lets try to shortcut the path
+resolution = 0.05
+path_shortcut = pyrrt.PathShortCut_RX()
+path_shortcut.init(7)
+path_shortcut.set_bounds_to_state(lb, ub)
+cm.reset_counters()
+path_shortcut.set_is_collision_free_fun_from_manager(cm)
+path_shortcut.set_initial_path(fine_path)
+tic = time.time()
+path_shortcut.shortcut()
+toc = time.time()
+print("Shortcutting Time [s]:", toc - tic)
+print("number of collision checks", cm.get_num_collision_checks())
+shortcut_data = path_shortcut.get_planner_data()
+print("evaluated edges", shortcut_data["evaluated_edges"])
+print("infeasible edges", shortcut_data["infeasible_edges"])
+new_path = path_shortcut.get_path()
+new_path_fine = path_shortcut.get_fine_path(0.1)
+
+# valid_trajs.append(new_path_fine)
+
+shortcut_data = path_shortcut.get_planner_data()
+
+
+# NOTE: we display only one of the possible goals
+
+#     viewer, urdf, base_path + "models", start, goal
+# )
+
+
+viewer = meshcat.Visualizer()
+goal = new_path_fine[-1]  # the goal is the last configuration of the path
+viewer_helper = pyrrt_vis.ViewerHelperRRT(
+    viewer, urdf, package_dirs=base_path + "models", start=start, goal=goal
+)
+
+robot = viewer_helper.robot
+viz = viewer_helper.viz
+idx_vis_name = "contact"
+IDX_VIS = robot.model.getFrameId(idx_vis_name)
+display_count = 0  # Just to enumerate the number
+for i, p in enumerate(parents):
+    if p != -1:
+        q1 = configs[i]
+        q2 = configs[p]
+
+        pin.framesForwardKinematics(robot.model, robot.data, q1)
+        p = robot.data.oMf[IDX_VIS].translation
+        print("p", p)
+
+        pyrrt_vis.display_edge(
+            robot,
+            q1,
+            q2,
+            IDX_VIS,
+            display_count,
+            viz,
+            radius=0.005,
+            color=[0.2, 0.8, 0.2, 0.9],
+        )
+        display_count += 1
+
+for i in range(len(path) - 1):
+    q1 = path[i]
+    q2 = path[i + 1]
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 0.0, 1.0, 0.5],
+    )
+    display_count += 1
+
+for i in range(len(new_path_fine) - 1):
+    q1 = new_path_fine[i]
+    q2 = new_path_fine[i + 1]
+    pyrrt_vis.display_edge(
+        robot,
+        q1,
+        q2,
+        IDX_VIS,
+        display_count,
+        viz,
+        radius=0.02,
+        color=[0.0, 1.0, 1.0, 0.5],
+    )
+    display_count += 1
+
+anim = Animation()
+__v = viewer_helper.viz.viewer
+for i in range(len(new_path_fine)):
+    with anim.at_frame(viewer, i) as frame:
+        viewer_helper.viz.viewer = frame
+        viz.display(new_path_fine[i])
+
+viewer.set_animation(anim)
+viewer_helper.viz.viewer = __v
+
+viewer.render_static()
+
+
+# In[ ]:
+
+
 # In these four examples, we have computed collisions using Pinocchio and URDF.
 # Can I use my own collision checker? - Yes!
 # For fast prototyping, you can define the collision function in Python directly.
@@ -1092,6 +1409,9 @@ for i in range(len(check_edges_invalid)):
         color="red",
         alpha=0.5,
     )
+
+
+# In[ ]:
 
 
 # In[ ]:

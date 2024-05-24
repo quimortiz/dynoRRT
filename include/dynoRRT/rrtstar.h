@@ -29,8 +29,6 @@ using json = nlohmann::json;
 // Continue here!
 // template <typename StateSpace, int DIM>
 
-
-
 // Reference:
 // Sampling-based Algorithms for Optimal Motion Planning
 // Sertac Karaman Emilio Frazzoli
@@ -101,6 +99,7 @@ public:
 
   virtual TerminationCondition plan() override {
     Base::check_internal();
+    CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
 
     std::cout << "Options" << std::endl;
     this->print_options();
@@ -538,6 +537,5 @@ protected:
   std::vector<std::vector<state_t>> paths;
   RRT_options options;
 };
-
 
 } // namespace dynorrt

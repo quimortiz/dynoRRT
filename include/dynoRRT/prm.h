@@ -62,6 +62,7 @@ public:
     CHECK_PRETTY_DYNORRT__(adjacency_list.size() == 0);
 
     Base::check_internal();
+    CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
 
     std::cout << "Options:" << std::endl;
     this->print_options();
@@ -307,7 +308,5 @@ protected:
   std::vector<std::pair<int, int>> check_edges_valid;
   std::vector<std::pair<int, int>> check_edges_invalid;
 };
-
-
 
 } // namespace dynorrt

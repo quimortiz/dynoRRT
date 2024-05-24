@@ -1,0 +1,8 @@
+@PACKAGE_INIT@
+
+# Include the targets file. This file is created by the install(EXPORT) command
+# and contains all the library and target definitions needed by consumers.
+include("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@Targets.cmake")
+
+# Check if the library is being loaded correctly
+check_required_components("@PROJECT_NAME@")

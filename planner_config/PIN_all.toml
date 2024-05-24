@@ -1,8 +1,8 @@
 envs = [
-      "../../benchmark/envs/pinocchio/ur5_bin.json",
-       "../../benchmark/envs/pinocchio/se3_window.json",
-       "../../benchmark/envs/pinocchio/ur5_two_arms.json",
-       "../../benchmark/envs/pinocchio/point_mass_cables.json"
+      "benchmark/envs/pinocchio/ur5_bin.json",
+       "benchmark/envs/pinocchio/se3_window.json",
+       "benchmark/envs/pinocchio/ur5_two_arms.json",
+       "benchmark/envs/pinocchio/point_mass_cables.json"
 ]
 
 planners = [

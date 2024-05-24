@@ -21,9 +21,10 @@ robot = load_ur5_with_obstacles(reduced=True)
 
 # robot.collision_model.addAllCollisionPairs()
 import pydynorrt
+
 cm = pydynorrt.Collision_manager_pinocchio()
 cm.set_edge_parallel(4)
-pydynorrt.set_pin_model(cm,robot.model, robot.collision_model)
+pydynorrt.set_pin_model(cm, robot.model, robot.collision_model)
 cm.set_use_pool(True)
 
 
@@ -74,8 +75,6 @@ def coll(q):
     # print(f"evaluating collision, q ={q} out={out} ")
 
     # assert cm.is_collision_free(q) != out
-
-
 
     return out
 

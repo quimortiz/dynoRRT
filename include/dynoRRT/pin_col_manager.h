@@ -1,10 +1,11 @@
 #pragma once
-
+//
 #include "pinocchio/parsers/srdf.hpp"
 #include "pinocchio/parsers/urdf.hpp"
+//
+
 #include "pinocchio/algorithm/geometry.hpp"
 #include <Eigen/Dense>
-#include <boost/make_shared.hpp>
 
 #include <hpp/fcl/collision_object.h>
 
@@ -12,10 +13,7 @@
 //
 // #include "BS_thread_pool.hpp"
 
-
-#include "BS_thread_pool.hpp"
-
-
+#include "thread-pool/BS_thread_pool.hpp"
 
 #include "pinocchio/multibody/fwd.hpp"
 #include <Eigen/Dense>
@@ -66,10 +64,10 @@ public:
 
   bool is_collision_free(const Eigen::VectorXd &q);
 
-  // one thread, check a list of configurations
-  bool is_collision_free_list(const std::vector<Eigen::VectorXd> qs);
-
-  bool is_collision_free_parallel(const Eigen::VectorXd &q, int num_threads);
+  bool is_collision_free_set(const std::vector<Eigen::VectorXd> &q_set,
+                             bool stop_at_first_collision = true,
+                             int *counter_infeas_out = nullptr,
+                             int *counter_feas_out = nullptr);
 
   void reset_counters() {
     time_ms = 0;
@@ -77,10 +75,6 @@ public:
   }
   int get_num_collision_checks() { return num_collision_checks; }
   double get_time_ms() { return time_ms; }
-
-  bool is_collision_free_set(const std::vector<Eigen::VectorXd> &q_set,
-                             bool stop_at_first_collision,
-                             int *counter_infeas_out, int *counter_feas_out);
 
   void set_frame_bounds(const std::vector<FrameBounds> &t_frame_bounds) {
     frame_bounds = t_frame_bounds;
@@ -100,6 +94,9 @@ public:
   void set_pin_model0(pinocchio::Model &t_model);
   void set_pin_geomodel0(pinocchio::GeometryModel &t_geomodel);
   void set_use_pool(bool use) { use_pool = use; }
+
+  void set_use_aabb(bool use) { use_aabb = use; }
+
 private:
   int num_threads_edges = -1;
   std::string urdf_filename;
@@ -129,5 +126,6 @@ private:
   std::unique_ptr<BS::thread_pool> pool;
 
   bool use_pool = false;
+  bool use_aabb = true;
 };
 } // namespace dynorrt

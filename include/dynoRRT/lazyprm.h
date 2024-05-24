@@ -31,7 +31,6 @@ using json = nlohmann::json;
 // Continue here!
 // template <typename StateSpace, int DIM>
 
-
 template <typename StateSpace, int DIM>
 class LazyPRM : public PRM<StateSpace, DIM> {
   using Base = PlannerBase<StateSpace, DIM>;
@@ -62,6 +61,7 @@ public:
     CHECK_PRETTY_DYNORRT__(this->adjacency_list.size() == 0);
 
     this->check_internal();
+    CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
 
     MESSAGE_PRETTY_DYNORRT("Options");
     this->print_options();
@@ -369,8 +369,5 @@ protected:
   // std::vector<std::pair<int, int>> check_edges_invalid;
   LazyPRM_options options;
 };
-
-
-
 
 } // namespace dynorrt

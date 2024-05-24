@@ -18,11 +18,6 @@
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
 
-#include "pinocchio/parsers/srdf.hpp"
-#include "pinocchio/parsers/urdf.hpp"
-
-#include "pinocchio/algorithm/geometry.hpp"
-
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
 #include <iostream>
@@ -41,16 +36,17 @@
 #include "dynoRRT/rrt.h"
 #include <boost/test/unit_test.hpp>
 
-#include "pinocchio/parsers/srdf.hpp"
-#include "pinocchio/parsers/urdf.hpp"
-
-#include "pinocchio/algorithm/geometry.hpp"
-
 #include <hpp/fcl/collision_object.h>
 #include <hpp/fcl/shape/geometric_shapes.h>
 #include <iostream>
 
-#include "dynoRRT/pin_col_manager.h"
+#include "dynoRRT/birrt.h"
+#include "dynoRRT/dynorrt_macros.h"
+#include "dynoRRT/lazyprm.h"
+#include "dynoRRT/prm.h"
+#include "dynoRRT/rrt.h"
+#include "dynoRRT/rrtconnect.h"
+#include "dynoRRT/rrtstar.h"
 
 using json = nlohmann::json;
 
@@ -153,7 +149,8 @@ BOOST_AUTO_TEST_CASE(test_ball_world2) {
 
   // rrt.set_is_collision_free_fun(col_free);
 
-  rrt.set_collision_manager(&collision_manager);
+  rrt.set_is_collision_free_fun(
+      [&](const auto &x) { return !collision_manager.is_collision(x); });
 
   TerminationCondition termination_condition = rrt.plan();
 
@@ -472,11 +469,6 @@ BOOST_AUTO_TEST_CASE(test_rrt_connect) {
   BOOST_TEST((termination_condition == TerminationCondition::GOAL_REACHED));
 }
 
-#ifndef PINOCCHIO_MODEL_DIR
-#define PINOCCHIO_MODEL_DIR
-
-#endif
-
 #if 0
 BOOST_AUTO_TEST_CASE(test_PIN_ur5) {
 
@@ -680,7 +672,8 @@ BOOST_AUTO_TEST_CASE(t_rrtstar) {
 
   // rrt.set_is_collision_free_fun(col_free);
 
-  rrt_star.set_collision_manager(&collision_manager);
+  rrt_star.set_is_collision_free_fun(
+      [&](const auto &x) { return !collision_manager.is_collision(x); });
 
   TerminationCondition termination_condition = rrt_star.plan();
 
@@ -714,9 +707,9 @@ BOOST_AUTO_TEST_CASE(t_rrtstar) {
   BOOST_TEST(is_termination_condition_solved(termination_condition));
 }
 
-namespace fs = std::filesystem;
 BOOST_AUTO_TEST_CASE(t_all_planners_circleworld) {
 
+  namespace fs = std::filesystem;
   int argc = boost::unit_test::framework::master_test_suite().argc;
   auto argv = boost::unit_test::framework::master_test_suite().argv;
 
@@ -790,7 +783,8 @@ BOOST_AUTO_TEST_CASE(t_all_planners_circleworld) {
       planner->set_start(start);
       planner->set_goal(goal);
       planner->init(2);
-      planner->set_collision_manager(&col_manager);
+      planner->set_is_collision_free_fun(
+          [&](const auto &x) { return !col_manager.is_collision(x); });
       TerminationCondition termination_condition = planner->plan();
       std::cout << magic_enum::enum_name(termination_condition) << std::endl;
       BOOST_TEST(is_termination_condition_solved(termination_condition));

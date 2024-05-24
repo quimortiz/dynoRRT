@@ -18,7 +18,7 @@ jobs:
       # with:
       #   auto-activate-base: true
       #   activate-environment: ""
-    - name: Install Dependencies
+    - name: Install Dependencies in latest ubuntu
       run: |
            sudo apt-get update
            sudo apt update
@@ -62,44 +62,67 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   ..
-
+          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   -DBUILD_TESTS_RRT=1 -DPIN_PYTHON_OBJECT=1 ..
     - name: Make
       run: |
            cd build
            make
     - name: C++ tests
       run: |
-           cd build && make && ./test_dynorrt  -- ../ _deps/dynobench-src/
-
-    - name: Check 1 Python Bindings
-      run: |
-           cd build/bindings/python
-           python3 -c 'import pydynorrt'
-    - name: Build and Install Python Package
-      run: |
-           CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
-           python3 -c 'import pydynorrt'
-
+           cd build
+           ./test_main  -- ../ _deps/dynobench-src/
+           ./test_pin -- ../ _deps/dynobench-src/
+           ./test_dyno -- ../ _deps/dynobench-src/
 
     - name: Python Install Dependencies
       run: |
-           pip3 install numpy
-           pip3 install matplotlib
+           pip install numpy matplotlib pin example-robot-data meshcat scipy tqdm
+
+    - name: Check Compiled Python Bindings
+      run: |
+           cd build/bindings/python
+           python3 -c 'import pydynorrt'
+
+    # - name: Build and Install Python Package
+    #   run: |
+    #        CMAKE_PREFIX_PATH=/opt/openrobots/ pip3 install .
+    #        python3 -c 'import pydynorrt'
+
+
+    - name: Install Python Package into system
+      run: | 
+           sudo cmake --install build 
+           python -c "import pydynorrt"
+
+
+    - name: Test in Python
+      run: |
+           python -m unittest pydynorrt.test.test_cols
+           python -m unittest pydynorrt.test.test_ik
+           python -m unittest pydynorrt.test.test_basic
+
     - name: Examples Python
       run: |
            # PYTHONPATH="build/bindings/python/" python3  examples/test_rrt.py
            python3  examples/test_rrt.py
+
     - name: C++ with Python visualization
       run: |
            python3  examples/plot.py
 
     - name: Python with Pinocchio
       run:  |
-          pip3 install pin example-robot-data meshcat scipy tqdm
           python3 examplesPIN/my_rrt.py
           python3 examples/play_kuka.py
 
     - name: Run Notebook
       run: |
           python3 notebooks/tutorial0.py
+
+    - name: Example CPP project that depends on this package
+      run: |
+          cd example_cpplib
+          cmake -S . -B build -DCMAKE_PREFIX_PATH="/opt/openrobots/"
+          cmake --build build
+          ./build/main
+          ./build/main_pin ../

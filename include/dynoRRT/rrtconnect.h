@@ -4,9 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
-#include <unordered_map>
 #include <utility>
-#include <vector>
 
 #include "magic_enum.hpp"
 #include "nlohmann/json_fwd.hpp"
@@ -16,9 +14,9 @@
 #include <boost/test/tools/detail/fwd.hpp>
 #include <nlohmann/json.hpp>
 
+#include "birrt.h"
 #include "dynorrt_macros.h"
 #include "options.h"
-#include "rrt_base.h"
 #include "utils.h"
 
 // NOTE: possible bug in TOML? connection_radius = 3 is not parsed correctly as
@@ -28,7 +26,6 @@ using json = nlohmann::json;
 
 // Continue here!
 // template <typename StateSpace, int DIM>
-
 
 template <typename StateSpace, int DIM>
 class RRTConnect : public BiRRT<StateSpace, DIM> {
@@ -50,6 +47,7 @@ public:
 
   virtual TerminationCondition plan() override {
     this->check_internal();
+    CHECK_PRETTY_DYNORRT__(!this->goal_list.size());
 
     std::cout << "Options" << std::endl;
     this->print_options();
@@ -252,6 +250,5 @@ public:
     //
   }
 };
-
 
 } // namespace dynorrt
