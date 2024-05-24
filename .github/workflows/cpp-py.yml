@@ -90,7 +90,8 @@ jobs:
 
 
     - name: Install Python Package into system
-      run: cmake --install build \
+      run: | 
+           sudo cmake --install build 
            python -c "import pydynorrt"
 
 
