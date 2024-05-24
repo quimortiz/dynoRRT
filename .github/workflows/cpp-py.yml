@@ -62,8 +62,7 @@ jobs:
       run: |
           mkdir build
           cd build
-          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   -DBUILD_TESTS_RRT=1 ..
-
+          cmake -DBUILD_EXAMPLES=ON -DBUILD_DYNOBENCH=ON -DBUILD_PYRRT=ON -DBUILD_BENCHMARK=OFF -DCMAKE_PREFIX_PATH="/opt/openrobots/"   -DBUILD_TESTS_RRT=1 -DPIN_PYTHON_OBJECT=1 ..
     - name: Make
       run: |
            cd build
