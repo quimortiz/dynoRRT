@@ -92,7 +92,7 @@ jobs:
     - name: Install Python Package into system
       run: |
            sudo cmake --install build
-           python -c "import pydynorrt"
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages python -c "import pydynorrt"
 
 
     - name: Test in Python
