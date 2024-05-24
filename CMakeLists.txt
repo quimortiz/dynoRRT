@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(
   dynorrt
-  VERSION 0.0.12
+  VERSION 0.0.13
   LANGUAGES CXX)
 
 include(FetchContent)
@@ -33,9 +33,27 @@ FetchContent_MakeAvailable(toml11)
 
 # NOTE: still linking error when I try to compile in the conda env from
 # pinocchio.
-find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
-                                       serialization python)
-# PATHS /usr/lib/x86_64-linux-gnu/ )
+
+option(BUILD_TESTS_RRT "" OFF)
+option(BUILD_PYRRT "" OFF)
+
+option(PIN_PYTHON_OBJECT "" OFF)
+
+option(ADD_INSTALL_CONFIG "" ON)
+option(BUILD_BENCHMARK "" OFF)
+# option(USE_ZLIBSTATIC "" OFF)
+message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
+message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
+message(STATUS "BUILD_TESTS_RRT ${BUILD_TESTS_RRT}")
+message(STATUS "PIN_PYTHON_OBJECT ${PIN_PYTHON_OBJECT}")
+
+if(PIN_PYTHON_OBJECT)
+  find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
+                                         serialization python)
+else()
+  find_package(Boost REQUIRED COMPONENTS unit_test_framework system filesystem
+                                         serialization)
+endif()
 
 find_package(Eigen3 REQUIRED)
 
@@ -78,17 +96,6 @@ endif()
 # Use this to avoid conflict with conda eigen find_package(Eigen3 3.3.7 REQUIRED
 # EXACT)
 
-option(BUILD_TESTS_RRT "" OFF)
-option(BUILD_PYRRT "" OFF)
-
-option(PIN_PYTHON_OBJECT "" OFF)
-
-option(BUILD_BENCHMARK "" OFF)
-# option(USE_ZLIBSTATIC "" OFF)
-message(STATUS "BUILD_PYRRT ${BUILD_PYRRT}")
-message(STATUS "BUILD_BENCHMARK ${BUILD_BENCHMARK}")
-message(STATUS "BUILD_TESTS_RRT ${BUILD_TESTS_RRT}")
-message(STATUS "PIN_PYTHON_OBJECT ${PIN_PYTHON_OBJECT}")
 # message(STATUS "USE_ZLIBSTATIC ${USE_ZLIBSTATIC}")
 
 include(GNUInstallDirs)
@@ -261,20 +268,23 @@ install(
   DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
 
 # Optionally create and install a config file for the project
-include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-  "dynorrtConfigVersion.cmake"
-  VERSION ${PROJECT_VERSION}
-  COMPATIBILITY SameMajorVersion)
 
-configure_package_config_file(
-  ${CMAKE_CURRENT_LIST_DIR}/cmake/dynorrtConfig.cmake.in
-  ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
+if(ADD_INSTALL_CONFIG)
+  include(CMakePackageConfigHelpers)
+  write_basic_package_version_file(
+    "dynorrtConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
-              ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfigVersion.cmake
-        DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
+  configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/dynorrtConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
+
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfig.cmake
+                ${CMAKE_CURRENT_BINARY_DIR}/dynorrtConfigVersion.cmake
+          DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/cmake/dynorrt)
+endif()
 
 if(BUILD_PYRRT)
   # Add the install command for Python files

@@ -276,7 +276,10 @@ void add_planners_to_module(py::module &m, const std::string &name) {
 
 PYBIND11_MODULE(pydynorrt, m) {
 
+#ifdef PIN_PYTHON_OBJECT
   pybind11::module::import("pinocchio");
+#endif
+
   using namespace pybind11::literals; // For _a
 
   m.doc() = R"pbdoc(

@@ -63,10 +63,17 @@ After changing C++, we can build Pybindings and copy by hand:
 cp bindings/python/pydynorrt.cpython-310-x86_64-linux-gnu.so /home/quim/envs/mim/lib/python3.10/site-packages/pydynorrt
 ```
 
+## Local Install
+
+Standard cmake build and install workflow.
+Check the options to choose which components of the project to build.
+
 ## Creating the conda package
 
 The conda package is created in the separate repository [dynorrt-conda](https://github.com/quimortiz/dynorrt-conda).
 [dynorrt-conda](https://github.com/quimortiz/dynorrt-conda) contains the recipe files to create the package from a chosen commit of this repository.
+
+
 
 ## Creating the pip Package
 
@@ -76,25 +83,17 @@ From the root of the repository:
 docker run -it -v $(pwd):/io quay.io/pypa/manylinux2014_x86_64
 ```
 
-Inside Docker:
-
+Inside Docker
 ```bash
-bash /io/install_all_docker.sh
+bash /io/build_deps_in_docker.sh
+bash /io/wheels_build.sh
 ```
 
-Then, I can create a custom build directory and:
-
+Outside docker
 ```bash
-bash ../build_cmd.sh
+python3 -m twine upload wheelhouse_repaired/* --verbose
 ```
 
-Or directly use the setup.py of Python to build all the wheels:
-
-Run inside Docker, in the /io folder:
-
-```bash
-bash build-wheels.sh
-```
 
 ## Planners
 

@@ -147,6 +147,7 @@ class CMakeBuild(build_ext):
         cmake_args += [
             "-DCMAKE_BUILD_TYPE=Release",
             "-DBUILD_PYRRT=1",
+            "-DADD_INSTALL_CONFIG=0",  # necessary if i use python -m build
             # "-DBoost_USE_STATIC_LIBS=1",
             # "-DBUILD_SHARED_LIBS=0",
             # "-DPYTHON_EXECUTABLE=/opt/python/cp38-cp38/bin/python",
@@ -173,7 +174,7 @@ class CMakeBuild(build_ext):
 # long_description = (this_directory / "README.md").read_text()
 setup(
     name="pydynorrt",
-    version="0.0.10",
+    version="0.0.13",
     author="Joaquim Ortiz-Haro",
     author_email="quimortiz21@gmail.com",
     description="C++/Python Sample Based Motion Planning for Robotics",
