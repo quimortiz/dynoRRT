@@ -81,7 +81,7 @@ jobs:
     - name: Check Compiled Python Bindings
       run: |
            cd build/bindings/python
-           python3 -c 'import pydynorrt'
+           PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages python -c 'import pydynorrt'
 
     # - name: Build and Install Python Package
     #   run: |
