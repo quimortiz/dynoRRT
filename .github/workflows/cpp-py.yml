@@ -53,7 +53,7 @@ jobs:
                  | sudo tee /etc/apt/sources.list.d/robotpkg.list
 
            sudo apt update
-           sudo apt install -qqy robotpkg-py310-pinocchio
+           sudo apt install -qqy robotpkg-py310-pinocchio robotpkg-py310-example-robot-data
 
     - name: Checkout submodules
       run: git submodule update --init --recursive
