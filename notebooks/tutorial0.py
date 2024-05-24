@@ -40,11 +40,9 @@
 # In[ ]:
 
 
-# FOR CONDA:
-get_ipython().system("pip3 install matplotlib # For visualization of 2D problems")
-get_ipython().system(
-    "pip3 install meshcat # Only if you want to use Pinocchio for visualization"
-)
+# When using conda package, you only have to install
+#!pip3 install matplotlib # For visualization of 2D problems
+#!pip3 install meshcat # Only if you want to use Pinocchio for visualization
 
 
 # In[ ]:
