@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.26)
 include(FetchContent)
 
 project(hello_dynorrt)
-find_package(dynorrt REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(pinocchio REQUIRED)
 find_package(OpenMP REQUIRED)
@@ -24,6 +23,8 @@ set(CMAKE_CXX_EXTENSIONS Off)
 
 FetchContent_Declare(toml11 GIT_REPOSITORY https://github.com/ToruNiina/toml11)
 FetchContent_MakeAvailable(toml11)
+
+find_package(dynorrt REQUIRED)
 
 add_executable(main main.cc)
 add_executable(main_pin main_pin.cc)
