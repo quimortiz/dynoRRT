@@ -142,7 +142,8 @@ if generate_valid_goals:
 
         for q in ik_solutions:
             viz.display(q)
-            input("press enter")
+            if interactive:
+                input("press enter")
 
         # print()
         # print(out)
