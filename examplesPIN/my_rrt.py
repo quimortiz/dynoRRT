@@ -23,9 +23,9 @@ robot = load_ur5_with_obstacles(reduced=True)
 import pydynorrt
 
 cm = pydynorrt.Collision_manager_pinocchio()
-cm.set_edge_parallel(4)
-pydynorrt.set_pin_model(cm, robot.model, robot.collision_model)
+cm.set_edge_parallel(1)
 cm.set_use_pool(True)
+pydynorrt.set_pin_model(cm, robot.model, robot.collision_model)
 
 
 viz = MeshcatVisualizer(robot)
@@ -97,11 +97,10 @@ rrt = pydynorrt.PlannerRRT_Rn()
 rrt.set_start(q_start)
 rrt.set_goal(q_goal)
 rrt.init(2)
-rrt.set_dev_mode_parallel(True)
 # rrt.set_is_collision_free_fun(lambda x: not coll(x))
 # rrt.
+rrt.set_is_set_collision_free_fun_from_manager_parallel(cm)
 rrt.set_is_collision_free_fun_from_manager(cm)
-rrt.set_is_collision_free_fun_from_manager_parallel(cm)
 lb = np.array([-3.2, -3.2])
 ub = np.array([3.2, 3.2])
 rrt.set_bounds_to_state(lb, ub)
@@ -117,73 +116,77 @@ valid = rrt.get_configs()
 sample = rrt.get_sample_configs()
 
 
-def plot_robot(ax, x, color="black", alpha=1.0):
-    ax.plot([x[0]], [x[1]], marker="o", color=color, alpha=alpha)
+print("planning done")
+
+# def plot_robot(ax, x, color="black", alpha=1.0):
+#     ax.plot([x[0]], [x[1]], marker="o", color=color, alpha=alpha)
 
 
-fig, ax = plt.subplots()
-
-ax.set_xlim(lb[0], ub[0])
-ax.set_ylim(lb[1], ub[1])
-
-
-for v in sample:
-    plot_robot(ax, v, color="blue")
-
-for v in valid:
-    plot_robot(ax, v, color="gray")
+# fig, ax = plt.subplots()
+#
+# ax.set_xlim(lb[0], ub[0])
+# ax.set_ylim(lb[1], ub[1])
 
 
-for i in range(len(path)):
-    plot_robot(ax, path[i], color="black")
+# for v in sample:
+#     plot_robot(ax, v, color="blue")
+#
+# for v in valid:
+#     plot_robot(ax, v, color="gray")
+#
+#
+# for i in range(len(path)):
+#     plot_robot(ax, path[i], color="black")
+#
+# for i in range(len(fine_path)):
+#     plot_robot(ax, fine_path[i], color="yellow")
 
-for i in range(len(fine_path)):
-    plot_robot(ax, fine_path[i], color="yellow")
+# parents = rrt.get_parents()
 
-parents = rrt.get_parents()
-
-
-for i, p in enumerate(parents):
-    if p != -1:
-        print(f"{i} -> {p}")
-        ax.plot(
-            [valid[i][0], valid[p][0]],
-            [valid[i][1], valid[p][1]],
-            color="black",
-            alpha=0.5,
-        )
-
-
-plot_robot(ax, q_start, "green")
-plot_robot(ax, q_goal, "red")
-
-plt.show()
-
-index = 0
-print(path)
-if os.environ.get("INTERACTIVE") is not None:
-    while True:
-        if index == len(path):
-            index = 0
-        if os.environ.get("INTERACTIVE") is not None:
-            input("press enter to continue")
-        q = path[index]
-        print(f"i={index}/{len(path)} q={q}")
-        viz.display(q)
-        time.sleep(0.01)
-        index += 1
-        if index == len(path):
-            break
-
-    index = 0
-
-    while True:
-        if index == len(fine_path):
-            index = 0
-        if os.environ.get("INTERACTIVE") is not None:
-            input("press enter to continue")
-        q = fine_path[index]
-        print(f"i={index}/{len(fine_path)} q={q}")
-        viz.display(q)
-        time.sleep(0.01)
-        index += 1
+#
+# for i, p in enumerate(parents):
+#     if p != -1:
+#         print(f"{i} -> {p}")
+#         ax.plot(
+#             [valid[i][0], valid[p][0]],
+#             [valid[i][1], valid[p][1]],
+#             color="black",
+#             alpha=0.5,
+#         )
+#
+#
+# plot_robot(ax, q_start, "green")
+# plot_robot(ax, q_goal, "red")
+#
+# plt.show()
+#
+# index = 0
+# print(path)
+# if os.environ.get("INTERACTIVE") is not None:
+#     while True:
+#         if index == len(path):
+#             index = 0
+#         if os.environ.get("INTERACTIVE") is not None:
+#             input("press enter to continue")
+#         q = path[index]
+#         print(f"i={index}/{len(path)} q={q}")
+#         viz.display(q)
+#         time.sleep(0.01)
+#         index += 1
+#         if index == len(path):
+#             break
+#
+#     index = 0
+#
+#     while True:
+#         if index == len(fine_path):
+#             index = 0
+#         if os.environ.get("INTERACTIVE") is not None:
+#             input("press enter to continue")
+#         q = fine_path[index]
+#         print(f"i={index}/{len(fine_path)} q={q}")
+#         viz.display(q)
+#         time.sleep(0.01)
+#         index += 1
+#
+# print("planning done")
