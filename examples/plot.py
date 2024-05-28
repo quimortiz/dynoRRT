@@ -9,7 +9,7 @@ sys.path.append(".")
 
 
 build_cmd = ["make"]
-run_cmd = ["./test_dynorrt", "--run_test=test_1"]
+run_cmd = ["./test_main", "--run_test=test_1"]
 
 out = subprocess.run(build_cmd, cwd="build")
 
