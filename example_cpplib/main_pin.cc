@@ -17,5 +17,7 @@ int main(int argc, char **argv) {
   std::string base_path(argv[1]);
 
   Collision_manager_pinocchio coll_manager;
-  coll_manager.build();
+
+  // see tests for meaningul and tested examples
+  //
 }
