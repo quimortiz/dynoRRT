@@ -129,4 +129,5 @@ jobs:
           cmake -S . -B build -DCMAKE_PREFIX_PATH="/opt/openrobots/"
           cmake --build build
           ./build/main
-          ./build/main_pin ../
+          # Not sure why I need LD_LIBRARY_PATH here... but if not github CI says can not find shared library libpinocchio.so
+          LD_LIBRARY_PATH=/opt/openrobots/lib ./build/main_pin ../
