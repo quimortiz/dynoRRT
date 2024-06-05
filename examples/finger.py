@@ -65,6 +65,7 @@ def CreateCube(name, color=[1.0, 0, 0.0, 1.0], fidNames=[]):
     base_id = rmodel.addJoint(
         parent_id, pin.JointModelFreeFlyer(), joint_placement, joint_name
     )
+    rmodel.addJointFrame(base_id, -1)
 
     cube_inertia = pin.Inertia.FromBox(mass, cube_length, cube_length, cube_length)
     cube_placement = pin.SE3.Identity()
@@ -124,7 +125,6 @@ model, collision_model, visual_model = pin.buildModelsFromUrdf(urdf, mesh_path)
 
 viz = MeshcatVisualizer(model, collision_model, visual_model)
 
-# Add collisition pairs
 collision_model.addAllCollisionPairs()
 print("num collision pairs - initial:", len(collision_model.collisionPairs))
 
@@ -161,6 +161,7 @@ for k in range(len(geom_model.collisionPairs)):
 rmodel1, gmodel1, fidNames = CreateCube("RedCube", [1, 0, 0, 1])
 rmodel2, gmodel2, fidNames = CreateCube("BlueCube", [0, 0, 1, 1], fidNames)
 
+print("before merge")
 print(rmodel1.joints.tolist())
 print(rmodel2.joints.tolist())
 
@@ -174,6 +175,7 @@ rmodel, gmodel = pin.appendModel(
     pin.SE3.Identity(),
 )
 
+print("after merge")
 
 print(rmodel.joints.tolist())
 
@@ -203,6 +205,7 @@ _, visual_model_all = pin.appendModel(
 full_robot = pin.RobotWrapper(
     model_all, collision_model=geom_model_all, visual_model=visual_model_all
 )
+print("full robot")
 q = custom_configuration_vector(
     model_all,
     RedCube_floating_joint=np.array([0.03, 0.1, 0, 0, 0, 0, 1.0]),
