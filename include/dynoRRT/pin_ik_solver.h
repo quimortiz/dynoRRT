@@ -72,12 +72,12 @@ public:
     x_ub = t_x_ub;
   }
 
-  void set_p_des(const Eigen::VectorXd &t_p_des) { p_des = t_p_des; }
+  void set_frame_positions(const std::vector<Eigen::VectorXd> &t_p_des) {
+    frame_positions = t_p_des;
+  }
 
-  // void set_q_des(const Eigen::VectorXd &t_q_des) { q_des = t_q_des; }
-
-  void set_pq_des(const pinocchio::SE3 &t_pq_des) {
-    pq_des = t_pq_des;
+  void set_frame_poses(const std::vector<pinocchio::SE3> &t_pq_des) {
+    frame_poses = t_pq_des;
     flag_desired_pq = true;
   }
 
@@ -117,11 +117,17 @@ public:
     frame_tol = t_frame_tol;
   }
 
-  void set_frame_id(int id) { frame_name = id; }
+  void set_frame_ids(const std::vector<int> &id) { frame_ids = id; }
 
-  void set_frame_name(const std::string &t_name) {
-    frame_name = t_name;
-    frame_id = model.getFrameId(frame_name);
+  void set_frame_names(const std::vector<std::string> &t_name) {
+    frame_ids.clear();
+
+    for (auto &t_name : t_name) {
+      if (!model.existFrame(t_name)) {
+        THROW_PRETTY_DYNORRT("frame not found " + t_name);
+      }
+      frame_ids.push_back(model.getFrameId(t_name));
+    }
   }
 
   void set_col_margin(double t_col_margin) { col_margin = t_col_margin; }
@@ -141,8 +147,13 @@ public:
   }
 
 private:
-  int frame_id = -1;
-  std::string frame_name;
+  std::vector<int> frame_ids;
+  std::vector<std::string> frame_names;
+  std::vector<pinocchio::SE3> frame_poses;
+  std::vector<Eigen::VectorXd> frame_positions;
+  bool flag_desired_pq = false;
+
+  // int frame_id = -1;
 
   double joint_reg_penalty = 0.;
   double col_penalty = 1e4;
@@ -170,10 +181,6 @@ private:
   // std::vector<FrameBounds> frame_bounds;
   Eigen::VectorXd x_lb;
   Eigen::VectorXd x_ub;
-  Eigen::VectorXd p_des; // or maybe use pinocchio::SE?
-  // Eigen::VectorXd q_des;
-  pinocchio::SE3 pq_des;
-  bool flag_desired_pq = false;
 
   pinocchio::Model model;
   pinocchio::Data data;

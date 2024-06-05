@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+<robot name="nyu_finger">
+  <disable_collisions link1="finger0_upper_link" link2="finger0_middle_link"/>
+  <disable_collisions link1="finger0_middle_link" link2="finger0_lower_link"/>
+
+  <disable_collisions link1="finger1_upper_link" link2="finger1_middle_link"/>
+  <disable_collisions link1="finger1_middle_link" link2="finger1_lower_link"/>
+</robot>

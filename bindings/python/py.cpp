@@ -442,8 +442,8 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("set_bounds", &Pin_ik_solver::set_bounds)
       .def("set_use_aabb", &Pin_ik_solver::set_use_aabb)
       .def("set_bounds", &Pin_ik_solver::set_bounds)
-      .def("set_p_des", &Pin_ik_solver::set_p_des)
-      .def("set_pq_des", &Pin_ik_solver::set_pq_des)
+      .def("set_frame_positions", &Pin_ik_solver::set_frame_positions)
+      .def("set_frame_poses", &Pin_ik_solver::set_frame_poses)
       .def("set_max_num_attempts", &Pin_ik_solver::set_max_num_attempts)
       .def("set_max_solutions", &Pin_ik_solver::set_max_solutions)
       .def("set_max_time_ms", &Pin_ik_solver::set_max_time_ms)
@@ -455,12 +455,21 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def("solve_ik", &Pin_ik_solver::solve_ik)
       .def("get_ik_solutions", &Pin_ik_solver::get_ik_solutions)
       .def("set_tolerances", &Pin_ik_solver::set_tolerances)
-      .def("set_frame_id", &Pin_ik_solver::set_frame_id)
-      .def("set_frame_name", &Pin_ik_solver::set_frame_name)
+      .def("set_frame_ids", &Pin_ik_solver::set_frame_ids)
+      .def("set_frame_names", &Pin_ik_solver::set_frame_names)
       .def("set_col_margin", &Pin_ik_solver::set_col_margin)
       .def("set_max_it", &Pin_ik_solver::set_max_it)
       .def("set_use_gradient_descent", &Pin_ik_solver::set_use_gradient_descent)
-      .def("set_use_finite_diff", &Pin_ik_solver::set_use_finite_diff);
+      .def("set_use_finite_diff", &Pin_ik_solver::set_use_finite_diff)
+      .def("set_joint_reg_penalty", &Pin_ik_solver::set_joint_reg_penalty)
+      .def("set_joint_reg", &Pin_ik_solver::set_joint_reg);
+
+  // void set_joint_reg_penalty(double t_joint_reg_penalty) {
+  //   joint_reg_penalty = t_joint_reg_penalty;
+  // }
+  // void set_joint_reg(const Eigen::VectorXd &t_joint_reg) {
+  //   joint_reg = t_joint_reg;
+  // }
 
   py::class_<Collision_manager_pinocchio>(m, "Collision_manager_pinocchio")
       .def(py::init<>())
@@ -531,5 +540,6 @@ PYBIND11_MODULE(pydynorrt, m) {
   m.def("set_pin_model", make_pybind11_function(&set_pin_model_col_manager));
   m.def("set_pin_model0", make_pybind11_function(&set_pin_model0));
   m.def("set_pin_geomodel0", make_pybind11_function(&set_pin_geomodel0));
+  m.def("set_pin_model_ik", make_pybind11_function(&set_pin_model_ik));
 #endif
 }

@@ -410,7 +410,7 @@ BOOST_AUTO_TEST_CASE(test_pin_ik_jac) {
   pin_ik_solver.set_srdf_filename(srdf);
   pin_ik_solver.build();
 
-  pin_ik_solver.set_frame_name("tool0");
+  pin_ik_solver.set_frame_names({"tool0"});
 
   lb = start - 0.1 * Eigen::VectorXd::Ones(start.size());
   ub = start + 0.1 * Eigen::VectorXd::Ones(start.size());
@@ -426,7 +426,7 @@ BOOST_AUTO_TEST_CASE(test_pin_ik_jac) {
 
   // pinocchio::SE3 pq_des;
   // pq_des.setIdentity();
-  pin_ik_solver.set_pq_des(iMd);
+  pin_ik_solver.set_frame_poses({iMd});
 
   Eigen::VectorXd q = start;
 
@@ -652,7 +652,7 @@ BOOST_AUTO_TEST_CASE(test_pin_ik) {
   pin_ik_solver.set_srdf_filename(srdf);
   pin_ik_solver.build();
 
-  pin_ik_solver.set_frame_name("tool0");
+  pin_ik_solver.set_frame_names({"tool0"});
 
   lb = start - 0.1 * Eigen::VectorXd::Ones(start.size());
   ub = start + 0.1 * Eigen::VectorXd::Ones(start.size());
@@ -670,7 +670,7 @@ BOOST_AUTO_TEST_CASE(test_pin_ik) {
 
   // pinocchio::SE3 pq_des;
   // pq_des.setIdentity();
-  pin_ik_solver.set_pq_des(iMd);
+  pin_ik_solver.set_frame_poses({iMd});
 
   std::cout << "checking start" << std::endl;
   pin_ik_solver.get_cost(start);

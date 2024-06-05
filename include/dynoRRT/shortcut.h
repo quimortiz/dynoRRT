@@ -260,5 +260,6 @@ protected:
       valid_edges; // TODO: only with a flag
   std::vector<std::pair<state_t, state_t>>
       invalid_edges; // TODO: only rrth a flag
+  //
 };
 }; // namespace dynorrt

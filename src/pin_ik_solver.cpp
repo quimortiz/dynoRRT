@@ -55,6 +55,8 @@ void Pin_ik_solver::build() {
 
 IKStatus Pin_ik_solver::solve_ik() {
 
+  ik_solutions.clear();
+
   if (!build_done) {
     THROW_PRETTY_DYNORRT("build not done");
   }
@@ -66,8 +68,19 @@ IKStatus Pin_ik_solver::solve_ik() {
   if (x_lb.size() != x_ub.size()) {
     THROW_PRETTY_DYNORRT("x_lb and x_ub must have the same size");
   }
-  if (frame_id == -1) {
-    THROW_PRETTY_DYNORRT("frame_id not set");
+  if (!frame_ids.size()) {
+    THROW_PRETTY_DYNORRT("frame_ids not set");
+  }
+
+  if (flag_desired_pq) {
+    if (frame_poses.size() != frame_ids.size()) {
+      THROW_PRETTY_DYNORRT("frame_poses and frame_ids must have the same size");
+    }
+  } else {
+    if (frame_positions.size() != frame_ids.size()) {
+      THROW_PRETTY_DYNORRT(
+          "frame_positions and frame_ids must have the same size");
+    }
   }
 
   IKStatus status = IKStatus::RUNNING;
@@ -271,6 +284,7 @@ void Pin_ik_solver::set_pin_model(pinocchio::Model &t_model,
   build_done = true;
 
   if (num_threads_edges > 0) {
+
     for (size_t i = 0; i < num_threads_edges; i++) {
       data_parallel.push_back(pinocchio::Data(model));
       geom_data_parallel.push_back(pinocchio::GeometryData(geom_model));
@@ -286,8 +300,9 @@ void Pin_ik_solver::set_pin_model(pinocchio::Model &t_model,
     // collision_objects_parallel.resize(num_threads_edges);
   }
 
-  pool = std::make_unique<BS::thread_pool>(num_threads_edges);
-  // 12);
+  if (num_threads_edges > 0) {
+    THROW_PRETTY_DYNORRT("IK parallel -- not implemented");
+  }
 }
 
 double Pin_ik_solver::get_distance_cost(const Eigen::VectorXd &q,
@@ -401,61 +416,49 @@ double Pin_ik_solver::get_frame_cost(const Eigen::VectorXd &q,
   pinocchio::framesForwardKinematics(model, data, q);
 
   double cost_frame = 0;
-  if (flag_desired_pq) {
-    const pinocchio::SE3 iMd = data.oMf[frame_id].actInv(pq_des);
-    // std::cout << "iMd: " << iMd << std::endl;
-    // std::cout << "omf" << data.oMf[frame_id] << std::endl;
-    // std::cout << "pq_des" << pq_des << std::endl;
-    Eigen::VectorXd err = pinocchio::log6(iMd).toVector(); // in joint frame
-    cost_frame = .5 * err.squaredNorm();
 
-    if (grad) {
-      // TODO:: Error here, check why
-      Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, model.nv);
-      pinocchio::computeFrameJacobian(model, data, q, frame_id,
-                                      pinocchio::LOCAL, J);
+  for (size_t frame_j = 0; frame_j < frame_ids.size(); frame_j++) {
 
-      pinocchio::Data::Matrix6 Jlog;
-      pinocchio::Jlog6(iMd.inverse(), Jlog);
+    int frame_id = frame_ids[frame_j];
 
-      J = -Jlog * J;
-      // getFrameJacobian(model, data, frame_id, pinocchio::LOCAL, J);
+    if (flag_desired_pq) {
+      auto &pq_des = frame_poses[frame_j];
+      const pinocchio::SE3 iMd = data.oMf[frame_id].actInv(pq_des);
+      Eigen::VectorXd err = pinocchio::log6(iMd).toVector(); // in joint frame
+      cost_frame += .5 * err.squaredNorm();
 
-      // TODO: check if I am missing a minus here
-      // std::cout << "grad frame\n" << J.transpose() * err << std::endl;
-      // std::cout << "err: " << err.transpose() << std::endl;
-      // std::cout << "J: " << J << std::endl;
-      // std::cout << (J.transpose() * err).rows() << std::endl;
-      // std::cout << (J.transpose() * err).cols() << std::endl;
-      // std::cout << "grad: " << grad->transpose() << std::endl;
-      // std::cout << "grad: " << grad->rows() << " " << grad->cols() <<
-      // std::endl;
-      *grad += J.transpose() * err;
+      if (grad) {
+        Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, model.nv);
+        pinocchio::computeFrameJacobian(model, data, q, frame_id,
+                                        pinocchio::LOCAL, J);
 
-      if (H) {
-        // std::cout << "hess frame\n" << J.transpose() * J << std::endl;
-        *H += J.transpose() * J;
+        pinocchio::Data::Matrix6 Jlog;
+        pinocchio::Jlog6(iMd.inverse(), Jlog);
+
+        J = -Jlog * J;
+        *grad += J.transpose() * err;
+
+        if (H) {
+          *H += J.transpose() * J;
+        }
       }
-    }
 
-  } else {
-    Eigen::VectorXd tool_nu = data.oMf[frame_id].translation() - p_des;
-    cost_frame = .5 * tool_nu.squaredNorm();
+    } else {
+      auto &p_des = frame_positions[frame_j];
+      Eigen::VectorXd tool_nu = data.oMf[frame_id].translation() - p_des;
+      cost_frame += .5 * tool_nu.squaredNorm();
 
-    if (grad) {
-      Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, model.nv);
-      Eigen::MatrixXd J3 = Eigen::MatrixXd::Zero(3, model.nv);
-      pinocchio::computeFrameJacobian(model, data, q, frame_id,
-                                      pinocchio::LOCAL_WORLD_ALIGNED, J);
-      // pinocchio::getFrameJacobian(model, data, frame_id,
-      //                             pinocchio::LOCAL_WORLD_ALIGNED, J);
-      J3 = J.topRows(3);
-      // std::cout << J3.transpose() * tool_nu << std::endl;
-      *grad += J3.transpose() * tool_nu;
+      if (grad) {
+        Eigen::MatrixXd J = Eigen::MatrixXd::Zero(6, model.nv);
+        Eigen::MatrixXd J3 = Eigen::MatrixXd::Zero(3, model.nv);
+        pinocchio::computeFrameJacobian(model, data, q, frame_id,
+                                        pinocchio::LOCAL_WORLD_ALIGNED, J);
+        J3 = J.topRows(3);
+        *grad += J3.transpose() * tool_nu;
 
-      if (H) {
-        // std::cout << J3.transpose() * J3 << std::endl;
-        *H += J3.transpose() * J3;
+        if (H) {
+          *H += J3.transpose() * J3;
+        }
       }
     }
   }
