@@ -123,10 +123,10 @@ if generate_valid_goals:
         solver.set_urdf_filename(urdf)
         solver.set_srdf_filename(srdf)
         solver.build()
-        solver.set_p_des(oMgoal.translation)
+        solver.set_frame_positions([oMgoal.translation])
         solver.set_bounds(lb, ub)
         solver.set_max_num_attempts(1000)
-        solver.set_frame_name("contact")
+        solver.set_frame_names(["contact"])
         solver.set_max_time_ms(3000)
         solver.set_max_solutions(20)
         solver.set_max_it(1000)
@@ -144,10 +144,11 @@ if generate_valid_goals:
             viz.display(q)
             if interactive:
                 input("press enter")
+        # valid_goals = ik_solutions
 
         # print()
         # print(out)
-        sys.exit()
+        # sys.exit()
 
     else:
         for i in range(1000):
@@ -197,7 +198,7 @@ else:
 num_starts = 20
 
 
-display = False
+display = True
 valid_trajs = []
 for i in range(num_starts):
 
@@ -248,6 +249,8 @@ for i in range(num_starts):
 
         if not (np.all(p >= p_lb) and np.all(p <= p_ub)):
             return False
+        if not (np.all(x >= lb) and np.all(x <= ub)):
+            return False
         return True
 
     start = None
@@ -259,7 +262,13 @@ for i in range(num_starts):
             start = s
 
     rrt.set_start(start)
+
+    valid_goals = [q for q in ik_solutions if is_valid_fun(q)]
+
+    print("num valid goals", len(valid_goals))
+
     rrt.set_goal_list(valid_goals)
+    # rrt.set_goal(valid_goals[0])
     rrt.init(7)
     rrt.set_bounds_to_state(lb, ub)
 
@@ -321,10 +330,12 @@ for i in range(num_starts):
     if display:
 
         viewer = meshcat.Visualizer()
-        goal = valid_goals[0]
+        # goal = valid_goals[0]
+        goal = new_path[-1]
         viewer_helper = pyrrt_vis.ViewerHelperRRT(
             viewer, urdf, package_dirs=base_path + "models", start=start, goal=goal
         )
+        input("press enter")
 
         robot = viewer_helper.robot
         viz = viewer_helper.viz
