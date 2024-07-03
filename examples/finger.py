@@ -112,37 +112,21 @@ def CreateCube(name, color=[1.0, 0, 0.0, 1.0], fidNames=[]):
 
 base_path = pyrrt.DATADIR
 urdf = base_path + "/nyu_fingers/nyu_finger_double_w_collision.urdf"
-
 srdf = base_path + "/nyu_fingers/nyu_finger_double_w_collision.srdf"
-
-print(base_path)
 mesh_path = base_path + "/nyu_fingers"
-
-# robot = pin.RobotWrapper.BuildFromURDF(urdf,
-# viz = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
-
 model, collision_model, visual_model = pin.buildModelsFromUrdf(urdf, mesh_path)
-
 viz = MeshcatVisualizer(model, collision_model, visual_model)
-
 collision_model.addAllCollisionPairs()
 print("num collision pairs - initial:", len(collision_model.collisionPairs))
 
-# Remove collision pairs listed in the SRDF file
-# pin.removeCollisionPairs(model,collision_model,srdf)
-# print("num collision pairs - after removing useless collision pairs:",len(collision_model.collisionPairs))
-
 geom_model = collision_model
-# Create data structures
 data = model.createData()
 geom_data = pin.GeometryData(geom_model)
 
 q = pin.neutral(model)
 
-# Compute all the collisions
 pin.computeCollisions(model, data, geom_model, geom_data, q, False)
 
-# Print the status of collision for all collision pairs
 for k in range(len(geom_model.collisionPairs)):
     cr = geom_data.collisionResults[k]
     cp = geom_model.collisionPairs[k]
@@ -157,14 +141,8 @@ for k in range(len(geom_model.collisionPairs)):
 
 
 # lets add two cubes
-
 rmodel1, gmodel1, fidNames = CreateCube("RedCube", [1, 0, 0, 1])
 rmodel2, gmodel2, fidNames = CreateCube("BlueCube", [0, 0, 1, 1], fidNames)
-
-print("before merge")
-print(rmodel1.joints.tolist())
-print(rmodel2.joints.tolist())
-
 
 rmodel, gmodel = pin.appendModel(
     rmodel2,
@@ -175,10 +153,6 @@ rmodel, gmodel = pin.appendModel(
     pin.SE3.Identity(),
 )
 
-print("after merge")
-
-print(rmodel.joints.tolist())
-
 model_all, geom_model_all = pin.appendModel(
     model,
     rmodel,
@@ -187,9 +161,6 @@ model_all, geom_model_all = pin.appendModel(
     0,
     pin.SE3.Identity(),
 )
-
-print("after merge")
-print(model_all.joints.tolist())
 
 
 _, visual_model_all = pin.appendModel(
@@ -226,12 +197,6 @@ viz = MeshcatVisualizer(
 )
 
 
-# table = { "name": "ta",
-#         "size": np.array([0.2, 0.3, 0.05]),
-#         "transform": pin.SE3(np.eye(3), np.array([0.0, 0.0, -0.025]))
-#     }
-
-
 try:
     viz.initViewer(open=True)
 except ImportError as err:
@@ -246,26 +211,8 @@ viz.displayCollisions(True)
 viz.displayFrames(True)
 
 
-# viz.viewer[f"table_{table['name']}"].set_object(mg.Box(table["size"]))
-# viz.viewer[f"table_{table['name']}"].set_transform( table["transform"].homogeneous)
-#
-
-
-# let add a table
-
 input("press")
 
-# # random configuration.
-# for _ in range(10):
-#     q = np.zeros(6)
-#     q[1] = math.pi / 4.
-#     q[2] = -math.pi / 2.
-#     q[4] = math.pi / 4.
-#     q[5] = -math.pi / 2.
-#     viz.display(q)
-#     input("press")
-
-# now lest add collision!
 full_robot_red.collision_model.addAllCollisionPairs()
 print(
     "num collision pairs - initial:", len(full_robot_red.collision_model.collisionPairs)
@@ -276,9 +223,6 @@ print(
     len(full_robot_red.collision_model.collisionPairs),
 )
 
-# full_robot_red.rebuildData()
-
-# print all the collision pairs.
 for k in range(len(full_robot_red.collision_model.collisionPairs)):
     cr = full_robot_red.collision_data.collisionResults[k]
     cp = full_robot_red.collision_model.collisionPairs[k]
@@ -333,14 +277,6 @@ for frame in full_robot_red.model.frames:
     print("frame id", id)
     print("frame placement", full_robot_red.data.oMf[id])
 
-
-# for _ in range(100):
-#     q = np.random.uniform(lb, ub)
-#     if not cm.is_collision_free(q):
-#         viz.display(q)
-#         input("press")
-
-# lets solve ik
 
 frames = ["RedCube_cnt1", "RedCube_cnt2", "BlueCube_cnt2", "BlueCube_cnt1"]
 placements = [
@@ -582,13 +518,6 @@ for ffs in finger_and_frames:
     if len(ik_solutions) == 0:
         print("no ik solutions")
         continue
-
-    # print("number of ik solutions", ik_solutions)
-    # print(len(ik_solutions))
-    # for ik_solution in ik_solutions:
-    #     print(ik_solution)
-    #     viz.display(ik_solution)
-    #     input("press")
 
     rrt = pyrrt.PlannerRRT_Rn()
     config_str = """
