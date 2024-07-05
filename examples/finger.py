@@ -239,7 +239,7 @@ for k in range(len(full_robot_red.collision_model.collisionPairs)):
 
 
 cm = pyrrt.Collision_manager_pinocchio()
-pyrrt.set_pin_model(cm, full_robot_red.model, full_robot_red.collision_model)
+cm.set_pin_model(full_robot_red.model, full_robot_red.collision_model)
 q_start = pin.neutral(full_robot_red.model)
 assert cm.is_collision_free(q_start)
 
