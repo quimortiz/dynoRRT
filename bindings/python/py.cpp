@@ -476,6 +476,7 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def(py::init<>())
       .def("set_urdf_filename", &Collision_manager_pinocchio::set_urdf_filename)
       .def("set_srdf_filename", &Collision_manager_pinocchio::set_srdf_filename)
+      .def("set_pin_model", &Collision_manager_pinocchio::set_pin_model)
       .def("set_robots_model_path",
            &Collision_manager_pinocchio::set_robots_model_path)
       .def("build", &Collision_manager_pinocchio::build)
