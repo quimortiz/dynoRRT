@@ -436,6 +436,7 @@ PYBIND11_MODULE(pydynorrt, m) {
       .def(py::init<>())
       .def("set_urdf_filename", &Pin_ik_solver::set_urdf_filename)
       .def("set_srdf_filename", &Pin_ik_solver::set_srdf_filename)
+      .def("set_pin_model", &Pin_ik_solver::set_pin_model)
       .def("set_robots_model_path", &Pin_ik_solver::set_robots_model_path)
       .def("set_num_threads", &Pin_ik_solver::set_num_threads)
       .def("build", &Pin_ik_solver::build)
