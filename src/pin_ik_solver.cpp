@@ -111,14 +111,18 @@ IKStatus Pin_ik_solver::solve_ik() {
 
   double fq;
 
+  bool verbose = false;
+
   while (status == IKStatus::RUNNING) {
 
     r = Eigen::VectorXd::Random(x_lb.size()); // [-1, 1]
     Eigen::VectorXd q = x_lb + (x_ub - x_lb).cwiseProduct(one_v + r) / 2.;
 
     double sc = get_cost(q);
-    std::cout << "it: -1 " << " cost: " << sc << " q:" << q.transpose()
-              << std::endl;
+
+    if (verbose)
+      std::cout << "it: -1 " << " cost: " << sc << " q:" << q.transpose()
+                << std::endl;
 
     bool converged = false;
     int it = 0;
@@ -154,8 +158,9 @@ IKStatus Pin_ik_solver::solve_ik() {
         H += reg_factor * Id;
         dq = H.ldlt().solve(-grad);
         if (dq.dot(grad) > 0) {
-          std::cout << "Not a descent direction -- using gradient instead"
-                    << std::endl;
+          if (verbose)
+            std::cout << "Not a descent direction -- using gradient instead"
+                      << std::endl;
           reg_factor *= 10; // I increase the regularization for next iteration
           dq = -max_alpha_gd * grad;
         }
@@ -185,9 +190,10 @@ IKStatus Pin_ik_solver::solve_ik() {
 
       if (it % counter_print == 0) {
         double sc = get_cost(q);
-        std::cout << "it: " << it << " cost: " << sc << " alpha: " << alpha
-                  << "||a*dq||" << alpha * dq.norm() << " q:" << q.transpose()
-                  << " dq:" << dq.transpose() << std::endl;
+        if (verbose)
+          std::cout << "it: " << it << " cost: " << sc << " alpha: " << alpha
+                    << "||a*dq||" << alpha * dq.norm() << " q:" << q.transpose()
+                    << " dq:" << dq.transpose() << std::endl;
       }
 
       it++;
@@ -220,21 +226,26 @@ IKStatus Pin_ik_solver::solve_ik() {
         }
       }
     }
-    std::cout << "Terminate Status: " << magic_enum::enum_name(opt_status)
-              << std::endl;
+    if (verbose)
+      std::cout << "Terminate Status: " << magic_enum::enum_name(opt_status)
+                << std::endl;
 
     double ds = get_distance_cost(q);
     double bs = get_bounds_cost(q);
     double fs = get_frame_cost(q);
 
-    std::cout << "At convergence: " << std::endl;
-    std::cout << "cost_dist: " << ds << " cost_bounds: " << bs
-              << " cost_frame: " << fs << std::endl;
+    if (verbose) {
+      std::cout << "At convergence: " << std::endl;
+      std::cout << "cost_dist: " << ds << " cost_bounds: " << bs
+                << " cost_frame: " << fs << std::endl;
+    }
     if (ds < col_tol && bs < bound_tol && fs < frame_tol) {
-      std::cout << "Solution found!" << std::endl;
+      if (verbose)
+        std::cout << "Solution found!" << std::endl;
       ik_solutions.push_back(q);
     } else {
-      std::cout << "Solution not found!" << std::endl;
+      if (verbose)
+        std::cout << "Solution not found!" << std::endl;
     }
 
     attempts++;
