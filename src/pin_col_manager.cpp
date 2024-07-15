@@ -12,7 +12,6 @@
 #include "hpp/fcl/shape/geometric_shapes.h"
 #include "pinocchio/algorithm/frames.hpp"
 #include "pinocchio/algorithm/geometry.hpp"
-#include "pinocchio/algorithm/parallel/geometry.hpp"
 #include "pinocchio/multibody/fcl.hpp"
 #include <atomic>
 
