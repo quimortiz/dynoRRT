@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(
   dynorrt
-  VERSION 0.0.14
+  VERSION 0.0.15
   LANGUAGES CXX)
 
 include(FetchContent)
@@ -129,6 +129,9 @@ target_include_directories(
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
+target_compile_definitions(
+  pin_col_manager PRIVATE PINOCCHIO_ENABLE_COMPATIBILITY_WITH_VERSION_2)
+
 # TODO: add external flag!!
 
 # set(LIB_MYLIB /usr/local/lib64/libzlibstatic.a) if(USE_ZLIBSTATIC)
@@ -141,6 +144,14 @@ set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 # INTERFACE /usr/local/lib64/libassimp.a ${LIB_MYLIB})
 
 if(BUILD_PYRRT)
+
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} -c "import numpy; print(numpy.get_include())"
+    OUTPUT_VARIABLE NumPy_INCLUDE_DIRS
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  include_directories(${NumPy_INCLUDE_DIRS})
+
   add_subdirectory(bindings/python)
 endif()
 
