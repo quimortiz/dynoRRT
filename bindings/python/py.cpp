@@ -82,12 +82,6 @@ void set_pin_model_ik(dynorrt::Pin_ik_solver &solver, pinocchio::Model &t_model,
   solver.set_pin_model(t_model, t_geomodel);
 }
 
-void set_pin_model0(dynorrt::Collision_manager_pinocchio &col_manager,
-                    pinocchio::Model &t_model) {}
-
-void set_pin_geomodel0(dynorrt::Collision_manager_pinocchio &col_manager,
-                       pinocchio::GeometryModel &t_geomodel) {}
-
 void model_test(pinocchio::Model &model) {
   std::cout << "model_test" << std::endl;
   std::cout << "model.nq" << model.nq << std::endl;
@@ -538,8 +532,21 @@ PYBIND11_MODULE(pydynorrt, m) {
 
 #ifdef PIN_PYTHON_OBJECT
   m.def("set_pin_model", make_pybind11_function(&set_pin_model_col_manager));
-  m.def("set_pin_model0", make_pybind11_function(&set_pin_model0));
-  m.def("set_pin_geomodel0", make_pybind11_function(&set_pin_geomodel0));
   m.def("set_pin_model_ik", make_pybind11_function(&set_pin_model_ik));
+#else
+#throw an error in the python side saying that this is not available
+#with the same number of arguments
+  m.de
+
+      m.def("set_pin_model",
+            [](py::object arg1, py::object arg2, py::object arg3) {
+              std::cout << "not available with this build" << std::endl;
+            });
+
+  m.def("set_pin_model_ik",
+        [](py::object arg1, py::object arg2, py::object arg3) {
+          std::cout << "not available with this build" << std::endl;
+        });
+
 #endif
 }
