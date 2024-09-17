@@ -129,8 +129,8 @@ target_include_directories(
 
 set_target_properties(pin_col_manager PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
-target_compile_definitions(
-  pin_col_manager PRIVATE PINOCCHIO_ENABLE_COMPATIBILITY_WITH_VERSION_2)
+# target_compile_definitions( pin_col_manager PRIVATE
+# PINOCCHIO_ENABLE_COMPATIBILITY_WITH_VERSION_2)
 
 # TODO: add external flag!!
 

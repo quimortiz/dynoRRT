@@ -15,6 +15,21 @@
 #include "pinocchio/multibody/fcl.hpp"
 #include <atomic>
 
+#include <iostream>
+
+#include "pinocchio/multibody/data.hpp"
+#include "pinocchio/multibody/model.hpp"
+
+#include "pinocchio/algorithm/geometry.hpp"
+#include "pinocchio/algorithm/kinematics.hpp"
+#include "pinocchio/collision/collision.hpp"
+#include "pinocchio/multibody/geometry.hpp"
+#include "pinocchio/parsers/srdf.hpp"
+#include "pinocchio/parsers/urdf.hpp"
+
+#include <boost/test/unit_test.hpp>
+#include <vector>
+
 // #include <hpp/fcl/broadphase/broadphase.h>
 #include <future>
 #include <thread>

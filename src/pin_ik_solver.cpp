@@ -4,6 +4,17 @@
 #include "magic_enum.hpp"
 #include "pinocchio/algorithm/frames.hpp"
 
+#include "pinocchio/algorithm/geometry.hpp"
+#include "pinocchio/algorithm/joint-configuration.hpp"
+#include "pinocchio/algorithm/kinematics.hpp"
+#include "pinocchio/collision/collision.hpp"
+#include "pinocchio/multibody/geometry.hpp"
+#include "pinocchio/multibody/sample-models.hpp"
+#include "pinocchio/parsers/urdf.hpp"
+#include "pinocchio/utils/timer.hpp"
+
+#include <iostream>
+
 namespace dynorrt {
 
 void Pin_ik_solver::build() {
