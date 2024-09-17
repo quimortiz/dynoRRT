@@ -119,8 +119,9 @@ add_subdirectory(dynotree)
 
 # set(CMAKE_CXX_STANDARD 17) set(CMAKE_CXX_STANDARD_REQUIRED On)
 
-target_link_libraries(pin_col_manager dynorrt::dynorrt pinocchio::pinocchio
-                      toml11::toml11 OpenMP::OpenMP_CXX)
+target_link_libraries(
+  pin_col_manager dynorrt::dynorrt pinocchio::pinocchio toml11::toml11
+  OpenMP::OpenMP_CXX Boost::unit_test_framework)
 
 target_include_directories(
   pin_col_manager
