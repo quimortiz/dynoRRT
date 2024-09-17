@@ -333,6 +333,10 @@ double Pin_ik_solver::get_distance_cost(const Eigen::VectorXd &q,
 
   double cost_dist = 0;
   // Collisions
+  //
+  if (geom_model.collisionPairs.size() == 0)
+    return 0;
+
   size_t min_index = computeDistances(model, data, geom_model, geom_data, q);
 
   double min_dist =
