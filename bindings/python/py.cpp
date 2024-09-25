@@ -534,18 +534,16 @@ PYBIND11_MODULE(pydynorrt, m) {
   m.def("set_pin_model", make_pybind11_function(&set_pin_model_col_manager));
   m.def("set_pin_model_ik", make_pybind11_function(&set_pin_model_ik));
 #else
-#throw an error in the python side saying that this is not available
-#with the same number of arguments
-  m.de
+  // throw an error in the python side saying that this is not available
+  // with the same number of arguments
 
-      m.def("set_pin_model",
-            [](py::object arg1, py::object arg2, py::object arg3) {
-              std::cout << "not available with this build" << std::endl;
-            });
+  m.def("set_pin_model", [](py::object arg1, py::object arg2, py::object arg3) {
+        throw std::runtime_error("not available with this build");
+  });
 
   m.def("set_pin_model_ik",
         [](py::object arg1, py::object arg2, py::object arg3) {
-          std::cout << "not available with this build" << std::endl;
+        throw std::runtime_error("not available with this build");
         });
 
 #endif
