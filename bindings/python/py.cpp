@@ -538,12 +538,12 @@ PYBIND11_MODULE(pydynorrt, m) {
   // with the same number of arguments
 
   m.def("set_pin_model", [](py::object arg1, py::object arg2, py::object arg3) {
-        throw std::runtime_error("not available with this build");
+    throw std::runtime_error("not available with this build");
   });
 
   m.def("set_pin_model_ik",
         [](py::object arg1, py::object arg2, py::object arg3) {
-        throw std::runtime_error("not available with this build");
+          throw std::runtime_error("not available with this build");
         });
 
 #endif
