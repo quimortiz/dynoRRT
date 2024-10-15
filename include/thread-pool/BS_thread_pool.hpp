@@ -1018,7 +1018,7 @@ public:
    * same pool, which would result in a deadlock.
    */
   struct wait_deadlock : public std::runtime_error {
-    wait_deadlock() : std::runtime_error("BS::thread_pool::wait_deadlock"){};
+    wait_deadlock() : std::runtime_error("BS::thread_pool::wait_deadlock") {};
   };
 #endif
 
