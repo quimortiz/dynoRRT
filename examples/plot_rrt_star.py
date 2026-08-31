@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 import subprocess
 import json
 
-
 build_cmd = ["make", "-j"]
 run_cmd = ["./main", "--run_test=t_rrtstar"]
 
@@ -48,7 +47,6 @@ sys.path.append(".")
 import numpy as np
 from typing import Tuple, List
 import matplotlib.pyplot as plt
-
 
 # print the solution path
 

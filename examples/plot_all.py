@@ -13,7 +13,6 @@ import numpy as np
 import sys
 from pathlib import Path
 
-
 build_cmd = ["make", "-j"]
 run_cmd = ["./main", "--run_test=t_all_planners_circleworld"]
 
