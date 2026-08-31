@@ -31,7 +31,6 @@ import os
 import sys
 from pinocchio.visualize.meshcat_visualizer import *
 
-
 build_cmd = ["make", "-j"]
 run_cmd = ["./main", "--run_test=t_pin_all"]
 
