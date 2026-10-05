@@ -20,7 +20,6 @@ from setuptools import Extension, setup, find_packages
 from setuptools.command.build_ext import build_ext
 from pathlib import Path
 
-
 # Convert distutils Windows platform specifiers to CMake -A arguments
 PLAT_TO_CMAKE = {
     "win32": "Win32",
