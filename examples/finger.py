@@ -191,7 +191,6 @@ full_robot_red = full_robot.buildReducedRobot(
 
 import meshcat.geometry as mg
 
-
 viz = MeshcatVisualizer(
     full_robot_red.model, full_robot_red.collision_model, full_robot_red.visual_model
 )
