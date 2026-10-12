@@ -60,7 +60,6 @@ import meshcat
 import time
 import matplotlib.pyplot as plt
 
-
 # In[ ]:
 
 

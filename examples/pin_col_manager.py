@@ -20,7 +20,6 @@ import pydynorrt  # noqa
 
 import os
 
-
 sys.path.append("utils/python")
 
 

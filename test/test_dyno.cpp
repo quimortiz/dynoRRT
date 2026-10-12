@@ -101,7 +101,7 @@ BOOST_AUTO_TEST_CASE(t_hello_world_dynobench) {
   }
 
   {
-    auto env = std ::string(argv[2]) + "/envs/unicycle1_v0/parallelpark_0.yaml";
+    auto env = std::string(argv[2]) + "/envs/unicycle1_v0/parallelpark_0.yaml";
 
     dynobench::Problem problem;
     problem.read_from_yaml(env.c_str());

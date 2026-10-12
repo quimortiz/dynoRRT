@@ -11,7 +11,6 @@
 
 import magic_donotload
 
-
 # ## Set up
 #
 # Let us load the UR5 robot model, the Pinocchio library, some optimization functions from SciPy and the Matplotlib for plotting:
@@ -27,7 +26,6 @@ from numpy.linalg import inv, norm, pinv, svd, eig
 from scipy.optimize import fmin_bfgs, fmin_slsqp
 from utils.load_ur5_with_obstacles import load_ur5_with_obstacles, Target
 import matplotlib.pylab as plt
-
 
 # Let's first load the robot model and display it. For this tutorial, a single utility function will load the robot model and create obstacles around it:
 

@@ -17,7 +17,6 @@ from pinocchio.robot_wrapper import buildModelsFromUrdf
 import pinocchio as pin
 import meshcat
 
-
 try:
     import hppfcl
 

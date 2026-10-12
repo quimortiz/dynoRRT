@@ -7,7 +7,6 @@ from os.path import dirname, join, abspath
 from pinocchio.visualize import MeshcatVisualizer
 import sys
 
-
 pinocchio_model_dir = join(dirname(dirname(str(abspath(__file__)))), "models")
 
 pinocchio_model_dir = "/home/quim/croco/lib/python3.8/site-packages/cmeel.prefix/share/"
