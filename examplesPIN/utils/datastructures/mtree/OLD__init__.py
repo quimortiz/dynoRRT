@@ -3,7 +3,6 @@ from collections import namedtuple
 import cspace_metric.datastructures.mtree.functions as functions
 from cspace_metric.datastructures.mtree.heap_queue import HeapQueue
 
-
 _INFINITY = float("inf")
 _ItemWithDistances = namedtuple("_ItemWithDistances", "item, distance, min_distance")
 
