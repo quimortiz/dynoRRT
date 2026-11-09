@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 import subprocess
 import json
 
-
 build_cmd = ["make"]
 # run_cmd = ["./main", "--run_test=test_birrt"]
 run_cmd = ["./main", "--run_test=test_rrt_connect"]
