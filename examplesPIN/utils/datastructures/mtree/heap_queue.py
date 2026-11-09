@@ -1,6 +1,5 @@
 from collections import namedtuple
 
-
 _HeapItem = namedtuple("_HeapItem", "k, value")
 
 
